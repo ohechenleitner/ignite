@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0A0A0F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Ignite">
+  <title>Ignite 🔥</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" class="screen active">
+  <div class="auth-bg">
+    <div class="flame-orb orb1"></div>
+    <div class="flame-orb orb2"></div>
+    <div class="flame-orb orb3"></div>
+  </div>
+  <div class="auth-content">
+    <div class="auth-logo">
+      <span class="logo-flame">🔥</span>
+      <span class="logo-text">Ignite</span>
+    </div>
+    <div class="auth-tagline">Enciende lo que ya existe</div>
+
+    <div id="login-form" class="auth-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" id="login-email" placeholder="tu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input type="password" class="form-control" id="login-pass" placeholder="••••••••">
+      </div>
+      <div id="login-error" class="error-msg" style="display:none"></div>
+      <button class="btn btn-primary btn-full" onclick="loginUser()">Entrar</button>
+      <div class="auth-switch">¿No tienes cuenta? <span onclick="showRegister()">Regístrate</span></div>
+    </div>
+
+    <div id="register-form" class="auth-form" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input type="text" class="form-control" id="reg-name" placeholder="Tu nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" id="reg-email" placeholder="tu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input type="password" class="form-control" id="reg-pass" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Código de invitación</label>
+        <input type="text" class="form-control" id="reg-code" placeholder="IGNITE-XXXX">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Género</label>
+        <select class="form-control" id="reg-gender">
+          <option value="hombre">Hombre</option>
+          <option value="mujer">Mujer</option>
+          <option value="no-binario">No binario</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Orientación sexual</label>
+        <select class="form-control" id="reg-orient">
+          <option value="heterosexual">Heterosexual</option>
+          <option value="bisexual">Bisexual</option>
+          <option value="homosexual">Homosexual</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div id="reg-error" class="error-msg" style="display:none"></div>
+      <button class="btn btn-primary btn-full" onclick="registerUser()">Crear cuenta</button>
+      <div class="auth-switch">¿Ya tienes cuenta? <span onclick="showLogin()">Inicia sesión</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app-screen" class="screen">
+  <div class="header">
+    <div class="logo-sm">🔥 Ignite</div>
+    <div class="header-right">
+      <div class="notif-btn" onclick="showNotifs()" id="notif-btn">
+        🔔
+        <div class="notif-dot" id="notif-dot" style="display:none"></div>
+      </div>
+      <div class="avatar-sm" id="header-avatar" onclick="showTab('profile')">OW</div>
+    </div>
+  </div>
+
+  <div class="content" id="content"></div>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-home" onclick="showTab('home')">
+      <div class="nav-icon">🏠</div>
+      <div class="nav-label">Inicio</div>
+    </div>
+    <div class="nav-item" id="nav-actions" onclick="showTab('actions')">
+      <div class="nav-icon">⚡</div>
+      <div class="nav-label">Acciones</div>
+    </div>
+    <div class="nav-item" id="nav-fantasy" onclick="showTab('fantasy')">
+      <div class="nav-icon">🔥</div>
+      <div class="nav-label">Fantasías</div>
+    </div>
+    <div class="nav-item" id="nav-history" onclick="showTab('history')">
+      <div class="nav-icon">📊</div>
+      <div class="nav-label">Historial</div>
+    </div>
+    <div class="nav-item" id="nav-admin" onclick="showTab('admin')" style="display:none">
+      <div class="nav-icon">⚙️</div>
+      <div class="nav-label">Config</div>
+    </div>
+    <div class="nav-item" id="nav-profile" onclick="showTab('profile')">
+      <div class="nav-icon">👤</div>
+      <div class="nav-label">Perfil</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-container"></div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
