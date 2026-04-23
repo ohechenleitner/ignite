@@ -1,6 +1,6 @@
 // ===== IGNITE APP.JS =====
 // IMPORTANTE: Reemplaza estos valores con los de tu proyecto Firebase
- 
+
 const firebaseConfig = {
   apiKey: "AIzaSyBDkK9v9mplyOGcKSqkue2Q3HmjwHGbRs8",
   authDomain: "ignite-app-8bdb5.firebaseapp.com",
@@ -9,11 +9,11 @@ const firebaseConfig = {
   messagingSenderId: "707291369583",
   appId: "1:707291369583:web:ee195d5f976b20acf8bd9a"
 };
- 
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
- 
+
 // ===== STATE =====
 let currentUser = null;
 let currentUserData = null;
@@ -21,7 +21,7 @@ let currentTab = 'home';
 let fantasyFilter = 'all';
 let selUsers = [];
 let unsubListeners = [];
- 
+
 // ===== DEFAULT DATA =====
 const DEFAULT_ACTIONS_HIM = [
   { id: 'ah1', name: 'Flores sin razón', pts: 5, icon: '🌸' },
@@ -37,7 +37,7 @@ const DEFAULT_ACTIONS_HIM = [
   { id: 'ah11', name: 'Acurrucarse viendo película', pts: 3, icon: '🎬' },
   { id: 'ah12', name: 'Zumba o ejercicio en casa', pts: 8, icon: '🏃' },
 ];
- 
+
 const DEFAULT_ACTIONS_HER = [
   { id: 'ae1', name: 'Te busca ella primero', pts: 10, icon: '💋' },
   { id: 'ae2', name: 'Mensaje coqueto del día', pts: 5, icon: '💬' },
@@ -50,7 +50,7 @@ const DEFAULT_ACTIONS_HER = [
   { id: 'ae9', name: 'Sorprende con algo', pts: 15, icon: '🎁' },
   { id: 'ae10', name: 'Zumba o ejercicio juntos', pts: 8, icon: '🏃' },
 ];
- 
+
 const DEFAULT_FANTASIES = [
   { id: 'f1', name: 'Ver película porno juntos', pts: 3, level: 'basic', icon: '🎬', desc: 'Una noche relajada viendo contenido adulto juntos' },
   { id: 'f2', name: 'Traje de baño escogido por él', pts: 10, level: 'basic', icon: '👙', desc: 'Ella usa el traje de baño que él elija' },
@@ -71,7 +71,7 @@ const DEFAULT_FANTASIES = [
   { id: 'f17', name: 'Modelar lencería (tercero presente)', pts: 50, level: 'high', icon: '✨', desc: 'Sesión de lencería con tercero en escena' },
   { id: 'f18', name: 'Trío HMH', pts: 50, level: 'high', icon: '🔥', desc: 'La fantasía máxima' },
 ];
- 
+
 const DEFAULT_SPECIAL_DATES = [
   { name: 'Cumpleaños de ella', date: '28-01', pts: 30, icon: '🎂' },
   { name: 'Cumpleaños de él', date: '25-05', pts: 30, icon: '🎂' },
@@ -84,18 +84,18 @@ const DEFAULT_SPECIAL_DATES = [
   { name: 'Navidad', date: '25-12', pts: 15, icon: '🎄' },
   { name: 'Año Nuevo', date: '31-12', pts: 10, icon: '🎆' },
 ];
- 
+
 // ===== AUTH FUNCTIONS =====
 function showLogin() {
   document.getElementById('login-form').style.display = 'block';
   document.getElementById('register-form').style.display = 'none';
 }
- 
+
 function showRegister() {
   document.getElementById('login-form').style.display = 'none';
   document.getElementById('register-form').style.display = 'block';
 }
- 
+
 async function loginUser() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
@@ -108,7 +108,7 @@ async function loginUser() {
     showError(errEl, 'Email o contraseña incorrectos');
   }
 }
- 
+
 async function registerUser() {
   const name = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
@@ -118,27 +118,27 @@ async function registerUser() {
   const orient = document.getElementById('reg-orient').value;
   const errEl = document.getElementById('reg-error');
   errEl.style.display = 'none';
- 
+
   if (!name || !email || !pass) { showError(errEl, 'Completa todos los campos'); return; }
   if (pass.length < 6) { showError(errEl, 'La contraseña debe tener mínimo 6 caracteres'); return; }
- 
+
   // Verify invite code (skip for first user / admin)
   const usersSnap = await db.collection('users').limit(1).get();
   const isFirstUser = usersSnap.empty;
- 
-  if (!isFirstUser && code !== 'IGNITE-2026') {
-    // Check if code matches any group invite code
+
+  if (!isFirstUser) { if (!code) { showError(errEl, 'Ingresa el código de invitación'); return; }
+    
     const groupSnap = await db.collection('groups').where('inviteCode', '==', code).limit(1).get();
     if (groupSnap.empty) { showError(errEl, 'Código de invitación inválido'); return; }
   }
- 
+
   try {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     const uid = cred.user.uid;
     const colors = ['#E8608A','#4ECBA0','#9B7FE8','#F5A623','#FF7A00'];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
- 
+
     await db.collection('users').doc(uid).set({
       id: uid,
       name,
@@ -151,7 +151,7 @@ async function registerUser() {
       active: true,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
- 
+
     // If first user, create default group
     if (isFirstUser) {
       const groupRef = db.collection('groups').doc();
@@ -181,12 +181,12 @@ async function registerUser() {
     showError(errEl, 'Error al crear cuenta: ' + e.message);
   }
 }
- 
+
 function showError(el, msg) {
   el.textContent = msg;
   el.style.display = 'block';
 }
- 
+
 // ===== AUTH STATE =====
 auth.onAuthStateChanged(async (user) => {
   if (user) {
@@ -202,19 +202,19 @@ auth.onAuthStateChanged(async (user) => {
     showAuthScreen();
   }
 });
- 
+
 function showApp() {
   document.getElementById('auth-screen').classList.remove('active');
   document.getElementById('app-screen').classList.add('active');
   updateHeader();
   showTab('home');
 }
- 
+
 function showAuthScreen() {
   document.getElementById('app-screen').classList.remove('active');
   document.getElementById('auth-screen').classList.add('active');
 }
- 
+
 // ===== HEADER =====
 function updateHeader() {
   if (!currentUserData) return;
@@ -226,15 +226,15 @@ function updateHeader() {
   }
   const adminNav = document.getElementById('nav-admin');
   if (adminNav) adminNav.style.display = currentUserData.role === 'admin' ? 'flex' : 'none';
- 
+
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const nv = document.getElementById('nav-' + currentTab);
   if (nv) nv.classList.add('active');
- 
+
   // Check notifications
   checkNotifDot();
 }
- 
+
 async function checkNotifDot() {
   if (!currentUserData?.groupId) return;
   const snap = await db.collection('groups').doc(currentUserData.groupId)
@@ -245,7 +245,7 @@ async function checkNotifDot() {
   const dot = document.getElementById('notif-dot');
   if (dot) dot.style.display = snap.empty ? 'none' : 'block';
 }
- 
+
 // ===== TABS =====
 function showTab(tab) {
   currentTab = tab;
@@ -259,7 +259,7 @@ function showTab(tab) {
   else if (tab === 'admin') renderAdmin();
   else if (tab === 'profile') renderProfile();
 }
- 
+
 // ===== HOME =====
 async function renderHome() {
   if (!currentUserData?.groupId) {
@@ -268,31 +268,31 @@ async function renderHome() {
   }
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
- 
+
   const [groupSnap, membersSnap, pendingSnap, histSnap] = await Promise.all([
     db.collection('groups').doc(gid).get(),
     db.collection('users').where('groupId', '==', gid).where('active', '==', true).get(),
     db.collection('groups').doc(gid).collection('requests').where('status', '==', 'pending').get(),
     db.collection('groups').doc(gid).collection('history').orderBy('createdAt', 'desc').limit(5).get()
   ]);
- 
+
   const group = groupSnap.data();
   const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
   const partner = members[0];
   const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
   const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
   const partnerPts = pairKey ? (group.pairPoints?.[pairKey]?.[partner.id] || 0) : 0;
- 
+
   const pendingForMe = pendingSnap.docs.map(d => d.data()).filter(r => r.requestedBy !== uid);
   const myPending = pendingSnap.docs.map(d => d.data()).filter(r => r.requestedBy === uid);
   const history = histSnap.docs.map(d => d.data());
- 
+
   let html = `<div class="points-hero">
     <div class="hero-label">Tus puntos${partner ? ' con ' + partner.name : ''}</div>
     <div class="hero-pts"><span class="pts-num">${myPts}</span> <span class="pts-label">pts</span></div>
     <div class="hero-sub">${partner ? `<span class="hero-partner">${partner.name}</span> tiene ${partnerPts} pts` : 'Invita a tu pareja para comenzar'}</div>
   </div>`;
- 
+
   if (members.length > 1) {
     html += `<div class="pair-scroll">`;
     members.forEach(m => {
@@ -305,7 +305,7 @@ async function renderHome() {
     });
     html += `</div>`;
   }
- 
+
   if (pendingForMe.length > 0) {
     html += `<div class="section-hd"><div class="section-title">🔔 Por aprobar (${pendingForMe.length})</div></div>`;
     pendingForMe.slice(0, 3).forEach(r => {
@@ -325,13 +325,13 @@ async function renderHome() {
       </div>`;
     });
   }
- 
+
   html += `<div class="section-hd"><div class="section-title">Acciones rápidas</div></div>
   <div class="row" style="margin-bottom:16px">
     <button class="btn btn-outline btn-full" onclick="showTab('actions')">⚡ Acción</button>
     <button class="btn btn-primary btn-full" onclick="showTab('fantasy')">🔥 Fantasía</button>
   </div>`;
- 
+
   if (myPending.length > 0) {
     html += `<div class="section-hd"><div class="section-title">Mis envíos pendientes</div></div>`;
     myPending.slice(0, 3).forEach(r => {
@@ -343,7 +343,7 @@ async function renderHome() {
       </div>`;
     });
   }
- 
+
   if (history.length > 0) {
     html += `<div class="section-hd"><div class="section-title">Reciente</div><div class="see-all" onclick="showTab('history')">Ver todo →</div></div>`;
     history.forEach(h => {
@@ -357,10 +357,10 @@ async function renderHome() {
       </div>`;
     });
   }
- 
+
   document.getElementById('content').innerHTML = html;
 }
- 
+
 // ===== ACTIONS =====
 async function renderActions() {
   const gid = currentUserData.groupId;
@@ -374,7 +374,7 @@ async function renderActions() {
   const pendingForMe = await db.collection('groups').doc(gid).collection('requests')
     .where('status', '==', 'pending').get();
   const pending = pendingForMe.docs.map(d => d.data()).filter(r => r.requestedBy !== uid && r.type === 'action');
- 
+
   let html = `<div class="section-hd"><div class="section-title">Nueva acción ⚡</div></div>
   <div class="card glow-teal">
     <div class="form-group">
@@ -405,7 +405,7 @@ async function renderActions() {
     </div>
     <button class="btn btn-primary btn-full" onclick="submitAction()">Enviar para aprobación 📤</button>
   </div>`;
- 
+
   if (pending.length > 0) {
     html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Por aprobar (${pending.length})</div></div>`;
     pending.forEach(r => {
@@ -425,11 +425,11 @@ async function renderActions() {
       </div>`;
     });
   }
- 
+
   selUsers = [];
   document.getElementById('content').innerHTML = html;
 }
- 
+
 function updateActPts() {
   const sel = document.getElementById('act-sel');
   const preview = document.getElementById('act-pts-preview');
@@ -439,7 +439,7 @@ function updateActPts() {
   if (opt && opt.dataset.pts) { preview.style.display = 'block'; val.textContent = opt.dataset.pts; }
   else preview.style.display = 'none';
 }
- 
+
 function toggleUserSel(uid) {
   const idx = selUsers.indexOf(uid);
   if (idx >= 0) selUsers.splice(idx, 1); else selUsers.push(uid);
@@ -450,7 +450,7 @@ function toggleUserSel(uid) {
     else { el.classList.remove('selected'); if (chk) chk.textContent = ''; }
   });
 }
- 
+
 async function submitAction() {
   const sel = document.getElementById('act-sel');
   if (!sel || !sel.value) { showToast('Selecciona una acción'); return; }
@@ -463,7 +463,7 @@ async function submitAction() {
   const groupSnap = await db.collection('groups').doc(gid).get();
   const actionDef = groupSnap.data().actions?.[genderKey]?.find(a => a.id === sel.value);
   if (!actionDef) return;
- 
+
   const reqRef = db.collection('groups').doc(gid).collection('requests').doc();
   await reqRef.set({
     id: reqRef.id,
@@ -478,7 +478,7 @@ async function submitAction() {
     date: new Date().toLocaleDateString('es'),
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
- 
+
   // Notify target users
   for (const tid of selUsers) {
     await db.collection('groups').doc(gid).collection('notifications').add({
@@ -488,17 +488,17 @@ async function submitAction() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
- 
+
   selUsers = [];
   showToast('✓ Acción enviada para aprobación');
   showTab('actions');
 }
- 
+
 // ===== APPROVE / REJECT =====
 function approveReq(reqId) {
   showApproveModal(reqId);
 }
- 
+
 function showApproveModal(reqId) {
   document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
     <div class="modal">
@@ -512,7 +512,7 @@ function showApproveModal(reqId) {
     </div>
   </div>`;
 }
- 
+
 async function confirmApprove(reqId) {
   const comment = document.getElementById('approve-comment')?.value || '';
   const gid = currentUserData.groupId;
@@ -520,11 +520,11 @@ async function confirmApprove(reqId) {
   const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
   const req = reqSnap.data();
   if (!req) return;
- 
+
   await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
     status: 'approved', approveComment: comment
   });
- 
+
   if (req.type === 'action') {
     // Add points to requester for each selected user pair
     const groupSnap = await db.collection('groups').doc(gid).get();
@@ -538,7 +538,7 @@ async function confirmApprove(reqId) {
       }
     }
     await db.collection('groups').doc(gid).update({ pairPoints });
- 
+
     await db.collection('groups').doc(gid).collection('history').add({
       fromUser: req.requestedBy,
       fromUserName: req.requestedByName,
@@ -551,19 +551,19 @@ async function confirmApprove(reqId) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
- 
+
   await db.collection('groups').doc(gid).collection('notifications').add({
     toUserId: req.requestedBy,
     text: `✓ Aprobaron: ${req.fantasyName} (+${req.pts} pts)${comment ? ' — "' + comment + '"' : ''}`,
     read: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
- 
+
   closeModalDirect();
   showToast('✓ Solicitud aprobada');
   showTab(currentTab);
 }
- 
+
 function showRejectModal(reqId) {
   document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
     <div class="modal">
@@ -577,18 +577,18 @@ function showRejectModal(reqId) {
     </div>
   </div>`;
 }
- 
+
 async function confirmReject(reqId) {
   const reason = document.getElementById('reject-reason')?.value?.trim();
   if (!reason) { showToast('El motivo es requerido'); return; }
   const gid = currentUserData.groupId;
   const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
   const req = reqSnap.data();
- 
+
   await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
     status: 'rejected', reason
   });
- 
+
   if (req.type === 'fantasy') {
     // Refund points
     const groupSnap = await db.collection('groups').doc(gid).get();
@@ -602,19 +602,19 @@ async function confirmReject(reqId) {
       await db.collection('groups').doc(gid).update({ pairPoints });
     }
   }
- 
+
   await db.collection('groups').doc(gid).collection('notifications').add({
     toUserId: req.requestedBy,
     text: `✕ Rechazaron: ${req.fantasyName} — "${reason}"`,
     read: false,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
- 
+
   closeModalDirect();
   showToast('Solicitud rechazada');
   showTab(currentTab);
 }
- 
+
 // ===== FANTASY =====
 async function renderFantasy() {
   const gid = currentUserData.groupId;
@@ -632,7 +632,7 @@ async function renderFantasy() {
   const fantasies = group.fantasies || DEFAULT_FANTASIES;
   const myReqs = reqsSnap.docs.map(d => d.data());
   const levels = { basic: { label: '🟢 Básico', color: 'var(--teal)' }, medium: { label: '🟡 Medio', color: 'var(--amber)' }, high: { label: '🔴 Alto', color: 'var(--rose)' } };
- 
+
   let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
     <div style="font-size:13px;color:var(--text2)">Tienes <strong style="color:var(--rose)">${myPts} pts</strong> disponibles</div>
   </div>
@@ -642,7 +642,7 @@ async function renderFantasy() {
     <button class="filter-chip ${fantasyFilter === 'medium' ? 'active' : ''}" onclick="setFF('medium',this)">🟡 Medio</button>
     <button class="filter-chip ${fantasyFilter === 'high' ? 'active' : ''}" onclick="setFF('high',this)">🔴 Alto</button>
   </div>`;
- 
+
   const filtered = fantasyFilter === 'all' ? fantasies : fantasies.filter(f => f.level === fantasyFilter);
   filtered.forEach(f => {
     const canAfford = myPts >= f.pts;
@@ -655,7 +655,7 @@ async function renderFantasy() {
       <span class="pts-badge ${canAfford ? f.level : 'locked'}">${f.pts} pts</span>
     </div>`;
   });
- 
+
   // Pending for me to approve
   const pendingSnap = await db.collection('groups').doc(gid).collection('requests')
     .where('status', '==', 'pending').where('type', '==', 'fantasy').get();
@@ -676,7 +676,7 @@ async function renderFantasy() {
       </div>`;
     });
   }
- 
+
   if (myReqs.length > 0) {
     html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Mis solicitudes</div></div>`;
     const statusMap = { pending: 'pending', approved: 'approved', rejected: 'rejected', fulfilled: 'fulfilled' };
@@ -693,17 +693,17 @@ async function renderFantasy() {
       </div>`;
     });
   }
- 
+
   document.getElementById('content').innerHTML = html;
 }
- 
+
 function setFF(level, el) {
   fantasyFilter = level;
   document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   showTab('fantasy');
 }
- 
+
 async function showFantasyDetail(fid) {
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
@@ -719,7 +719,7 @@ async function showFantasyDetail(fid) {
   const canAfford = myPts >= f.pts;
   const levels = { basic: 'Básico', medium: 'Medio', high: 'Alto' };
   const levelColors = { basic: 'var(--teal)', medium: 'var(--amber)', high: 'var(--rose)' };
- 
+
   document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
     <div class="modal">
       <div class="modal-handle"></div>
@@ -751,7 +751,7 @@ async function showFantasyDetail(fid) {
     </div>
   </div>`;
 }
- 
+
 async function requestFantasy(fid) {
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
@@ -764,9 +764,9 @@ async function requestFantasy(fid) {
   const partner = members[0];
   const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
   const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
- 
+
   if (!f || myPts < f.pts) { showToast('Sin puntos suficientes'); return; }
- 
+
   // Deduct points
   const pairPoints = group.pairPoints || {};
   if (pairKey) {
@@ -774,7 +774,7 @@ async function requestFantasy(fid) {
     pairPoints[pairKey][uid] = Math.max(0, (pairPoints[pairKey][uid] || 0) - f.pts);
   }
   await db.collection('groups').doc(gid).update({ pairPoints });
- 
+
   const reqRef = db.collection('groups').doc(gid).collection('requests').doc();
   await reqRef.set({
     id: reqRef.id,
@@ -792,7 +792,7 @@ async function requestFantasy(fid) {
     date: new Date().toLocaleDateString('es'),
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
- 
+
   if (partner) {
     await db.collection('groups').doc(gid).collection('notifications').add({
       toUserId: partner.id,
@@ -801,19 +801,19 @@ async function requestFantasy(fid) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
- 
+
   closeModalDirect();
   showToast('✓ Solicitud enviada');
   showTab('fantasy');
 }
- 
+
 async function markFulfilled(reqId) {
   const gid = currentUserData.groupId;
   await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({ status: 'fulfilled' });
   showToast('⭐ Marcada como cumplida');
   showTab('fantasy');
 }
- 
+
 // ===== HISTORY =====
 async function renderHistory() {
   const gid = currentUserData.groupId;
@@ -822,7 +822,7 @@ async function renderHistory() {
     .orderBy('createdAt', 'desc').limit(50).get();
   const all = snap.docs.map(d => d.data());
   const mine = all.filter(h => h.fromUser === uid || h.toUsers?.includes(uid));
- 
+
   let html = `<div class="section-hd"><div class="section-title">Mi historial completo</div></div>`;
   if (mine.length === 0) {
     html += `<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Sin historial aún.<br>Registra tu primera acción.</div></div>`;
@@ -841,7 +841,7 @@ async function renderHistory() {
   }
   document.getElementById('content').innerHTML = html;
 }
- 
+
 // ===== ADMIN =====
 async function renderAdmin() {
   if (currentUserData.role !== 'admin') {
@@ -855,11 +855,11 @@ async function renderAdmin() {
   ]);
   const members = membersSnap.docs.map(d => d.data());
   const group = groupSnap.data();
- 
+
   let html = `<div class="section-hd"><div class="section-title">Usuarios (${members.length})</div>
     <button class="btn btn-primary btn-sm" onclick="showInviteModal()">+ Invitar</button>
   </div>`;
- 
+
   members.forEach(m => {
     html += `<div class="card">
       <div class="user-item" style="border:none;padding:0">
@@ -886,7 +886,7 @@ async function renderAdmin() {
       </div>
     </div>`;
   });
- 
+
   html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Ajustar puntos manualmente</div></div>
   <div class="card">
     <div class="form-group">
@@ -904,7 +904,7 @@ async function renderAdmin() {
     </div>
     <button class="btn btn-primary btn-full" onclick="adjustPts()">Aplicar</button>
   </div>`;
- 
+
   html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Fechas especiales</div></div>`;
   (group.specialDates || DEFAULT_SPECIAL_DATES).forEach(d => {
     html += `<div class="special-date-card">
@@ -915,7 +915,7 @@ async function renderAdmin() {
       <button class="btn btn-sm btn-primary" onclick="applyDate('${d.name}',${d.pts})">Aplicar</button>
     </div>`;
   });
- 
+
   html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Agregar fantasía</div></div>
   <div class="card">
     <div class="form-group"><label class="form-label">Emoji</label><input type="text" class="form-control" id="nf-icon" placeholder="🔥" maxlength="2"></div>
@@ -931,21 +931,21 @@ async function renderAdmin() {
     </div>
     <button class="btn btn-primary btn-full" onclick="addFantasy()">Agregar fantasía</button>
   </div>`;
- 
+
   document.getElementById('content').innerHTML = html;
 }
- 
+
 async function changeRole(uid, role) {
   await db.collection('users').doc(uid).update({ role });
   showToast('Rol actualizado');
 }
- 
+
 async function toggleMember(uid, active) {
   await db.collection('users').doc(uid).update({ active: !active });
   showToast(active ? 'Usuario desactivado' : 'Usuario activado');
   showTab('admin');
 }
- 
+
 async function adjustPts() {
   const uid = document.getElementById('adj-u')?.value;
   const pts = parseInt(document.getElementById('adj-p')?.value || '0');
@@ -978,7 +978,7 @@ async function adjustPts() {
   showToast(`${pts > 0 ? '+' : ''}${pts} pts aplicados`);
   showTab('admin');
 }
- 
+
 async function applyDate(name, pts) {
   if (!confirm(`Aplicar +${pts} pts a todos por: ${name}?`)) return;
   const gid = currentUserData.groupId;
@@ -1010,7 +1010,7 @@ async function applyDate(name, pts) {
   showToast(`✓ +${pts} pts a todos`);
   showTab('admin');
 }
- 
+
 async function addFantasy() {
   const icon = document.getElementById('nf-icon')?.value || '🔥';
   const name = document.getElementById('nf-name')?.value?.trim();
@@ -1027,7 +1027,7 @@ async function addFantasy() {
   showToast('Fantasía agregada');
   showTab('admin');
 }
- 
+
 // ===== INVITE =====
 async function showInviteModal() {
   const gid = currentUserData.groupId;
@@ -1035,7 +1035,7 @@ async function showInviteModal() {
   const code = groupSnap.data().inviteCode;
   const msg = `¡Te invito a Ignite! 🔥 La app para encender tu relación. Código: ${code}`;
   const encoded = encodeURIComponent(msg);
- 
+
   document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
     <div class="modal">
       <div class="modal-handle"></div>
@@ -1062,11 +1062,11 @@ async function showInviteModal() {
     </div>
   </div>`;
 }
- 
+
 function copyCode(text) {
   try { navigator.clipboard.writeText(text); showToast('Copiado al portapapeles'); } catch (e) { showToast('Copia: ' + text); }
 }
- 
+
 // ===== PROFILE =====
 async function renderProfile() {
   const u = currentUserData;
@@ -1076,7 +1076,7 @@ async function renderProfile() {
     const gs = await db.collection('groups').doc(gid).get();
     groupCode = gs.data()?.inviteCode || '';
   }
- 
+
   const html = `<div class="profile-hero">
     <div class="profile-avatar-lg" style="background:${u.color}22;color:${u.color};border-color:${u.color}44">${u.initials}</div>
     <div class="profile-name">${u.name}</div>
@@ -1090,15 +1090,15 @@ async function renderProfile() {
   <div class="divider"></div>
   ${groupCode ? `<div class="card"><div style="font-size:12px;color:var(--text2);margin-bottom:6px">Código de tu grupo</div><div class="code-block" onclick="copyCode('${groupCode}')">${groupCode} 📋</div></div>` : ''}
   <button class="btn btn-danger btn-full" onclick="signOut()" style="margin-top:16px">Cerrar sesión</button>`;
- 
+
   document.getElementById('content').innerHTML = html;
 }
- 
+
 async function signOut() {
   await auth.signOut();
   showToast('Sesión cerrada');
 }
- 
+
 // ===== NOTIFICATIONS =====
 async function showNotifs() {
   const gid = currentUserData.groupId;
@@ -1106,10 +1106,10 @@ async function showNotifs() {
   const snap = await db.collection('groups').doc(gid).collection('notifications')
     .where('toUserId', '==', uid).orderBy('createdAt', 'desc').limit(20).get();
   const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
- 
+
   // Mark as read
   snap.docs.forEach(d => { if (!d.data().read) db.collection('groups').doc(gid).collection('notifications').doc(d.id).update({ read: true }); });
- 
+
   let html = `<div class="modal-overlay" onclick="closeModal(event)"><div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">🔔 Notificaciones</div>`;
@@ -1128,11 +1128,11 @@ async function showNotifs() {
   const dot = document.getElementById('notif-dot');
   if (dot) dot.style.display = 'none';
 }
- 
+
 // ===== MODAL =====
 function closeModal(e) { if (e.target.classList.contains('modal-overlay')) closeModalDirect(); }
 function closeModalDirect() { document.getElementById('modal-container').innerHTML = ''; }
- 
+
 // ===== TOAST =====
 function showToast(msg) {
   const t = document.getElementById('toast');
