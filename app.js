@@ -700,6 +700,9 @@ function showTab(tab) {
   else if (tab === 'historial') renderHistorial();
   else if (tab === 'minutas') renderMinutas();
   else if (tab === 'config') renderConfig();
+  else if (tab === 'mantenedores') renderMantenedores();
+  else if (tab === 'mant-deseos') renderMantDeseos();
+  else if (tab === 'mant-acciones') renderMantAcciones();
 }
 
 // ===== INICIO =====
@@ -1024,7 +1027,14 @@ async function renderDeseos() {
     const partner = members[0];
     const pk = partner?[uid,partner.id].sort().join('_'):null;
     const myPts = pk?(group.pairPoints?.[pk]?.[uid]||0):0;
-    const fantasies = group.fantasies||DEFAULT_FANTASIES;
+    // Usar fantasías del grupo, pero si no tienen categoría las tomamos del DEFAULT
+    const groupFantasies = group.fantasies||[];
+    const fantasies = groupFantasies.length > 0 ? groupFantasies.map(f => ({
+      ...DEFAULT_FANTASIES.find(d=>d.id===f.id)||{},
+      ...f,
+      // Si no tiene category definida, buscarla en DEFAULT
+      category: f.category || DEFAULT_FANTASIES.find(d=>d.id===f.id)?.category || 'pareja'
+    })) : DEFAULT_FANTASIES;
     const myReqs = myReqsSnap.docs.map(d=>({id:d.id,...d.data()}));
     const forMe = pendingSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.requestedBy!==uid);
 
@@ -1440,7 +1450,13 @@ async function renderPerfil() {
       <div class="menu-item-text">Historial completo</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    ${isAdmin?`<div class="menu-item" onclick="showTab('config')">
+    ${isAdmin?`
+    <div class="menu-item" onclick="showTab('mantenedores')">
+      <div class="menu-item-icon" style="background:var(--amber-glow)">🗂️</div>
+      <div class="menu-item-text">Mantenedores</div>
+      <div class="menu-item-arrow">›</div>
+    </div>
+    <div class="menu-item" onclick="showTab('config')">
       <div class="menu-item-icon" style="background:var(--bg3)">⚙️</div>
       <div class="menu-item-text">Configuración</div>
       <div class="menu-item-arrow">›</div>
