@@ -1,6 +1,4 @@
-// ===== IGNITE APP.JS =====
-// IMPORTANTE: Reemplaza estos valores con los de tu proyecto Firebase
-
+// ===== IGNITE APP.JS v2 =====
 const firebaseConfig = {
   apiKey: "AIzaSyBDkK9v9mplyOGcKSqkue2Q3HmjwHGbRs8",
   authDomain: "ignite-app-8bdb5.firebaseapp.com",
@@ -20,7 +18,91 @@ let currentUserData = null;
 let currentTab = 'home';
 let fantasyFilter = 'all';
 let selUsers = [];
-let unsubListeners = [];
+
+// ===== GAME DATA =====
+const GAME_CHALLENGES = {
+  suave: {
+    label: 'Suave', icon: '🌸', color: '#4ECBA0',
+    presencial: [
+      'Imita el acento de otro país durante 2 minutos',
+      'Di 5 cosas positivas de la persona a tu derecha',
+      'Muestra la última foto que tomaste con tu teléfono',
+      'Haz tu mejor baile sin música durante 30 segundos',
+      'Cuenta un chiste y todos deben reír o pagan prenda',
+      'Describe a alguien del grupo sin decir su nombre',
+      'Haz una pose de superhéroe y mantenla 15 segundos',
+      'Canta el coro de la última canción que escuchaste',
+      'Di un secreto sin importancia que nadie sepa de ti',
+      'Imita a alguien famoso y el grupo adivina quién es'
+    ],
+    remoto: [
+      'Muestra el objeto más raro que tengas cerca ahora mismo',
+      'Haz una cara graciosa y toma una captura de pantalla',
+      'Muestra tu fondo de pantalla del teléfono y explícalo',
+      'Lee el último mensaje de texto que recibiste en voz alta',
+      'Muestra el último meme que guardaste',
+      'Describe tu cuarto sin mostrar la cámara',
+      'Haz 10 flexiones en pantalla ahora mismo',
+      'Muestra tu snack favorito del momento',
+      'Canta 15 segundos de tu canción favorita',
+      'Muestra la vista desde tu ventana más cercana'
+    ]
+  },
+  moderado: {
+    label: 'Moderado', icon: '🔥', color: '#F5A623',
+    presencial: [
+      'Susurra algo al oído de la persona a tu izquierda',
+      'Deja que alguien revise tu galería de fotos por 10 segundos',
+      'Intercambia un accesorio con alguien del grupo por el resto del juego',
+      'Recita un poema improvisado para alguien del grupo',
+      'Deja que el grupo te cambie el nombre de contacto en el teléfono',
+      'Muestra el perfil de redes sociales que menos usas',
+      'Haz un masaje de hombros de 30 segundos a quien indique el grupo',
+      'Di la verdad sobre lo primero que pensaste de alguien del grupo',
+      'Deja que alguien elija tu foto de perfil por una hora',
+      'Baila con la persona que el grupo elija por una canción completa'
+    ],
+    remoto: [
+      'Muestra el contacto más antiguo de tu teléfono',
+      'Lee el último correo que recibiste en voz alta',
+      'Muestra tu historial de búsqueda de las últimas 2 horas',
+      'Haz una reverencia exagerada ante la cámara durante 30 segundos',
+      'Muestra la canción que más has escuchado este mes',
+      'Describe tu outfit de hoy como si fuera alta costura',
+      'Muestra el emoji que más usas en WhatsApp',
+      'Lee en voz alta el último comentario que escribiste en redes',
+      'Haz una reseña dramática del lugar donde estás sentado',
+      'Muestra y explica la última compra que hiciste en línea'
+    ]
+  },
+  hot: {
+    label: 'Hot', icon: '💋', color: '#E8608A',
+    presencial: [
+      'Mantén contacto visual con alguien del grupo sin reír por 1 minuto',
+      'Di en voz alta algo que te intimide admitir normalmente',
+      'Deja que alguien del grupo lea el último chat de WhatsApp que abriste',
+      'Describe tu tipo ideal de persona con todo detalle',
+      'Confiesa algo que nunca has hecho pero siempre quisiste intentar',
+      'Deja que el grupo adivine quién te parece más atractivo del grupo',
+      'Di sin filtro qué cambiarías de la noche hasta ahora',
+      'Haz tu mejor mirada seductora a la cámara o al grupo',
+      'Confiesa cuál fue tu mayor atrevimiento en los últimos 6 meses',
+      'Describe sin nombres a alguien que te haya impresionado recientemente'
+    ],
+    remoto: [
+      'Muestra y explica el objeto más personal que tengas cerca',
+      'Lee en voz alta el último mensaje que hayas mandado con emojis de corazón',
+      'Di en cámara algo que normalmente solo piensas pero no dices',
+      'Muestra la última foto que tomaste de ti mismo',
+      'Confiesa cuál es tu mayor debilidad en una persona',
+      'Describe tu noche perfecta ideal con todo detalle',
+      'Muestra y explica tu playlist más personal',
+      'Di en cámara un cumplido genuino a cada persona del grupo',
+      'Confiesa qué app usas más y de qué te da más vergüenza',
+      'Describe sin filtros qué es lo primero que notas de alguien cuando lo conoces'
+    ]
+  }
+};
 
 // ===== DEFAULT DATA =====
 const DEFAULT_ACTIONS_HIM = [
@@ -85,7 +167,7 @@ const DEFAULT_SPECIAL_DATES = [
   { name: 'Año Nuevo', date: '31-12', pts: 10, icon: '🎆' },
 ];
 
-// ===== AUTH FUNCTIONS =====
+// ===== AUTH =====
 function showLogin() {
   document.getElementById('login-form').style.display = 'block';
   document.getElementById('register-form').style.display = 'none';
@@ -96,16 +178,26 @@ function showRegister() {
   document.getElementById('register-form').style.display = 'block';
 }
 
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.textContent = loading ? 'Cargando...' : btn.dataset.label;
+}
+
 async function loginUser() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-error');
   errEl.style.display = 'none';
   if (!email || !pass) { showError(errEl, 'Completa todos los campos'); return; }
+  const btn = document.querySelector('#login-form .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Entrando...'; }
   try {
     await auth.signInWithEmailAndPassword(email, pass);
   } catch (e) {
     showError(errEl, 'Email o contraseña incorrectos');
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
   }
 }
 
@@ -122,22 +214,50 @@ async function registerUser() {
   if (!name || !email || !pass) { showError(errEl, 'Completa todos los campos'); return; }
   if (pass.length < 6) { showError(errEl, 'La contraseña debe tener mínimo 6 caracteres'); return; }
 
-  // Verify invite code (skip for first user / admin)
-  const usersSnap = await db.collection('users').limit(1).get();
-  const isFirstUser = usersSnap.empty;
-
-  if (!isFirstUser) { if (!code) { showError(errEl, 'Ingresa el código de invitación'); return; }
-    
-    const groupSnap = await db.collection('groups').where('inviteCode', '==', code).limit(1).get();
-    if (groupSnap.empty) { showError(errEl, 'Código de invitación inválido'); return; }
-  }
+  const btn = document.querySelector('#register-form .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando cuenta...'; }
 
   try {
+    const usersSnap = await db.collection('users').limit(1).get();
+    const isFirstUser = usersSnap.empty;
+    let groupId = null;
+
+    if (!isFirstUser) {
+      if (!code) { showError(errEl, 'Ingresa el código de invitación'); if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta'; } return; }
+      const groupSnap = await db.collection('groups').where('inviteCode', '==', code).limit(1).get();
+      if (groupSnap.empty) { showError(errEl, 'Código de invitación inválido: ' + code); if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta'; } return; }
+      groupId = groupSnap.docs[0].id;
+    }
+
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     const uid = cred.user.uid;
-    const colors = ['#E8608A','#4ECBA0','#9B7FE8','#F5A623','#FF7A00'];
+
+    // Send verification email
+    try { await cred.user.sendEmailVerification(); } catch(e) {}
+
+    const colors = ['#E8608A', '#4ECBA0', '#9B7FE8', '#F5A623', '#FF7A00'];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+    if (isFirstUser) {
+      const groupRef = db.collection('groups').doc();
+      groupId = groupRef.id;
+      await groupRef.set({
+        id: groupId,
+        adminId: uid,
+        inviteCode: 'IGNITE-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        members: [uid],
+        actions: { him: DEFAULT_ACTIONS_HIM, her: DEFAULT_ACTIONS_HER },
+        fantasies: DEFAULT_FANTASIES,
+        specialDates: DEFAULT_SPECIAL_DATES,
+        pairPoints: {},
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await db.collection('groups').doc(groupId).update({
+        members: firebase.firestore.FieldValue.arrayUnion(uid)
+      });
+    }
 
     await db.collection('users').doc(uid).set({
       id: uid,
@@ -149,36 +269,15 @@ async function registerUser() {
       orientation: orient,
       role: isFirstUser ? 'admin' : 'viewer',
       active: true,
+      groupId,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    // If first user, create default group
-    if (isFirstUser) {
-      const groupRef = db.collection('groups').doc();
-      await groupRef.set({
-        id: groupRef.id,
-        adminId: uid,
-        inviteCode: 'IGNITE-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
-        members: [uid],
-        actions: { him: DEFAULT_ACTIONS_HIM, her: DEFAULT_ACTIONS_HER },
-        fantasies: DEFAULT_FANTASIES,
-        specialDates: DEFAULT_SPECIAL_DATES,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      await db.collection('users').doc(uid).update({ groupId: groupRef.id });
-    } else {
-      // Add to group from invite code
-      const groupSnap = await db.collection('groups').where('inviteCode', '==', code).limit(1).get();
-      if (!groupSnap.empty) {
-        const groupId = groupSnap.docs[0].id;
-        await db.collection('groups').doc(groupId).update({
-          members: firebase.firestore.FieldValue.arrayUnion(uid)
-        });
-        await db.collection('users').doc(uid).update({ groupId });
-      }
-    }
+    showToast('✓ Cuenta creada. Revisa tu email para verificar.');
+
   } catch (e) {
-    showError(errEl, 'Error al crear cuenta: ' + e.message);
+    showError(errEl, 'Error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta'; }
   }
 }
 
@@ -191,10 +290,22 @@ function showError(el, msg) {
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
-    const snap = await db.collection('users').doc(user.uid).get();
-    if (snap.exists) {
-      currentUserData = snap.data();
-      showApp();
+    try {
+      const snap = await db.collection('users').doc(user.uid).get();
+      if (snap.exists) {
+        currentUserData = snap.data();
+        if (!currentUserData.groupId) {
+          // Wait and retry once for group to be created
+          await new Promise(r => setTimeout(r, 2000));
+          const snap2 = await db.collection('users').doc(user.uid).get();
+          currentUserData = snap2.data();
+        }
+        showApp();
+      } else {
+        await auth.signOut();
+      }
+    } catch (e) {
+      console.error('Error loading user:', e);
     }
   } else {
     currentUser = null;
@@ -226,24 +337,23 @@ function updateHeader() {
   }
   const adminNav = document.getElementById('nav-admin');
   if (adminNav) adminNav.style.display = currentUserData.role === 'admin' ? 'flex' : 'none';
-
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const nv = document.getElementById('nav-' + currentTab);
   if (nv) nv.classList.add('active');
-
-  // Check notifications
   checkNotifDot();
 }
 
 async function checkNotifDot() {
   if (!currentUserData?.groupId) return;
-  const snap = await db.collection('groups').doc(currentUserData.groupId)
-    .collection('notifications')
-    .where('toUserId', '==', currentUser.uid)
-    .where('read', '==', false)
-    .limit(1).get();
-  const dot = document.getElementById('notif-dot');
-  if (dot) dot.style.display = snap.empty ? 'none' : 'block';
+  try {
+    const snap = await db.collection('groups').doc(currentUserData.groupId)
+      .collection('notifications')
+      .where('toUserId', '==', currentUser.uid)
+      .where('read', '==', false)
+      .limit(1).get();
+    const dot = document.getElementById('notif-dot');
+    if (dot) dot.style.display = snap.empty ? 'none' : 'block';
+  } catch (e) {}
 }
 
 // ===== TABS =====
@@ -256,6 +366,7 @@ function showTab(tab) {
   else if (tab === 'actions') renderActions();
   else if (tab === 'fantasy') renderFantasy();
   else if (tab === 'history') renderHistory();
+  else if (tab === 'game') renderGame();
   else if (tab === 'admin') renderAdmin();
   else if (tab === 'profile') renderProfile();
 }
@@ -263,171 +374,198 @@ function showTab(tab) {
 // ===== HOME =====
 async function renderHome() {
   if (!currentUserData?.groupId) {
-    document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Configurando tu grupo...</div></div>';
+    document.getElementById('content').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">⏳</div>
+        <div class="empty-text">Configurando tu grupo...<br>
+        <button class="btn btn-outline" style="margin-top:12px" onclick="location.reload()">Recargar</button>
+        </div>
+      </div>`;
     return;
   }
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
+  try {
+    const [groupSnap, membersSnap, pendingSnap, histSnap] = await Promise.all([
+      db.collection('groups').doc(gid).get(),
+      db.collection('users').where('groupId', '==', gid).where('active', '==', true).get(),
+      db.collection('groups').doc(gid).collection('requests').where('status', '==', 'pending').get(),
+      db.collection('groups').doc(gid).collection('history').orderBy('createdAt', 'desc').limit(5).get()
+    ]);
 
-  const [groupSnap, membersSnap, pendingSnap, histSnap] = await Promise.all([
-    db.collection('groups').doc(gid).get(),
-    db.collection('users').where('groupId', '==', gid).where('active', '==', true).get(),
-    db.collection('groups').doc(gid).collection('requests').where('status', '==', 'pending').get(),
-    db.collection('groups').doc(gid).collection('history').orderBy('createdAt', 'desc').limit(5).get()
-  ]);
+    const group = groupSnap.data();
+    const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
+    const partner = members[0];
+    const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
+    const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
+    const partnerPts = pairKey ? (group.pairPoints?.[pairKey]?.[partner?.id] || 0) : 0;
+    const pendingForMe = pendingSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.requestedBy !== uid);
+    const myPending = pendingSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.requestedBy === uid);
+    const history = histSnap.docs.map(d => d.data());
 
-  const group = groupSnap.data();
-  const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
-  const partner = members[0];
-  const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
-  const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
-  const partnerPts = pairKey ? (group.pairPoints?.[pairKey]?.[partner.id] || 0) : 0;
+    let html = `<div class="points-hero">
+      <div class="hero-label">Tus puntos${partner ? ' con ' + partner.name : ''}</div>
+      <div class="hero-pts"><span class="pts-num">${myPts}</span> <span class="pts-label">pts</span></div>
+      <div class="hero-sub">${partner ? `<span class="hero-partner">${partner.name}</span> tiene ${partnerPts} pts` : 'Invita a tu pareja para comenzar 👇'}</div>
+    </div>`;
 
-  const pendingForMe = pendingSnap.docs.map(d => d.data()).filter(r => r.requestedBy !== uid);
-  const myPending = pendingSnap.docs.map(d => d.data()).filter(r => r.requestedBy === uid);
-  const history = histSnap.docs.map(d => d.data());
-
-  let html = `<div class="points-hero">
-    <div class="hero-label">Tus puntos${partner ? ' con ' + partner.name : ''}</div>
-    <div class="hero-pts"><span class="pts-num">${myPts}</span> <span class="pts-label">pts</span></div>
-    <div class="hero-sub">${partner ? `<span class="hero-partner">${partner.name}</span> tiene ${partnerPts} pts` : 'Invita a tu pareja para comenzar'}</div>
-  </div>`;
-
-  if (members.length > 1) {
-    html += `<div class="pair-scroll">`;
-    members.forEach(m => {
-      const pk = [uid, m.id].sort().join('_');
-      const mpts = group.pairPoints?.[pk]?.[uid] || 0;
-      html += `<div class="pair-chip">
-        <div class="pair-avatar" style="background:${m.color}22;color:${m.color}">${m.initials}</div>
-        ${m.name} · ${mpts} pts
+    if (!partner) {
+      html += `<div class="card glow-rose" style="text-align:center;padding:20px">
+        <div style="font-size:32px;margin-bottom:8px">👫</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:4px">Invita a tu pareja</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Comparte el código para comenzar a jugar</div>
+        <button class="btn btn-primary" onclick="showTab('admin')">Ver código de invitación</button>
       </div>`;
-    });
-    html += `</div>`;
-  }
+    }
 
-  if (pendingForMe.length > 0) {
-    html += `<div class="section-hd"><div class="section-title">🔔 Por aprobar (${pendingForMe.length})</div></div>`;
-    pendingForMe.slice(0, 3).forEach(r => {
-      html += `<div class="card glow-rose">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div>
-            <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:2px">${r.pts} pts · ${r.type === 'action' ? '⚡ Acción' : '🔥 Fantasía'}</div>
+    if (members.length > 1) {
+      html += `<div class="pair-scroll">`;
+      members.forEach(m => {
+        const pk = [uid, m.id].sort().join('_');
+        const mpts = group.pairPoints?.[pk]?.[uid] || 0;
+        html += `<div class="pair-chip active">
+          <div class="pair-avatar" style="background:${m.color}22;color:${m.color}">${m.initials}</div>
+          ${m.name} · ${mpts} pts
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    if (pendingForMe.length > 0) {
+      html += `<div class="section-hd"><div class="section-title">🔔 Por aprobar (${pendingForMe.length})</div></div>`;
+      pendingForMe.slice(0, 3).forEach(r => {
+        html += `<div class="card glow-rose">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div>
+              <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${r.pts} pts · ${r.type === 'action' ? '⚡ Acción' : '🔥 Fantasía'}</div>
+            </div>
+            <span class="status pending">⏳ Pendiente</span>
           </div>
-          <span class="status pending">⏳ Pendiente</span>
-        </div>
-        ${r.comment ? `<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:10px">"${r.comment}"</div>` : ''}
-        <div class="row">
-          <button class="btn btn-teal btn-sm" onclick="approveReq('${r.id}')">✓ Aprobar</button>
-          <button class="btn btn-danger btn-sm" onclick="showRejectModal('${r.id}')">✕ Rechazar</button>
-        </div>
-      </div>`;
-    });
+          ${r.comment ? `<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:10px">"${r.comment}"</div>` : ''}
+          <div class="row">
+            <button class="btn btn-teal btn-sm" onclick="approveReq('${r.id}')">✓ Aprobar</button>
+            <button class="btn btn-danger btn-sm" onclick="showRejectModal('${r.id}')">✕ Rechazar</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    html += `<div class="section-hd"><div class="section-title">Acciones rápidas</div></div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn btn-outline btn-full" onclick="showTab('actions')">⚡ Acción</button>
+      <button class="btn btn-primary btn-full" onclick="showTab('fantasy')">🔥 Fantasía</button>
+    </div>
+    <button class="btn btn-full" style="background:linear-gradient(135deg,#1A1225,#1A1520);border:1px solid rgba(155,127,232,0.3);color:var(--purple);margin-bottom:16px" onclick="showTab('game')">🎮 Jugar Ignite Game</button>`;
+
+    if (myPending.length > 0) {
+      html += `<div class="section-hd"><div class="section-title">Mis envíos pendientes</div></div>`;
+      myPending.slice(0, 3).forEach(r => {
+        html += `<div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
+            <span class="status pending">⏳ Esperando</span>
+          </div>
+        </div>`;
+      });
+    }
+
+    if (history.length > 0) {
+      html += `<div class="section-hd"><div class="section-title">Reciente</div><div class="see-all" onclick="showTab('history')">Ver todo →</div></div>`;
+      history.forEach(h => {
+        html += `<div class="hist-item">
+          <div class="hist-icon ${h.type}">${h.type === 'add' ? '⬆' : '⬇'}</div>
+          <div style="flex:1">
+            <div class="hist-name">${h.action}</div>
+            <div class="hist-date">${h.fromUserName || ''} · ${h.date || ''}</div>
+          </div>
+          <div class="hist-pts ${h.type}">${h.type === 'add' ? '+' : '-'}${h.pts}</div>
+        </div>`;
+      });
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Error cargando datos.<br><button class="btn btn-outline" style="margin-top:12px" onclick="showTab('home')">Reintentar</button></div></div>`;
   }
-
-  html += `<div class="section-hd"><div class="section-title">Acciones rápidas</div></div>
-  <div class="row" style="margin-bottom:16px">
-    <button class="btn btn-outline btn-full" onclick="showTab('actions')">⚡ Acción</button>
-    <button class="btn btn-primary btn-full" onclick="showTab('fantasy')">🔥 Fantasía</button>
-  </div>`;
-
-  if (myPending.length > 0) {
-    html += `<div class="section-hd"><div class="section-title">Mis envíos pendientes</div></div>`;
-    myPending.slice(0, 3).forEach(r => {
-      html += `<div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
-          <span class="status pending">⏳ Esperando</span>
-        </div>
-      </div>`;
-    });
-  }
-
-  if (history.length > 0) {
-    html += `<div class="section-hd"><div class="section-title">Reciente</div><div class="see-all" onclick="showTab('history')">Ver todo →</div></div>`;
-    history.forEach(h => {
-      html += `<div class="hist-item">
-        <div class="hist-icon ${h.type}">${h.type === 'add' ? '⬆' : '⬇'}</div>
-        <div style="flex:1">
-          <div class="hist-name">${h.action}</div>
-          <div class="hist-date">${h.fromUserName || ''} · ${h.date || ''}</div>
-        </div>
-        <div class="hist-pts ${h.type}">${h.type === 'add' ? '+' : '-'}${h.pts}</div>
-      </div>`;
-    });
-  }
-
-  document.getElementById('content').innerHTML = html;
 }
 
 // ===== ACTIONS =====
 async function renderActions() {
+  if (!currentUserData?.groupId) { document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Sin grupo asignado</div></div>'; return; }
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
-  const groupSnap = await db.collection('groups').doc(gid).get();
-  const group = groupSnap.data();
-  const genderKey = currentUserData.gender === 'mujer' ? 'her' : 'him';
-  const myActions = group.actions?.[genderKey] || [];
-  const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
-  const otherMembers = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
-  const pendingForMe = await db.collection('groups').doc(gid).collection('requests')
-    .where('status', '==', 'pending').get();
-  const pending = pendingForMe.docs.map(d => d.data()).filter(r => r.requestedBy !== uid && r.type === 'action');
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const group = groupSnap.data();
+    const genderKey = currentUserData.gender === 'mujer' ? 'her' : 'him';
+    const myActions = group.actions?.[genderKey] || [];
+    const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
+    const otherMembers = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
+    const pendingSnap = await db.collection('groups').doc(gid).collection('requests').where('status', '==', 'pending').get();
+    const pending = pendingSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.requestedBy !== uid && r.type === 'action');
 
-  let html = `<div class="section-hd"><div class="section-title">Nueva acción ⚡</div></div>
-  <div class="card glow-teal">
-    <div class="form-group">
-      <label class="form-label">¿Qué hiciste?</label>
-      <select class="form-control" id="act-sel" onchange="updateActPts()">
-        <option value="">— Selecciona acción —</option>`;
-  myActions.forEach(a => {
-    html += `<option value="${a.id}" data-pts="${a.pts}">${a.icon} ${a.name} (+${a.pts} pts)</option>`;
-  });
-  html += `</select></div>
-    <div class="form-group">
-      <label class="form-label">¿Quién te da los puntos?</label>
-      <div class="multi-user-grid" id="user-multiselect">`;
-  otherMembers.forEach(m => {
-    html += `<div class="multi-user-item" id="mu-${m.id}" onclick="toggleUserSel('${m.id}')">
-      <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:${m.color}22;color:${m.color}">${m.initials}</div>
-      <div style="flex:1;font-size:12px;font-weight:500">${m.name}</div>
-      <div class="check" id="chk-${m.id}"></div>
-    </div>`;
-  });
-  html += `</div></div>
-    <div class="form-group">
-      <label class="form-label">Comentario (opcional)</label>
-      <textarea class="form-control" id="act-comment" rows="2" placeholder="Agrega contexto..."></textarea>
-    </div>
-    <div id="act-pts-preview" style="display:none;font-size:12px;color:var(--teal);margin-bottom:10px;font-weight:500">
-      Esta acción suma <strong id="act-pts-val">0</strong> puntos
-    </div>
-    <button class="btn btn-primary btn-full" onclick="submitAction()">Enviar para aprobación 📤</button>
-  </div>`;
-
-  if (pending.length > 0) {
-    html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Por aprobar (${pending.length})</div></div>`;
-    pending.forEach(r => {
-      html += `<div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div>
-            <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
-            <div style="font-size:11px;color:var(--text2)">+${r.pts} pts</div>
-          </div>
-          <span class="status pending">⏳</span>
-        </div>
-        ${r.comment ? `<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:8px">"${r.comment}"</div>` : ''}
-        <div class="row">
-          <button class="btn btn-teal btn-sm" onclick="approveReq('${r.id}')">✓ Aprobar</button>
-          <button class="btn btn-danger btn-sm" onclick="showRejectModal('${r.id}')">✕ Rechazar</button>
-        </div>
-      </div>`;
+    let html = `<div class="section-hd"><div class="section-title">Nueva acción ⚡</div></div>
+    <div class="card glow-teal">
+      <div class="form-group">
+        <label class="form-label">¿Qué hiciste?</label>
+        <select class="form-control" id="act-sel" onchange="updateActPts()">
+          <option value="">— Selecciona acción —</option>`;
+    myActions.forEach(a => {
+      html += `<option value="${a.id}" data-pts="${a.pts}">${a.icon} ${a.name} (+${a.pts} pts)</option>`;
     });
-  }
+    html += `</select></div>
+      <div class="form-group">
+        <label class="form-label">¿Quién te da los puntos?</label>`;
+    if (otherMembers.length === 0) {
+      html += `<div style="font-size:12px;color:var(--text2);padding:8px;background:var(--bg4);border-radius:8px">Invita a tu pareja primero para poder registrar acciones</div>`;
+    } else {
+      html += `<div class="multi-user-grid" id="user-multiselect">`;
+      otherMembers.forEach(m => {
+        html += `<div class="multi-user-item" id="mu-${m.id}" onclick="toggleUserSel('${m.id}')">
+          <div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;background:${m.color}22;color:${m.color}">${m.initials}</div>
+          <div style="flex:1;font-size:12px;font-weight:500">${m.name}</div>
+          <div class="check" id="chk-${m.id}"></div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>
+      <div class="form-group">
+        <label class="form-label">Comentario (opcional)</label>
+        <textarea class="form-control" id="act-comment" rows="2" placeholder="Agrega contexto..."></textarea>
+      </div>
+      <div id="act-pts-preview" style="display:none;font-size:12px;color:var(--teal);margin-bottom:10px;font-weight:500">
+        Esta acción suma <strong id="act-pts-val">0</strong> puntos
+      </div>
+      <button class="btn btn-primary btn-full" onclick="submitAction()">Enviar para aprobación 📤</button>
+    </div>`;
 
-  selUsers = [];
-  document.getElementById('content').innerHTML = html;
+    if (pending.length > 0) {
+      html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Por aprobar (${pending.length})</div></div>`;
+      pending.forEach(r => {
+        html += `<div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div>
+              <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
+              <div style="font-size:11px;color:var(--text2)">+${r.pts} pts</div>
+            </div>
+            <span class="status pending">⏳</span>
+          </div>
+          ${r.comment ? `<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:8px">"${r.comment}"</div>` : ''}
+          <div class="row">
+            <button class="btn btn-teal btn-sm" onclick="approveReq('${r.id}')">✓ Aprobar</button>
+            <button class="btn btn-danger btn-sm" onclick="showRejectModal('${r.id}')">✕ Rechazar</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    selUsers = [];
+    document.getElementById('content').innerHTML = html;
+  } catch (e) {
+    document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Error cargando acciones</div></div>';
+  }
 }
 
 function updateActPts() {
@@ -455,49 +593,54 @@ async function submitAction() {
   const sel = document.getElementById('act-sel');
   if (!sel || !sel.value) { showToast('Selecciona una acción'); return; }
   if (selUsers.length === 0) { showToast('Selecciona quién te da los puntos'); return; }
-  const opt = sel.selectedOptions[0];
   const comment = document.getElementById('act-comment')?.value || '';
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
   const genderKey = currentUserData.gender === 'mujer' ? 'her' : 'him';
-  const groupSnap = await db.collection('groups').doc(gid).get();
-  const actionDef = groupSnap.data().actions?.[genderKey]?.find(a => a.id === sel.value);
-  if (!actionDef) return;
 
-  const reqRef = db.collection('groups').doc(gid).collection('requests').doc();
-  await reqRef.set({
-    id: reqRef.id,
-    type: 'action',
-    requestedBy: uid,
-    requestedByName: currentUserData.name,
-    toUsers: [...selUsers],
-    fantasyName: actionDef.name,
-    pts: actionDef.pts,
-    status: 'pending',
-    comment,
-    date: new Date().toLocaleDateString('es'),
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
+  const btn = document.querySelector('#act-sel')?.closest('.card')?.querySelector('.btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
-  // Notify target users
-  for (const tid of selUsers) {
-    await db.collection('groups').doc(gid).collection('notifications').add({
-      toUserId: tid,
-      text: `${currentUserData.name} registró: ${actionDef.name} (+${actionDef.pts} pts)`,
-      read: false,
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const actionDef = groupSnap.data().actions?.[genderKey]?.find(a => a.id === sel.value);
+    if (!actionDef) return;
+
+    const reqRef = db.collection('groups').doc(gid).collection('requests').doc();
+    await reqRef.set({
+      id: reqRef.id,
+      type: 'action',
+      requestedBy: uid,
+      requestedByName: currentUserData.name,
+      toUsers: [...selUsers],
+      fantasyName: actionDef.name,
+      pts: actionDef.pts,
+      status: 'pending',
+      comment,
+      date: new Date().toLocaleDateString('es'),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-  }
 
-  selUsers = [];
-  showToast('✓ Acción enviada para aprobación');
-  showTab('actions');
+    for (const tid of selUsers) {
+      await db.collection('groups').doc(gid).collection('notifications').add({
+        toUserId: tid,
+        text: `${currentUserData.name} registró: ${actionDef.name} (+${actionDef.pts} pts)`,
+        read: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    selUsers = [];
+    showToast('✓ Acción enviada para aprobación');
+    showTab('actions');
+  } catch (e) {
+    showToast('Error al enviar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar para aprobación 📤'; }
+  }
 }
 
 // ===== APPROVE / REJECT =====
-function approveReq(reqId) {
-  showApproveModal(reqId);
-}
+function approveReq(reqId) { showApproveModal(reqId); }
 
 function showApproveModal(reqId) {
   document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
@@ -517,51 +660,54 @@ async function confirmApprove(reqId) {
   const comment = document.getElementById('approve-comment')?.value || '';
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
-  const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
-  const req = reqSnap.data();
-  if (!req) return;
 
-  await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
-    status: 'approved', approveComment: comment
-  });
+  const btn = document.querySelector('#modal-container .btn-teal');
+  if (btn) { btn.disabled = true; btn.textContent = 'Aprobando...'; }
 
-  if (req.type === 'action') {
-    // Add points to requester for each selected user pair
-    const groupSnap = await db.collection('groups').doc(gid).get();
-    const group = groupSnap.data();
-    const pairPoints = group.pairPoints || {};
-    for (const tid of req.toUsers) {
-      if (tid === uid) {
-        const pk = [req.requestedBy, tid].sort().join('_');
-        if (!pairPoints[pk]) pairPoints[pk] = {};
-        pairPoints[pk][req.requestedBy] = (pairPoints[pk][req.requestedBy] || 0) + req.pts;
-      }
+  try {
+    const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
+    const req = reqSnap.data();
+    if (!req) return;
+
+    await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
+      status: 'approved', approveComment: comment
+    });
+
+    if (req.type === 'action' && req.toUsers?.includes(uid)) {
+      const groupSnap = await db.collection('groups').doc(gid).get();
+      const pairPoints = groupSnap.data().pairPoints || {};
+      const pk = [req.requestedBy, uid].sort().join('_');
+      if (!pairPoints[pk]) pairPoints[pk] = {};
+      pairPoints[pk][req.requestedBy] = (pairPoints[pk][req.requestedBy] || 0) + req.pts;
+      await db.collection('groups').doc(gid).update({ pairPoints });
+
+      await db.collection('groups').doc(gid).collection('history').add({
+        fromUser: req.requestedBy,
+        fromUserName: req.requestedByName,
+        toUsers: req.toUsers,
+        action: req.fantasyName,
+        pts: req.pts,
+        type: 'add',
+        comment,
+        date: new Date().toLocaleDateString('es'),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
-    await db.collection('groups').doc(gid).update({ pairPoints });
 
-    await db.collection('groups').doc(gid).collection('history').add({
-      fromUser: req.requestedBy,
-      fromUserName: req.requestedByName,
-      toUsers: req.toUsers,
-      action: req.fantasyName,
-      pts: req.pts,
-      type: 'add',
-      comment,
-      date: new Date().toLocaleDateString('es'),
+    await db.collection('groups').doc(gid).collection('notifications').add({
+      toUserId: req.requestedBy,
+      text: `✓ Aprobaron: ${req.fantasyName} (+${req.pts} pts)${comment ? ' — "' + comment + '"' : ''}`,
+      read: false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+
+    closeModalDirect();
+    showToast('✓ Solicitud aprobada');
+    showTab(currentTab);
+  } catch (e) {
+    showToast('Error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirmar aprobación'; }
   }
-
-  await db.collection('groups').doc(gid).collection('notifications').add({
-    toUserId: req.requestedBy,
-    text: `✓ Aprobaron: ${req.fantasyName} (+${req.pts} pts)${comment ? ' — "' + comment + '"' : ''}`,
-    read: false,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  closeModalDirect();
-  showToast('✓ Solicitud aprobada');
-  showTab(currentTab);
 }
 
 function showRejectModal(reqId) {
@@ -582,119 +728,127 @@ async function confirmReject(reqId) {
   const reason = document.getElementById('reject-reason')?.value?.trim();
   if (!reason) { showToast('El motivo es requerido'); return; }
   const gid = currentUserData.groupId;
-  const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
-  const req = reqSnap.data();
+  const uid = currentUser.uid;
 
-  await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
-    status: 'rejected', reason
-  });
+  try {
+    const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
+    const req = reqSnap.data();
 
-  if (req.type === 'fantasy') {
-    // Refund points
-    const groupSnap = await db.collection('groups').doc(gid).get();
-    const group = groupSnap.data();
-    const pairPoints = group.pairPoints || {};
-    const partner = req.toUsers?.[0];
-    if (partner) {
-      const pk = [req.requestedBy, partner].sort().join('_');
+    await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
+      status: 'rejected', reason
+    });
+
+    if (req.type === 'fantasy') {
+      const groupSnap = await db.collection('groups').doc(gid).get();
+      const pairPoints = groupSnap.data().pairPoints || {};
+      const pk = [req.requestedBy, uid].sort().join('_');
       if (!pairPoints[pk]) pairPoints[pk] = {};
       pairPoints[pk][req.requestedBy] = (pairPoints[pk][req.requestedBy] || 0) + req.pts;
       await db.collection('groups').doc(gid).update({ pairPoints });
     }
+
+    await db.collection('groups').doc(gid).collection('notifications').add({
+      toUserId: req.requestedBy,
+      text: `✕ Rechazaron: ${req.fantasyName} — "${reason}"`,
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    closeModalDirect();
+    showToast('Solicitud rechazada');
+    showTab(currentTab);
+  } catch (e) {
+    showToast('Error: ' + e.message);
   }
-
-  await db.collection('groups').doc(gid).collection('notifications').add({
-    toUserId: req.requestedBy,
-    text: `✕ Rechazaron: ${req.fantasyName} — "${reason}"`,
-    read: false,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  closeModalDirect();
-  showToast('Solicitud rechazada');
-  showTab(currentTab);
 }
 
 // ===== FANTASY =====
 async function renderFantasy() {
+  if (!currentUserData?.groupId) { document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Sin grupo asignado</div></div>'; return; }
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
-  const [groupSnap, membersSnap, reqsSnap] = await Promise.all([
-    db.collection('groups').doc(gid).get(),
-    db.collection('users').where('groupId', '==', gid).where('active', '==', true).get(),
-    db.collection('groups').doc(gid).collection('requests').where('requestedBy', '==', uid).where('type', '==', 'fantasy').get()
-  ]);
-  const group = groupSnap.data();
-  const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
-  const partner = members[0];
-  const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
-  const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
-  const fantasies = group.fantasies || DEFAULT_FANTASIES;
-  const myReqs = reqsSnap.docs.map(d => d.data());
-  const levels = { basic: { label: '🟢 Básico', color: 'var(--teal)' }, medium: { label: '🟡 Medio', color: 'var(--amber)' }, high: { label: '🔴 Alto', color: 'var(--rose)' } };
 
-  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <div style="font-size:13px;color:var(--text2)">Tienes <strong style="color:var(--rose)">${myPts} pts</strong> disponibles</div>
-  </div>
-  <div class="filter-scroll">
-    <button class="filter-chip ${fantasyFilter === 'all' ? 'active' : ''}" onclick="setFF('all',this)">Todas</button>
-    <button class="filter-chip ${fantasyFilter === 'basic' ? 'active' : ''}" onclick="setFF('basic',this)">🟢 Básico</button>
-    <button class="filter-chip ${fantasyFilter === 'medium' ? 'active' : ''}" onclick="setFF('medium',this)">🟡 Medio</button>
-    <button class="filter-chip ${fantasyFilter === 'high' ? 'active' : ''}" onclick="setFF('high',this)">🔴 Alto</button>
-  </div>`;
+  try {
+    const [groupSnap, membersSnap, reqsSnap] = await Promise.all([
+      db.collection('groups').doc(gid).get(),
+      db.collection('users').where('groupId', '==', gid).where('active', '==', true).get(),
+      db.collection('groups').doc(gid).collection('requests').where('requestedBy', '==', uid).where('type', '==', 'fantasy').get()
+    ]);
 
-  const filtered = fantasyFilter === 'all' ? fantasies : fantasies.filter(f => f.level === fantasyFilter);
-  filtered.forEach(f => {
-    const canAfford = myPts >= f.pts;
-    html += `<div class="fantasy-card" onclick="showFantasyDetail('${f.id}')">
-      <div class="fantasy-emoji ${f.level}">${f.icon}</div>
-      <div class="fantasy-info">
-        <div class="fantasy-name">${f.name}</div>
-        <div class="fantasy-level" style="color:${levels[f.level].color}">${levels[f.level].label}</div>
-      </div>
-      <span class="pts-badge ${canAfford ? f.level : 'locked'}">${f.pts} pts</span>
+    const group = groupSnap.data();
+    const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
+    const partner = members[0];
+    const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
+    const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
+    const fantasies = group.fantasies || DEFAULT_FANTASIES;
+    const myReqs = reqsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const levels = { basic: { label: '🟢 Básico', color: 'var(--teal)' }, medium: { label: '🟡 Medio', color: 'var(--amber)' }, high: { label: '🔴 Alto', color: 'var(--rose)' } };
+
+    let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:13px;color:var(--text2)">Tienes <strong style="color:var(--rose)">${myPts} pts</strong> disponibles</div>
+    </div>
+    <div class="filter-scroll">
+      <button class="filter-chip ${fantasyFilter === 'all' ? 'active' : ''}" onclick="setFF('all',this)">Todas</button>
+      <button class="filter-chip ${fantasyFilter === 'basic' ? 'active' : ''}" onclick="setFF('basic',this)">🟢 Básico</button>
+      <button class="filter-chip ${fantasyFilter === 'medium' ? 'active' : ''}" onclick="setFF('medium',this)">🟡 Medio</button>
+      <button class="filter-chip ${fantasyFilter === 'high' ? 'active' : ''}" onclick="setFF('high',this)">🔴 Alto</button>
     </div>`;
-  });
 
-  // Pending for me to approve
-  const pendingSnap = await db.collection('groups').doc(gid).collection('requests')
-    .where('status', '==', 'pending').where('type', '==', 'fantasy').get();
-  const pendingForMe = pendingSnap.docs.map(d => d.data()).filter(r => r.requestedBy !== uid);
-  if (pendingForMe.length > 0) {
-    html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Solicitudes pendientes</div></div>`;
-    pendingForMe.forEach(r => {
-      html += `<div class="card glow-rose">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div><div style="font-size:13px;font-weight:500">${r.fantasyName}</div><div style="font-size:11px;color:var(--text2)">${r.pts} pts</div></div>
-          <span class="status pending">⏳</span>
+    const filtered = fantasyFilter === 'all' ? fantasies : fantasies.filter(f => f.level === fantasyFilter);
+    filtered.forEach(f => {
+      const canAfford = myPts >= f.pts;
+      html += `<div class="fantasy-card" onclick="showFantasyDetail('${f.id}')">
+        <div class="fantasy-emoji ${f.level}">${f.icon}</div>
+        <div class="fantasy-info">
+          <div class="fantasy-name">${f.name}</div>
+          <div class="fantasy-level" style="color:${levels[f.level].color}">${levels[f.level].label}</div>
         </div>
-        ${r.comment ? `<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:8px">"${r.comment}"</div>` : ''}
-        <div class="row">
-          <button class="btn btn-teal btn-sm" onclick="approveReq('${r.id}')">✓ Aprobar</button>
-          <button class="btn btn-danger btn-sm" onclick="showRejectModal('${r.id}')">✕ Rechazar</button>
-        </div>
+        <span class="pts-badge ${canAfford ? f.level : 'locked'}">${f.pts} pts</span>
       </div>`;
     });
-  }
 
-  if (myReqs.length > 0) {
-    html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Mis solicitudes</div></div>`;
-    const statusMap = { pending: 'pending', approved: 'approved', rejected: 'rejected', fulfilled: 'fulfilled' };
-    const labelMap = { pending: '⏳ Pendiente', approved: '✓ Aprobada', rejected: '✕ Rechazada', fulfilled: '⭐ Cumplida' };
-    myReqs.slice(0, 8).forEach(r => {
-      html += `<div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${r.reason || r.approveComment ? '8px' : '0'}">
-          <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
-          <span class="status ${statusMap[r.status]}">${labelMap[r.status]}</span>
-        </div>
-        ${r.reason ? `<div style="font-size:12px;color:var(--rose);background:var(--bg4);border-radius:8px;padding:8px">Rechazado: "${r.reason}"</div>` : ''}
-        ${r.approveComment ? `<div style="font-size:12px;color:var(--teal);background:var(--bg4);border-radius:8px;padding:8px">"${r.approveComment}"</div>` : ''}
-        ${r.status === 'approved' && currentUserData.role === 'admin' ? `<button class="btn btn-sm btn-purple" onclick="markFulfilled('${r.id}')" style="margin-top:8px;width:100%">⭐ Marcar cumplida</button>` : ''}
-      </div>`;
-    });
-  }
+    const pendingSnap = await db.collection('groups').doc(gid).collection('requests')
+      .where('status', '==', 'pending').where('type', '==', 'fantasy').get();
+    const pendingForMe = pendingSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => r.requestedBy !== uid);
 
-  document.getElementById('content').innerHTML = html;
+    if (pendingForMe.length > 0) {
+      html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Por aprobar</div></div>`;
+      pendingForMe.forEach(r => {
+        html += `<div class="card glow-rose">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div><div style="font-size:13px;font-weight:500">${r.fantasyName}</div><div style="font-size:11px;color:var(--text2)">${r.pts} pts</div></div>
+            <span class="status pending">⏳</span>
+          </div>
+          ${r.comment ? `<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:8px">"${r.comment}"</div>` : ''}
+          <div class="row">
+            <button class="btn btn-teal btn-sm" onclick="approveReq('${r.id}')">✓ Aprobar</button>
+            <button class="btn btn-danger btn-sm" onclick="showRejectModal('${r.id}')">✕ Rechazar</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    if (myReqs.length > 0) {
+      const statusMap = { pending: 'pending', approved: 'approved', rejected: 'rejected', fulfilled: 'fulfilled' };
+      const labelMap = { pending: '⏳ Pendiente', approved: '✓ Aprobada', rejected: '✕ Rechazada', fulfilled: '⭐ Cumplida' };
+      html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Mis solicitudes</div></div>`;
+      myReqs.slice(0, 8).forEach(r => {
+        html += `<div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${r.reason || r.approveComment ? '8px' : '0'}">
+            <div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
+            <span class="status ${statusMap[r.status] || 'pending'}">${labelMap[r.status] || '⏳'}</span>
+          </div>
+          ${r.reason ? `<div style="font-size:12px;color:var(--rose);background:var(--bg4);border-radius:8px;padding:8px">Rechazado: "${r.reason}"</div>` : ''}
+          ${r.approveComment ? `<div style="font-size:12px;color:var(--teal);background:var(--bg4);border-radius:8px;padding:8px">"${r.approveComment}"</div>` : ''}
+          ${r.status === 'approved' && currentUserData.role === 'admin' ? `<button class="btn btn-sm btn-purple" onclick="markFulfilled('${r.id}')" style="margin-top:8px;width:100%">⭐ Marcar cumplida</button>` : ''}
+        </div>`;
+      });
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch (e) {
+    document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Error cargando fantasías</div></div>';
+  }
 }
 
 function setFF(level, el) {
@@ -707,104 +861,113 @@ function setFF(level, el) {
 async function showFantasyDetail(fid) {
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
-  const groupSnap = await db.collection('groups').doc(gid).get();
-  const group = groupSnap.data();
-  const f = group.fantasies?.find(x => x.id === fid) || DEFAULT_FANTASIES.find(x => x.id === fid);
-  if (!f) return;
-  const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
-  const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
-  const partner = members[0];
-  const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
-  const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
-  const canAfford = myPts >= f.pts;
-  const levels = { basic: 'Básico', medium: 'Medio', high: 'Alto' };
-  const levelColors = { basic: 'var(--teal)', medium: 'var(--amber)', high: 'var(--rose)' };
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const group = groupSnap.data();
+    const f = group.fantasies?.find(x => x.id === fid) || DEFAULT_FANTASIES.find(x => x.id === fid);
+    if (!f) return;
+    const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
+    const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
+    const partner = members[0];
+    const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
+    const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
+    const canAfford = myPts >= f.pts;
+    const levelColors = { basic: 'var(--teal)', medium: 'var(--amber)', high: 'var(--rose)' };
+    const levelLabels = { basic: 'Básico', medium: 'Medio', high: 'Alto' };
 
-  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal">
-      <div class="modal-handle"></div>
-      <div style="text-align:center;margin-bottom:20px">
-        <div style="font-size:56px;margin-bottom:10px">${f.icon}</div>
-        <div style="font-family:var(--font-display);font-size:22px;font-weight:500;margin-bottom:4px">${f.name}</div>
-        <div style="font-size:12px;color:${levelColors[f.level]};font-weight:500;margin-bottom:8px">${levels[f.level]}</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.5">${f.desc}</div>
+    document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div style="text-align:center;margin-bottom:20px">
+          <div style="font-size:56px;margin-bottom:10px">${f.icon}</div>
+          <div style="font-family:var(--font-display);font-size:22px;font-weight:500;margin-bottom:4px">${f.name}</div>
+          <div style="font-size:12px;color:${levelColors[f.level]};font-weight:500;margin-bottom:8px">${levelLabels[f.level]}</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.5">${f.desc}</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg4);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px">
+          <div style="font-size:13px;color:var(--text2)">Costo</div>
+          <div style="font-family:var(--font-display);font-size:28px;font-weight:500;color:var(--rose)">${f.pts} pts</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg4);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
+          <div style="font-size:13px;color:var(--text2)">Tus puntos</div>
+          <div style="font-size:18px;font-weight:600;color:${canAfford ? 'var(--teal)' : 'var(--rose)'}">${myPts}</div>
+        </div>
+        ${canAfford ? `
+        <div class="form-group">
+          <label class="form-label">Nota para tu pareja</label>
+          <textarea class="form-control" id="fantasy-comment" rows="2" placeholder="Agrega contexto..."></textarea>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="requestFantasy('${f.id}')">🔥 Solicitar esta fantasía</button>`
+        : `<div style="text-align:center;background:var(--bg4);border-radius:var(--radius-sm);padding:16px;color:var(--text2);font-size:13px">
+          Te faltan <strong style="color:var(--rose)">${f.pts - myPts} pts</strong> para esto.
+        </div>
+        <button class="btn btn-outline btn-full" style="margin-top:10px" onclick="closeModalDirect()">Cerrar</button>`}
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg4);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
-        <div style="font-size:13px;color:var(--text2)">Costo en puntos</div>
-        <div style="font-family:var(--font-display);font-size:28px;font-weight:500;color:var(--rose)">${f.pts}</div>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg4);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
-        <div style="font-size:13px;color:var(--text2)">Tus puntos disponibles</div>
-        <div style="font-size:18px;font-weight:600;color:${canAfford ? 'var(--teal)' : 'var(--rose)'}">${myPts}</div>
-      </div>
-      ${canAfford ? `
-      <div class="form-group">
-        <label class="form-label">Nota para tu pareja</label>
-        <textarea class="form-control" id="fantasy-comment" rows="2" placeholder="Agrega contexto o deseos especiales..."></textarea>
-      </div>
-      <button class="btn btn-primary btn-full" onclick="requestFantasy('${f.id}')">🔥 Solicitar esta fantasía</button>`
-      : `<div style="text-align:center;background:var(--bg4);border-radius:var(--radius-sm);padding:16px;color:var(--text2);font-size:13px">
-        Te faltan <strong style="color:var(--rose)">${f.pts - myPts} pts</strong> para solicitar esto.<br>
-        <span style="font-size:12px;margin-top:4px;display:block">Sigue sumando acciones 💪</span>
-      </div>
-      <button class="btn btn-outline btn-full" style="margin-top:10px" onclick="closeModalDirect()">Cerrar</button>`}
-    </div>
-  </div>`;
+    </div>`;
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 async function requestFantasy(fid) {
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
   const comment = document.getElementById('fantasy-comment')?.value || '';
-  const groupSnap = await db.collection('groups').doc(gid).get();
-  const group = groupSnap.data();
-  const f = group.fantasies?.find(x => x.id === fid) || DEFAULT_FANTASIES.find(x => x.id === fid);
-  const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
-  const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
-  const partner = members[0];
-  const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
-  const myPts = pairKey ? (group.pairPoints?.[pairKey]?.[uid] || 0) : 0;
 
-  if (!f || myPts < f.pts) { showToast('Sin puntos suficientes'); return; }
+  const btn = document.querySelector('#modal-container .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Solicitando...'; }
 
-  // Deduct points
-  const pairPoints = group.pairPoints || {};
-  if (pairKey) {
-    if (!pairPoints[pairKey]) pairPoints[pairKey] = {};
-    pairPoints[pairKey][uid] = Math.max(0, (pairPoints[pairKey][uid] || 0) - f.pts);
-  }
-  await db.collection('groups').doc(gid).update({ pairPoints });
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const group = groupSnap.data();
+    const f = group.fantasies?.find(x => x.id === fid) || DEFAULT_FANTASIES.find(x => x.id === fid);
+    const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
+    const members = membersSnap.docs.map(d => d.data()).filter(m => m.id !== uid);
+    const partner = members[0];
+    const pairKey = partner ? [uid, partner.id].sort().join('_') : null;
+    const pairPoints = group.pairPoints || {};
+    const myPts = pairKey ? (pairPoints[pairKey]?.[uid] || 0) : 0;
 
-  const reqRef = db.collection('groups').doc(gid).collection('requests').doc();
-  await reqRef.set({
-    id: reqRef.id,
-    type: 'fantasy',
-    requestedBy: uid,
-    requestedByName: currentUserData.name,
-    toUsers: partner ? [partner.id] : [],
-    fantasyId: f.id,
-    fantasyName: f.name,
-    pts: f.pts,
-    status: 'pending',
-    comment,
-    reason: '',
-    approveComment: '',
-    date: new Date().toLocaleDateString('es'),
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
+    if (!f || myPts < f.pts) { showToast('Sin puntos suficientes'); if (btn) { btn.disabled = false; btn.textContent = '🔥 Solicitar esta fantasía'; } return; }
 
-  if (partner) {
-    await db.collection('groups').doc(gid).collection('notifications').add({
-      toUserId: partner.id,
-      text: `🔥 ${currentUserData.name} solicitó: ${f.name} (${f.pts} pts)`,
-      read: false,
+    if (pairKey) {
+      if (!pairPoints[pairKey]) pairPoints[pairKey] = {};
+      pairPoints[pairKey][uid] = Math.max(0, (pairPoints[pairKey][uid] || 0) - f.pts);
+      await db.collection('groups').doc(gid).update({ pairPoints });
+    }
+
+    const reqRef = db.collection('groups').doc(gid).collection('requests').doc();
+    await reqRef.set({
+      id: reqRef.id,
+      type: 'fantasy',
+      requestedBy: uid,
+      requestedByName: currentUserData.name,
+      toUsers: partner ? [partner.id] : [],
+      fantasyId: f.id,
+      fantasyName: f.name,
+      pts: f.pts,
+      status: 'pending',
+      comment,
+      reason: '',
+      approveComment: '',
+      date: new Date().toLocaleDateString('es'),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-  }
 
-  closeModalDirect();
-  showToast('✓ Solicitud enviada');
-  showTab('fantasy');
+    if (partner) {
+      await db.collection('groups').doc(gid).collection('notifications').add({
+        toUserId: partner.id,
+        text: `🔥 ${currentUserData.name} solicitó: ${f.name} (${f.pts} pts)`,
+        read: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    closeModalDirect();
+    showToast('✓ Solicitud enviada');
+    showTab('fantasy');
+  } catch (e) {
+    showToast('Error: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '🔥 Solicitar esta fantasía'; }
+  }
 }
 
 async function markFulfilled(reqId) {
@@ -814,32 +977,183 @@ async function markFulfilled(reqId) {
   showTab('fantasy');
 }
 
-// ===== HISTORY =====
-async function renderHistory() {
-  const gid = currentUserData.groupId;
-  const uid = currentUser.uid;
-  const snap = await db.collection('groups').doc(gid).collection('history')
-    .orderBy('createdAt', 'desc').limit(50).get();
-  const all = snap.docs.map(d => d.data());
-  const mine = all.filter(h => h.fromUser === uid || h.toUsers?.includes(uid));
+// ===== GAME MODULE =====
+let gameState = { category: 'suave', mode: 'presencial', currentChallenge: null, usedChallenges: { suave: [], moderado: [], hot: [] }, sessionId: null };
 
-  let html = `<div class="section-hd"><div class="section-title">Mi historial completo</div></div>`;
-  if (mine.length === 0) {
-    html += `<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Sin historial aún.<br>Registra tu primera acción.</div></div>`;
+function renderGame() {
+  const cats = GAME_CHALLENGES;
+  let html = `<div style="text-align:center;padding:8px 0 16px">
+    <div style="font-size:32px;margin-bottom:6px">🎮</div>
+    <div style="font-family:var(--font-display);font-size:22px;font-weight:500">Ignite Game</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:4px">Retos para mayores de 21 años</div>
+  </div>
+
+  <div class="section-hd"><div class="section-title">Modo de juego</div></div>
+  <div class="row" style="margin-bottom:16px">
+    <button class="btn btn-full ${gameState.mode === 'presencial' ? 'btn-primary' : 'btn-outline'}" onclick="setGameMode('presencial')">🏠 Presencial</button>
+    <button class="btn btn-full ${gameState.mode === 'remoto' ? 'btn-primary' : 'btn-outline'}" onclick="setGameMode('remoto')">📱 Remoto</button>
+  </div>
+
+  <div class="section-hd"><div class="section-title">Categoría</div></div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">`;
+
+  Object.entries(cats).forEach(([key, cat]) => {
+    const isActive = gameState.category === key;
+    html += `<div class="card ${isActive ? 'glow-rose' : ''}" onclick="setGameCategory('${key}')" style="cursor:pointer;border-color:${isActive ? cat.color : ''};display:flex;align-items:center;gap:12px;padding:14px">
+      <div style="font-size:28px">${cat.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500;color:${cat.color}">${cat.label}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${key === 'suave' ? 'Para calentar' : key === 'moderado' ? 'Subiendo la temperatura' : 'Sin filtros'}</div>
+      </div>
+      ${isActive ? `<div style="color:${cat.color};font-size:18px">✓</div>` : ''}
+    </div>`;
+  });
+
+  html += `</div>
+  <button class="btn btn-primary btn-full" style="font-size:16px;padding:16px" onclick="getChallenge()">🎲 Obtener reto</button>`;
+
+  if (gameState.currentChallenge) {
+    const cat = cats[gameState.category];
+    html += `<div class="card glow-rose" style="margin-top:16px;text-align:center;padding:24px">
+      <div style="font-size:40px;margin-bottom:12px">${cat.icon}</div>
+      <div style="font-size:11px;color:${cat.color};text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:600">${cat.label} · ${gameState.mode === 'presencial' ? '🏠 Presencial' : '📱 Remoto'}</div>
+      <div style="font-size:16px;font-weight:500;line-height:1.6;color:var(--text)">${gameState.currentChallenge}</div>
+      <button class="btn btn-outline btn-full" style="margin-top:16px" onclick="getChallenge()">🔄 Siguiente reto</button>
+    </div>`;
+  }
+
+  html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Historial de partidas</div></div>
+  <div id="game-history-container"><div class="loading"><div class="spinner"></div></div></div>`;
+
+  document.getElementById('content').innerHTML = html;
+  loadGameHistory();
+}
+
+function setGameMode(mode) {
+  gameState.mode = mode;
+  gameState.currentChallenge = null;
+  showTab('game');
+}
+
+function setGameCategory(cat) {
+  gameState.category = cat;
+  gameState.currentChallenge = null;
+  showTab('game');
+}
+
+function getChallenge() {
+  const cat = gameState.category;
+  const mode = gameState.mode;
+  const challenges = GAME_CHALLENGES[cat][mode];
+  const used = gameState.usedChallenges[cat] || [];
+  const available = challenges.filter((_, i) => !used.includes(i));
+
+  if (available.length === 0) {
+    gameState.usedChallenges[cat] = [];
+    const idx = Math.floor(Math.random() * challenges.length);
+    gameState.currentChallenge = challenges[idx];
+    gameState.usedChallenges[cat].push(idx);
   } else {
-    mine.forEach(h => {
-      const isMe = h.fromUser === uid;
+    const availableIdx = challenges.reduce((acc, _, i) => { if (!used.includes(i)) acc.push(i); return acc; }, []);
+    const pick = availableIdx[Math.floor(Math.random() * availableIdx.length)];
+    gameState.currentChallenge = challenges[pick];
+    gameState.usedChallenges[cat].push(pick);
+  }
+
+  // Auto progress category
+  const order = ['suave', 'moderado', 'hot'];
+  const currentIdx = order.indexOf(cat);
+  const totalUsed = Object.values(gameState.usedChallenges).flat().length;
+  if (totalUsed > 0 && totalUsed % 5 === 0 && currentIdx < order.length - 1) {
+    gameState.category = order[currentIdx + 1];
+    showToast(`🔥 Subiendo a categoría: ${GAME_CHALLENGES[gameState.category].label}`);
+  }
+
+  saveGameSession();
+  showTab('game');
+}
+
+async function saveGameSession() {
+  if (!currentUserData?.groupId) return;
+  try {
+    const gid = currentUserData.groupId;
+    if (!gameState.sessionId) {
+      const ref = db.collection('groups').doc(gid).collection('gameSessions').doc();
+      gameState.sessionId = ref.id;
+    }
+    await db.collection('groups').doc(gid).collection('gameSessions').doc(gameState.sessionId).set({
+      id: gameState.sessionId,
+      startedBy: currentUserData.name,
+      category: gameState.category,
+      mode: gameState.mode,
+      totalChallenges: Object.values(gameState.usedChallenges).flat().length,
+      lastChallenge: gameState.currentChallenge,
+      date: new Date().toLocaleDateString('es'),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch (e) {}
+}
+
+async function loadGameHistory() {
+  if (!currentUserData?.groupId) return;
+  const container = document.getElementById('game-history-container');
+  if (!container) return;
+  try {
+    const snap = await db.collection('groups').doc(currentUserData.groupId)
+      .collection('gameSessions').orderBy('createdAt', 'desc').limit(10).get();
+    if (snap.empty) {
+      container.innerHTML = '<div class="empty" style="padding:16px"><div class="empty-text">Sin partidas aún. ¡Juega tu primera!</div></div>';
+      return;
+    }
+    let html = '';
+    snap.docs.forEach(d => {
+      const s = d.data();
+      const cat = GAME_CHALLENGES[s.category];
       html += `<div class="hist-item">
-        <div class="hist-icon ${h.type}">${h.type === 'add' ? '⬆' : '⬇'}</div>
+        <div class="hist-icon add">${cat?.icon || '🎮'}</div>
         <div style="flex:1">
-          <div class="hist-name">${h.action}</div>
-          <div class="hist-date">${isMe ? 'Tú' : h.fromUserName} · ${h.date || ''}${h.comment ? ' · "' + h.comment + '"' : ''}</div>
+          <div class="hist-name">${s.startedBy} · ${cat?.label || s.category}</div>
+          <div class="hist-date">${s.mode === 'presencial' ? '🏠' : '📱'} ${s.mode} · ${s.totalChallenges} retos · ${s.date}</div>
         </div>
-        <div class="hist-pts ${h.type}">${h.type === 'add' ? '+' : '-'}${h.pts}</div>
       </div>`;
     });
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = '<div class="empty" style="padding:16px"><div class="empty-text">Sin historial</div></div>';
   }
-  document.getElementById('content').innerHTML = html;
+}
+
+// ===== HISTORY =====
+async function renderHistory() {
+  if (!currentUserData?.groupId) { document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Sin grupo asignado</div></div>'; return; }
+  const gid = currentUserData.groupId;
+  const uid = currentUser.uid;
+  try {
+    const snap = await db.collection('groups').doc(gid).collection('history')
+      .orderBy('createdAt', 'desc').limit(50).get();
+    const all = snap.docs.map(d => d.data());
+    const mine = all.filter(h => h.fromUser === uid || h.toUsers?.includes(uid));
+
+    let html = `<div class="section-hd"><div class="section-title">Mi historial completo</div></div>`;
+    if (mine.length === 0) {
+      html += `<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Sin historial aún.<br>Registra tu primera acción.</div></div>`;
+    } else {
+      mine.forEach(h => {
+        const isMe = h.fromUser === uid;
+        html += `<div class="hist-item">
+          <div class="hist-icon ${h.type}">${h.type === 'add' ? '⬆' : '⬇'}</div>
+          <div style="flex:1">
+            <div class="hist-name">${h.action}</div>
+            <div class="hist-date">${isMe ? 'Tú' : (h.fromUserName || '')} · ${h.date || ''}${h.comment ? ' · "' + h.comment + '"' : ''}</div>
+          </div>
+          <div class="hist-pts ${h.type}">${h.type === 'add' ? '+' : '-'}${h.pts}</div>
+        </div>`;
+      });
+    }
+    document.getElementById('content').innerHTML = html;
+  } catch (e) {
+    document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Error cargando historial</div></div>';
+  }
 }
 
 // ===== ADMIN =====
@@ -849,101 +1163,99 @@ async function renderAdmin() {
     return;
   }
   const gid = currentUserData.groupId;
-  const [membersSnap, groupSnap] = await Promise.all([
-    db.collection('users').where('groupId', '==', gid).get(),
-    db.collection('groups').doc(gid).get()
-  ]);
-  const members = membersSnap.docs.map(d => d.data());
-  const group = groupSnap.data();
+  try {
+    const [membersSnap, groupSnap] = await Promise.all([
+      db.collection('users').where('groupId', '==', gid).get(),
+      db.collection('groups').doc(gid).get()
+    ]);
+    const members = membersSnap.docs.map(d => d.data());
+    const group = groupSnap.data();
 
-  let html = `<div class="section-hd"><div class="section-title">Usuarios (${members.length})</div>
-    <button class="btn btn-primary btn-sm" onclick="showInviteModal()">+ Invitar</button>
-  </div>`;
+    let html = `<div class="section-hd"><div class="section-title">Usuarios (${members.length})</div>
+      <button class="btn btn-primary btn-sm" onclick="showInviteModal()">+ Invitar</button>
+    </div>`;
 
-  members.forEach(m => {
-    html += `<div class="card">
-      <div class="user-item" style="border:none;padding:0">
-        <div class="user-avatar-lg" style="background:${m.color}22;color:${m.color}">${m.initials}</div>
-        <div style="flex:1">
-          <div class="user-name-text">${m.name}</div>
-          <div class="user-meta">${m.email}</div>
-          <div class="user-meta">${m.gender} · ${m.orientation}</div>
-          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-            <span class="role-badge ${m.role === 'admin' ? 'role-admin' : 'role-viewer'}">${m.role === 'admin' ? '👑 Admin' : '👁 Viewer'}</span>
-            ${!m.active ? '<span class="role-badge role-disabled">🚫 Inactivo</span>' : ''}
+    members.forEach(m => {
+      html += `<div class="card">
+        <div class="user-item" style="border:none;padding:0">
+          <div class="user-avatar-lg" style="background:${m.color}22;color:${m.color}">${m.initials}</div>
+          <div style="flex:1">
+            <div class="user-name-text">${m.name}</div>
+            <div class="user-meta">${m.email}</div>
+            <div class="user-meta">${m.gender} · ${m.orientation}</div>
+            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+              <span class="role-badge ${m.role === 'admin' ? 'role-admin' : 'role-viewer'}">${m.role === 'admin' ? '👑 Admin' : '👁 Viewer'}</span>
+              ${!m.active ? '<span class="role-badge role-disabled">🚫 Inactivo</span>' : ''}
+            </div>
           </div>
+          ${m.id !== currentUser.uid ? `
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <select class="form-control" style="padding:5px 8px;font-size:11px" onchange="changeRole('${m.id}',this.value)">
+              <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>👑 Admin</option>
+              <option value="viewer" ${m.role === 'viewer' ? 'selected' : ''}>👁 Viewer</option>
+            </select>
+            <button class="btn btn-sm ${m.active ? 'btn-danger' : 'btn-teal'}" onclick="toggleMember('${m.id}',${m.active})">
+              ${m.active ? '🚫 Desactivar' : '✓ Activar'}
+            </button>
+          </div>` : '<span style="font-size:11px;color:var(--text2)">Tú</span>'}
         </div>
-        ${m.id !== currentUser.uid ? `
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <select class="form-control" style="padding:5px 8px;font-size:11px" onchange="changeRole('${m.id}',this.value)">
-            <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>👑 Admin</option>
-            <option value="viewer" ${m.role === 'viewer' ? 'selected' : ''}>👁 Viewer</option>
-          </select>
-          <button class="btn btn-sm ${m.active ? 'btn-danger' : 'btn-teal'}" onclick="toggleMember('${m.id}',${m.active})">
-            ${m.active ? '🚫 Desactivar' : '✓ Activar'}
-          </button>
-        </div>` : '<span style="font-size:11px;color:var(--text2)">Tú</span>'}
+      </div>`;
+    });
+
+    html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Ajustar puntos</div></div>
+    <div class="card">
+      <div class="form-group"><label class="form-label">Usuario</label>
+        <select class="form-control" id="adj-u">`;
+    members.filter(m => m.active).forEach(m => { html += `<option value="${m.id}">${m.name}</option>`; });
+    html += `</select></div>
+      <div class="form-group"><label class="form-label">Puntos (+ suma / - resta)</label>
+        <input type="number" class="form-control" id="adj-p" placeholder="Ej: 30 o -10">
       </div>
-    </div>`;
-  });
-
-  html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Ajustar puntos manualmente</div></div>
-  <div class="card">
-    <div class="form-group">
-      <label class="form-label">Usuario</label>
-      <select class="form-control" id="adj-u">`;
-  members.filter(m => m.active).forEach(m => { html += `<option value="${m.id}">${m.name}</option>`; });
-  html += `</select></div>
-    <div class="form-group">
-      <label class="form-label">Puntos (+ suma / - resta)</label>
-      <input type="number" class="form-control" id="adj-p" placeholder="Ej: 30 o -10">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Motivo</label>
-      <input type="text" class="form-control" id="adj-r" placeholder="Ej: Cumpleaños de ella">
-    </div>
-    <button class="btn btn-primary btn-full" onclick="adjustPts()">Aplicar</button>
-  </div>`;
-
-  html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Fechas especiales</div></div>`;
-  (group.specialDates || DEFAULT_SPECIAL_DATES).forEach(d => {
-    html += `<div class="special-date-card">
-      <div>
-        <div style="font-size:13px;font-weight:500">${d.icon} ${d.name}</div>
-        <div style="font-size:11px;color:var(--text2)">${d.date} · +${d.pts} pts a todos</div>
+      <div class="form-group"><label class="form-label">Motivo</label>
+        <input type="text" class="form-control" id="adj-r" placeholder="Ej: Cumpleaños de ella">
       </div>
-      <button class="btn btn-sm btn-primary" onclick="applyDate('${d.name}',${d.pts})">Aplicar</button>
+      <button class="btn btn-primary btn-full" onclick="adjustPts()">Aplicar</button>
     </div>`;
-  });
 
-  html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Agregar fantasía</div></div>
-  <div class="card">
-    <div class="form-group"><label class="form-label">Emoji</label><input type="text" class="form-control" id="nf-icon" placeholder="🔥" maxlength="2"></div>
-    <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-control" id="nf-name" placeholder="Nombre de la fantasía"></div>
-    <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-control" id="nf-desc" placeholder="Breve descripción"></div>
-    <div class="form-group"><label class="form-label">Puntos</label><input type="number" class="form-control" id="nf-pts" placeholder="0"></div>
-    <div class="form-group"><label class="form-label">Nivel</label>
-      <select class="form-control" id="nf-level">
-        <option value="basic">🟢 Básico</option>
-        <option value="medium">🟡 Medio</option>
-        <option value="high">🔴 Alto</option>
-      </select>
-    </div>
-    <button class="btn btn-primary btn-full" onclick="addFantasy()">Agregar fantasía</button>
-  </div>`;
+    html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Fechas especiales</div></div>`;
+    (group.specialDates || DEFAULT_SPECIAL_DATES).forEach(d => {
+      html += `<div class="special-date-card">
+        <div>
+          <div style="font-size:13px;font-weight:500">${d.icon} ${d.name}</div>
+          <div style="font-size:11px;color:var(--text2)">${d.date} · +${d.pts} pts a todos</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="applyDate('${d.name}',${d.pts})">Aplicar</button>
+      </div>`;
+    });
 
-  document.getElementById('content').innerHTML = html;
+    html += `<div class="section-hd" style="margin-top:16px"><div class="section-title">Agregar fantasía</div></div>
+    <div class="card">
+      <div class="form-group"><label class="form-label">Emoji</label><input type="text" class="form-control" id="nf-icon" placeholder="🔥" maxlength="2"></div>
+      <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-control" id="nf-name" placeholder="Nombre de la fantasía"></div>
+      <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-control" id="nf-desc" placeholder="Breve descripción"></div>
+      <div class="form-group"><label class="form-label">Puntos</label><input type="number" class="form-control" id="nf-pts" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Nivel</label>
+        <select class="form-control" id="nf-level">
+          <option value="basic">🟢 Básico</option>
+          <option value="medium">🟡 Medio</option>
+          <option value="high">🔴 Alto</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="addFantasy()">Agregar fantasía</button>
+    </div>`;
+
+    document.getElementById('content').innerHTML = html;
+  } catch (e) {
+    document.getElementById('content').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Error cargando configuración</div></div>';
+  }
 }
 
 async function changeRole(uid, role) {
-  await db.collection('users').doc(uid).update({ role });
-  showToast('Rol actualizado');
+  try { await db.collection('users').doc(uid).update({ role }); showToast('Rol actualizado'); } catch (e) { showToast('Error: ' + e.message); }
 }
 
 async function toggleMember(uid, active) {
-  await db.collection('users').doc(uid).update({ active: !active });
-  showToast(active ? 'Usuario desactivado' : 'Usuario activado');
-  showTab('admin');
+  try { await db.collection('users').doc(uid).update({ active: !active }); showToast(active ? 'Usuario desactivado' : 'Usuario activado'); showTab('admin'); } catch (e) { showToast('Error: ' + e.message); }
 }
 
 async function adjustPts() {
@@ -952,63 +1264,55 @@ async function adjustPts() {
   const reason = document.getElementById('adj-r')?.value || 'Ajuste manual';
   if (!uid || isNaN(pts) || pts === 0) { showToast('Completa todos los campos'); return; }
   const gid = currentUserData.groupId;
-  const groupSnap = await db.collection('groups').doc(gid).get();
-  const group = groupSnap.data();
-  const pairPoints = group.pairPoints || {};
-  const members = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
-  members.docs.forEach(d => {
-    const m = d.data();
-    if (m.id !== uid) {
-      const pk = [uid, m.id].sort().join('_');
-      if (!pairPoints[pk]) pairPoints[pk] = {};
-      pairPoints[pk][uid] = Math.max(0, (pairPoints[pk][uid] || 0) + pts);
-    }
-  });
-  await db.collection('groups').doc(gid).update({ pairPoints });
-  await db.collection('groups').doc(gid).collection('history').add({
-    fromUser: currentUser.uid,
-    fromUserName: currentUserData.name,
-    toUsers: [uid],
-    action: reason,
-    pts: Math.abs(pts),
-    type: pts > 0 ? 'add' : 'sub',
-    date: new Date().toLocaleDateString('es'),
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  showToast(`${pts > 0 ? '+' : ''}${pts} pts aplicados`);
-  showTab('admin');
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const pairPoints = groupSnap.data().pairPoints || {};
+    const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
+    membersSnap.docs.forEach(d => {
+      const m = d.data();
+      if (m.id !== uid) {
+        const pk = [uid, m.id].sort().join('_');
+        if (!pairPoints[pk]) pairPoints[pk] = {};
+        pairPoints[pk][uid] = Math.max(0, (pairPoints[pk][uid] || 0) + pts);
+      }
+    });
+    await db.collection('groups').doc(gid).update({ pairPoints });
+    await db.collection('groups').doc(gid).collection('history').add({
+      fromUser: currentUser.uid,
+      fromUserName: currentUserData.name,
+      toUsers: [uid],
+      action: reason,
+      pts: Math.abs(pts),
+      type: pts > 0 ? 'add' : 'sub',
+      date: new Date().toLocaleDateString('es'),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`${pts > 0 ? '+' : ''}${pts} pts aplicados`);
+    showTab('admin');
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 async function applyDate(name, pts) {
   if (!confirm(`Aplicar +${pts} pts a todos por: ${name}?`)) return;
   const gid = currentUserData.groupId;
-  const groupSnap = await db.collection('groups').doc(gid).get();
-  const group = groupSnap.data();
-  const pairPoints = group.pairPoints || {};
-  const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
-  const members = membersSnap.docs.map(d => d.data());
-  members.forEach(m => {
-    members.forEach(n => {
-      if (m.id !== n.id) {
-        const pk = [m.id, n.id].sort().join('_');
-        if (!pairPoints[pk]) pairPoints[pk] = {};
-        pairPoints[pk][m.id] = (pairPoints[pk][m.id] || 0) + pts;
-      }
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const pairPoints = groupSnap.data().pairPoints || {};
+    const membersSnap = await db.collection('users').where('groupId', '==', gid).where('active', '==', true).get();
+    const members = membersSnap.docs.map(d => d.data());
+    members.forEach(m => {
+      members.forEach(n => {
+        if (m.id !== n.id) {
+          const pk = [m.id, n.id].sort().join('_');
+          if (!pairPoints[pk]) pairPoints[pk] = {};
+          pairPoints[pk][m.id] = (pairPoints[pk][m.id] || 0) + pts;
+        }
+      });
     });
-  });
-  await db.collection('groups').doc(gid).update({ pairPoints });
-  await db.collection('groups').doc(gid).collection('history').add({
-    fromUser: currentUser.uid,
-    fromUserName: currentUserData.name,
-    toUsers: members.map(m => m.id),
-    action: name,
-    pts,
-    type: 'add',
-    date: new Date().toLocaleDateString('es'),
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  showToast(`✓ +${pts} pts a todos`);
-  showTab('admin');
+    await db.collection('groups').doc(gid).update({ pairPoints });
+    showToast(`✓ +${pts} pts a todos`);
+    showTab('admin');
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 async function addFantasy() {
@@ -1019,52 +1323,54 @@ async function addFantasy() {
   const level = document.getElementById('nf-level')?.value;
   if (!name || isNaN(pts)) { showToast('Completa nombre y puntos'); return; }
   const gid = currentUserData.groupId;
-  await db.collection('groups').doc(gid).update({
-    fantasies: firebase.firestore.FieldValue.arrayUnion({
-      id: 'f_' + Date.now(), name, pts, level, icon, desc
-    })
-  });
-  showToast('Fantasía agregada');
-  showTab('admin');
+  try {
+    await db.collection('groups').doc(gid).update({
+      fantasies: firebase.firestore.FieldValue.arrayUnion({ id: 'f_' + Date.now(), name, pts, level, icon, desc })
+    });
+    showToast('✓ Fantasía agregada');
+    showTab('admin');
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 // ===== INVITE =====
 async function showInviteModal() {
   const gid = currentUserData.groupId;
-  const groupSnap = await db.collection('groups').doc(gid).get();
-  const code = groupSnap.data().inviteCode;
-  const msg = `¡Te invito a Ignite! 🔥 La app para encender tu relación. Código: ${code}`;
-  const encoded = encodeURIComponent(msg);
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const code = groupSnap.data().inviteCode;
+    const msg = `¡Te invito a Ignite! 🔥 La app para encender tu relación. Descárgala en: https://ignite-gules-six.vercel.app — Código: ${code}`;
+    const encoded = encodeURIComponent(msg);
 
-  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal">
-      <div class="modal-handle"></div>
-      <div class="modal-title">Invitar usuario</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">Comparte este código de acceso:</div>
-      <div class="code-block" onclick="copyCode('${code}')">${code} 📋</div>
-      <div style="font-size:11px;color:var(--text2);text-align:center;margin:6px 0 16px">Toca para copiar</div>
-      <div class="section-title" style="margin-bottom:8px">Compartir por</div>
-      <div class="invite-option" onclick="window.open('https://wa.me/?text=${encoded}','_blank')">
-        <div class="invite-icon" style="background:#25D36615">💬</div>
-        <div style="flex:1"><div class="invite-name">WhatsApp</div><div class="invite-sub">Enviar invitación</div></div>
-        <span style="color:var(--text2)">→</span>
+    document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-title">Invitar usuario</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px">Código de acceso:</div>
+        <div class="code-block" onclick="copyCode('${code}')">${code} 📋</div>
+        <div style="font-size:11px;color:var(--text2);text-align:center;margin:6px 0 16px">Toca para copiar</div>
+        <div class="section-title" style="margin-bottom:8px">Compartir por</div>
+        <div class="invite-option" onclick="window.open('https://wa.me/?text=${encoded}','_blank')">
+          <div class="invite-icon" style="background:#25D36615">💬</div>
+          <div style="flex:1"><div class="invite-name">WhatsApp</div><div class="invite-sub">Enviar invitación</div></div>
+          <span style="color:var(--text2)">→</span>
+        </div>
+        <div class="invite-option" onclick="window.open('https://t.me/share/url?text=${encoded}','_blank')">
+          <div class="invite-icon" style="background:#229ED915">✈️</div>
+          <div style="flex:1"><div class="invite-name">Telegram</div><div class="invite-sub">Enviar invitación</div></div>
+          <span style="color:var(--text2)">→</span>
+        </div>
+        <div class="invite-option" onclick="copyCode('${msg}');showToast('Copia y pega en Instagram DM')">
+          <div class="invite-icon" style="background:#E1306C15">📸</div>
+          <div style="flex:1"><div class="invite-name">Instagram</div><div class="invite-sub">Copiar mensaje para DM</div></div>
+          <span style="color:var(--text2)">→</span>
+        </div>
       </div>
-      <div class="invite-option" onclick="window.open('https://t.me/share/url?text=${encoded}','_blank')">
-        <div class="invite-icon" style="background:#229ED915">✈️</div>
-        <div style="flex:1"><div class="invite-name">Telegram</div><div class="invite-sub">Enviar invitación</div></div>
-        <span style="color:var(--text2)">→</span>
-      </div>
-      <div class="invite-option" onclick="copyCode('${msg}');showToast('Copia y pega en Instagram DM')">
-        <div class="invite-icon" style="background:#E1306C15">📸</div>
-        <div style="flex:1"><div class="invite-name">Instagram</div><div class="invite-sub">Copiar mensaje para DM</div></div>
-        <span style="color:var(--text2)">→</span>
-      </div>
-    </div>
-  </div>`;
+    </div>`;
+  } catch (e) { showToast('Error: ' + e.message); }
 }
 
 function copyCode(text) {
-  try { navigator.clipboard.writeText(text); showToast('Copiado al portapapeles'); } catch (e) { showToast('Copia: ' + text); }
+  try { navigator.clipboard.writeText(text); showToast('✓ Copiado al portapapeles'); } catch (e) { showToast('Copia: ' + text); }
 }
 
 // ===== PROFILE =====
@@ -1072,10 +1378,12 @@ async function renderProfile() {
   const u = currentUserData;
   const gid = u.groupId;
   let groupCode = '';
-  if (gid) {
-    const gs = await db.collection('groups').doc(gid).get();
-    groupCode = gs.data()?.inviteCode || '';
-  }
+  try {
+    if (gid) {
+      const gs = await db.collection('groups').doc(gid).get();
+      groupCode = gs.data()?.inviteCode || '';
+    }
+  } catch (e) {}
 
   const html = `<div class="profile-hero">
     <div class="profile-avatar-lg" style="background:${u.color}22;color:${u.color};border-color:${u.color}44">${u.initials}</div>
@@ -1095,48 +1403,46 @@ async function renderProfile() {
 }
 
 async function signOut() {
-  await auth.signOut();
-  showToast('Sesión cerrada');
+  try { await auth.signOut(); showToast('Sesión cerrada'); } catch (e) {}
 }
 
 // ===== NOTIFICATIONS =====
 async function showNotifs() {
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
-  const snap = await db.collection('groups').doc(gid).collection('notifications')
-    .where('toUserId', '==', uid).orderBy('createdAt', 'desc').limit(20).get();
-  const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  try {
+    const snap = await db.collection('groups').doc(gid).collection('notifications')
+      .where('toUserId', '==', uid).orderBy('createdAt', 'desc').limit(20).get();
+    const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    snap.docs.forEach(d => { if (!d.data().read) db.collection('groups').doc(gid).collection('notifications').doc(d.id).update({ read: true }); });
 
-  // Mark as read
-  snap.docs.forEach(d => { if (!d.data().read) db.collection('groups').doc(gid).collection('notifications').doc(d.id).update({ read: true }); });
-
-  let html = `<div class="modal-overlay" onclick="closeModal(event)"><div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-title">🔔 Notificaciones</div>`;
-  if (notifs.length === 0) {
-    html += `<div class="empty"><div class="empty-icon">🔕</div><div class="empty-text">Sin notificaciones</div></div>`;
-  } else {
-    notifs.forEach(n => {
-      html += `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:13px">${n.text}</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:3px">${n.createdAt?.toDate ? n.createdAt.toDate().toLocaleDateString('es') : ''}</div>
-      </div>`;
-    });
-  }
-  html += `</div></div>`;
-  document.getElementById('modal-container').innerHTML = html;
-  const dot = document.getElementById('notif-dot');
-  if (dot) dot.style.display = 'none';
+    let html = `<div class="modal-overlay" onclick="closeModal(event)"><div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">🔔 Notificaciones</div>`;
+    if (notifs.length === 0) {
+      html += `<div class="empty"><div class="empty-icon">🔕</div><div class="empty-text">Sin notificaciones</div></div>`;
+    } else {
+      notifs.forEach(n => {
+        html += `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:13px">${n.text}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:3px">${n.createdAt?.toDate ? n.createdAt.toDate().toLocaleDateString('es') : ''}</div>
+        </div>`;
+      });
+    }
+    html += `</div></div>`;
+    document.getElementById('modal-container').innerHTML = html;
+    const dot = document.getElementById('notif-dot');
+    if (dot) dot.style.display = 'none';
+  } catch (e) { showToast('Error cargando notificaciones'); }
 }
 
-// ===== MODAL =====
+// ===== MODAL & TOAST =====
 function closeModal(e) { if (e.target.classList.contains('modal-overlay')) closeModalDirect(); }
 function closeModalDirect() { document.getElementById('modal-container').innerHTML = ''; }
 
-// ===== TOAST =====
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+  setTimeout(() => t.classList.remove('show'), 2800);
 }
