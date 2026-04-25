@@ -1089,9 +1089,10 @@ async function renderDeseos() {
     </div>`;
 
     // Filtros independientes combinados
+    // category: pareja, grupo, ambos (aparece en ambos filtros)
     let filtered = fantasies;
-    if (fantasyFilter==='pareja') filtered=filtered.filter(f=>f.category==='pareja'||!f.category);
-    else if (fantasyFilter==='grupo') filtered=filtered.filter(f=>f.category==='grupo');
+    if (fantasyFilter==='pareja') filtered=filtered.filter(f=>f.category==='pareja'||f.category==='ambos'||!f.category);
+    else if (fantasyFilter==='grupo') filtered=filtered.filter(f=>f.category==='grupo'||f.category==='ambos');
     if (fantasyLevel!=='all') filtered=filtered.filter(f=>f.level===fantasyLevel);
 
     filtered.forEach(f => {
@@ -1103,7 +1104,7 @@ async function renderDeseos() {
           <div class="fantasy-emoji ${f.level}" style="width:46px;height:46px;font-size:24px">${f.icon}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
-            <div style="font-size:11px;color:${levelColor};margin-top:2px">${levels[f.level]?.label||''} · ${f.category==='pareja'?'💑':'👥'}</div>
+            <div style="font-size:11px;color:${levelColor};margin-top:2px">${levels[f.level]?.label||''} · ${f.category==='grupo'?'👥':f.category==='ambos'?'💑👥':'💑'}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div class="pts-badge ${canAfford?f.level:'locked'}">${f.pts} pts</div>
@@ -1176,7 +1177,7 @@ async function showDeseoDetail(fid) {
     const canAfford = myPts >= f.pts;
     const levelColors = {basic:'var(--teal)',medium:'var(--amber)',high:'var(--rose)'};
     const levelLabels = {basic:'Básico',medium:'Medio',high:'Alto'};
-    const catLabel = f.category==='pareja'?'💑 En pareja':'👥 Con terceros';
+    const catLabel = f.category==='grupo'?'👥 Con terceros':f.category==='ambos'?'💑👥 Pareja o grupo':'💑 En pareja';
 
     document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)">
       <div class="modal">
@@ -1750,11 +1751,18 @@ async function renderConfig(){
           <option value="high">🔴 Alto (45-65 pts)</option>
         </select>
       </div>
-      <div class="form-group"><label class="form-label">Categoría</label>
-        <select class="form-control" id="nf-cat">
-          <option value="pareja">💑 En pareja</option>
-          <option value="grupo">👥 Con terceros</option>
-        </select>
+      <div class="form-group"><label class="form-label">¿Para quién aplica?</label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="nf-cat-pareja" checked style="width:16px;height:16px;accent-color:var(--rose)">
+            💑 En pareja
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="nf-cat-grupo" style="width:16px;height:16px;accent-color:var(--rose)">
+            👥 Con terceros / grupo
+          </label>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Puedes marcar ambas si aplica para los dos casos</div>
       </div>
       <button class="btn btn-primary btn-full" onclick="addFantasy()">Agregar deseo</button>
     </div>
@@ -1812,7 +1820,9 @@ async function addFantasy(){
   const desc=document.getElementById('nf-desc')?.value?.trim()||'';
   const pts=parseInt(document.getElementById('nf-pts')?.value||'0');
   const level=document.getElementById('nf-level')?.value;
-  const category=document.getElementById('nf-cat')?.value||'pareja';
+  const isPareja=document.getElementById('nf-cat-pareja')?.checked;
+  const isGrupo=document.getElementById('nf-cat-grupo')?.checked;
+  const category = isPareja && isGrupo ? 'ambos' : isGrupo ? 'grupo' : 'pareja';
   if(!name||isNaN(pts)){showToast('Completa nombre y puntos');return;}
   const gid=currentUserData.groupId;
   try{
