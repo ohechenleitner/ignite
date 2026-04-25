@@ -248,7 +248,7 @@ const DEFAULT_FANTASIES = [
   {
     id: 'fm6', name: 'Playa o piscina con look elegido', pts: 26, level: 'medium', icon: '🏖️',
     desc: 'Salida a la playa o piscina donde uno elige el traje de baño o look del otro.',
-    category: 'pareja',
+    category: 'ambos',
   },
   {
     id: 'fm7', name: 'Noche de striptease privado', pts: 32, level: 'medium', icon: '💃',
@@ -258,7 +258,7 @@ const DEFAULT_FANTASIES = [
   {
     id: 'fm8', name: 'Salida de noche muy producidos', pts: 24, level: 'medium', icon: '🌙',
     desc: 'Bar, discoteca o evento con full producción. Verse increíbles y disfrutarlo juntos.',
-    category: 'pareja',
+    category: 'ambos',
   },
   {
     id: 'fm9', name: 'Explorar algo nuevo en la intimidad', pts: 30, level: 'medium', icon: '🔥',
@@ -293,7 +293,7 @@ const DEFAULT_FANTASIES = [
   {
     id: 'fm15', name: 'Noche en club o bar de ambiente', pts: 28, level: 'medium', icon: '🌙',
     desc: 'Salida a un lugar con ambiente libre y adulto. Sin agenda ni expectativas.',
-    category: 'grupo',
+    category: 'ambos',
   },
 
   // ===== FUERTES (pts: 65-100+) =====
@@ -336,7 +336,7 @@ const DEFAULT_FANTASIES = [
   {
     id: 'ff8', name: 'Noche en club de ambiente adulto', pts: 45, level: 'high', icon: '🌙',
     desc: 'Asistir a un espacio de ambiente adulto liberal. Sin presión ni obligación de nada.',
-    category: 'grupo',
+    category: 'ambos',
   },
   {
     id: 'ff9', name: 'Juegos sin límites con tercero de confianza', pts: 58, level: 'high', icon: '🔥',
@@ -356,7 +356,7 @@ const DEFAULT_FANTASIES = [
   {
     id: 'ff12', name: 'La fantasía máxima acordada', pts: 65, level: 'high', icon: '🌟',
     desc: 'La fantasía que ambos definieron como la máxima. Completamente personalizada para esta pareja.',
-    category: 'pareja',
+    category: 'ambos',
   },
   {
     id: 'ff13', name: 'Noche de total vulnerabilidad', pts: 48, level: 'high', icon: '💫',
@@ -1027,11 +1027,13 @@ async function renderDeseos() {
     const partner = members[0];
     const pk = partner?[uid,partner.id].sort().join('_'):null;
     const myPts = pk?(group.pairPoints?.[pk]?.[uid]||0):0;
-    // Enriquecer fantasías del grupo con categorías del DEFAULT si faltan
+    // Enriquecer SIEMPRE con categorías del DEFAULT (Firestore puede tener datos viejos)
     const groupFantasies = group.fantasies || [];
     const fantasies = groupFantasies.length > 0 ? groupFantasies.map(f => {
       const def = DEFAULT_FANTASIES.find(d => d.id === f.id);
-      return { ...f, category: f.category || def?.category || 'pareja' };
+      // Siempre usar la categoría del DEFAULT si existe, para asegurar datos actualizados
+      const category = def?.category || f.category || 'pareja';
+      return { ...f, category };
     }) : DEFAULT_FANTASIES;
     const myReqs = myReqsSnap.docs.map(d=>({id:d.id,...d.data()}));
     const forMe = pendingSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.requestedBy!==uid);
@@ -1552,9 +1554,7 @@ async function showInviteModal() {
           <label class="form-label">¿A quién estás invitando?</label>
           <select class="form-control" id="invite-type">
             <option value="pareja">💑 Mi pareja</option>
-            <option value="amigo">👫 Amigo/a con derechos</option>
-            <option value="tercero">🧑 Tercero para jugar</option>
-            <option value="grupo">👥 Integrante del grupo</option>
+            <option value="tercero">🧑 Tercero/a</option>
           </select>
         </div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Código de acceso para quien invites:</div>
