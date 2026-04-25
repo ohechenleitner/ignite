@@ -1805,11 +1805,6 @@ async function addFantasy(){
 }
 
 // ===== MINUTAS =====
-const SESSION_LOG=[
-  {date:'22/04/2026',title:'Lanzamiento de Ignite',items:['Firebase configurado','Publicación en Vercel','Primera versión funcional']},
-  {date:'24/04/2026',title:'Mejoras de registro y UX',items:['Jensy registrada correctamente','Módulo de juego (Suave/Moderado/Hot)','Sistema de evidencias con fotos','Ojito contraseña y doble validación']},
-  {date:'25/04/2026',title:'Rediseño UX completo v5',items:['4 pestañas principales: Inicio, Ganar pts, Deseos, Perfil','45 fantasías genéricas (15 básicas, 15 medias, 15 fuertes)','Puntos calibrados correctamente','Registro sin código de invitación','Racha de días consecutivos','Stats en perfil','Tutorial mejorado','Registro libre: cualquiera puede registrarse']},
-];
 
 function renderMinutas(){
   let html=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
