@@ -17,7 +17,8 @@ const storage = firebase.storage();
 let currentUser = null;
 let currentUserData = null;
 let currentTab = 'inicio';
-let fantasyFilter = 'all';
+let fantasyFilter = 'all'; // categoria: all, pareja, grupo
+let fantasyLevel = 'all';  // nivel: all, basic, medium, high
 let selUsers = [];
 let uploadContext = null;
 let pendingEvidenceBase64 = null;
@@ -1076,20 +1077,22 @@ async function renderDeseos() {
     // Categorías de fantasías
     html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Catálogo de deseos</div></div>
     <div class="cat-tabs">
-      <button class="cat-tab ${fantasyFilter==='all'?'active':''}" onclick="setFF('all',this)">Todos</button>
-      <button class="cat-tab ${fantasyFilter==='pareja'?'active':''}" onclick="setFF('pareja',this)">💑 Pareja</button>
-      <button class="cat-tab ${fantasyFilter==='grupo'?'active':''}" onclick="setFF('grupo',this)">👥 Grupo</button>
+      <button class="cat-tab ${fantasyFilter==='all'?'active':''}" onclick="setCat('all',this)">Todos</button>
+      <button class="cat-tab ${fantasyFilter==='pareja'?'active':''}" onclick="setCat('pareja',this)">💑 Pareja</button>
+      <button class="cat-tab ${fantasyFilter==='grupo'?'active':''}" onclick="setCat('grupo',this)">👥 Grupo</button>
     </div>
     <div class="filter-scroll" style="margin-top:-6px">
-      <button class="filter-chip ${fantasyFilter==='basic'?'active':''}" onclick="setFF('basic',this)">🟢 Básico</button>
-      <button class="filter-chip ${fantasyFilter==='medium'?'active':''}" onclick="setFF('medium',this)">🟡 Medio</button>
-      <button class="filter-chip ${fantasyFilter==='high'?'active':''}" onclick="setFF('high',this)">🔴 Alto</button>
+      <button class="filter-chip ${fantasyLevel==='all'?'active':''}" onclick="setLevel('all',this)">Todos los niveles</button>
+      <button class="filter-chip ${fantasyLevel==='basic'?'active':''}" onclick="setLevel('basic',this)">🟢 Básico</button>
+      <button class="filter-chip ${fantasyLevel==='medium'?'active':''}" onclick="setLevel('medium',this)">🟡 Medio</button>
+      <button class="filter-chip ${fantasyLevel==='high'?'active':''}" onclick="setLevel('high',this)">🔴 Alto</button>
     </div>`;
 
+    // Filtros independientes combinados
     let filtered = fantasies;
-    if (fantasyFilter==='pareja') filtered=fantasies.filter(f=>f.category==='pareja');
-    else if (fantasyFilter==='grupo') filtered=fantasies.filter(f=>f.category==='grupo');
-    else if (['basic','medium','high'].includes(fantasyFilter)) filtered=fantasies.filter(f=>f.level===fantasyFilter);
+    if (fantasyFilter==='pareja') filtered=filtered.filter(f=>f.category==='pareja'||!f.category);
+    else if (fantasyFilter==='grupo') filtered=filtered.filter(f=>f.category==='grupo');
+    if (fantasyLevel!=='all') filtered=filtered.filter(f=>f.level===fantasyLevel);
 
     filtered.forEach(f => {
       const canAfford = myPts >= f.pts;
@@ -1140,12 +1143,22 @@ function toggleHistory() {
   if (panel) panel.style.display = panel.style.display==='none'?'block':'none';
 }
 
-function setFF(level, el) {
-  fantasyFilter = level;
-  document.querySelectorAll('.cat-tab,.filter-chip').forEach(c=>c.classList.remove('active'));
+function setCat(cat, el) {
+  fantasyFilter = cat;
+  document.querySelectorAll('.cat-tab').forEach(c=>c.classList.remove('active'));
   if (el) el.classList.add('active');
   showTab('deseos');
 }
+
+function setLevel(level, el) {
+  fantasyLevel = level;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  showTab('deseos');
+}
+
+// Mantener setFF por compatibilidad
+function setFF(val, el) { setCat(val, el); }
 
 async function showDeseoDetail(fid) {
   const gid = currentUserData.groupId;
