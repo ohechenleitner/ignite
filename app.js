@@ -719,7 +719,7 @@ async function renderInicio() {
       db.collection('groups').doc(gid).get(),
       db.collection('users').where('groupId','==',gid).where('active','==',true).get(),
       db.collection('groups').doc(gid).collection('requests').where('status','==','pending').get(),
-      db.collection('groups').doc(gid).collection('history').orderBy('createdAt','desc').limit(4).get(),
+      db.collection('groups').doc(gid).collection('history').limit(4).get(),
     ]);
     const group = groupSnap.data();
     const members = membersSnap.docs.map(d=>d.data()).filter(m=>m.id!==uid);
@@ -1015,7 +1015,7 @@ async function renderDeseos() {
     const [groupSnap, membersSnap, myReqsSnap, pendingSnap] = await Promise.all([
       db.collection('groups').doc(gid).get(),
       db.collection('users').where('groupId','==',gid).where('active','==',true).get(),
-      db.collection('groups').doc(gid).collection('requests').where('requestedBy','==',uid).where('type','==','fantasy').orderBy('createdAt','desc').limit(10).get(),
+      db.collection('groups').doc(gid).collection('requests').where('requestedBy','==',uid).where('type','==','fantasy').get(),
       db.collection('groups').doc(gid).collection('requests').where('status','==','pending').where('type','==','fantasy').get(),
     ]);
     const group = groupSnap.data();
@@ -1629,7 +1629,7 @@ async function loadGameHistory(){
   const container=document.getElementById('game-hist');
   if(!container)return;
   try{
-    const snap=await db.collection('groups').doc(currentUserData.groupId).collection('gameSessions').orderBy('createdAt','desc').limit(8).get();
+    const snap=await db.collection('groups').doc(currentUserData.groupId).collection('gameSessions').limit(8).get();
     if(snap.empty){container.innerHTML='<div class="empty-state" style="padding:16px"><div class="empty-state-desc">Sin partidas aún. ¡Juega la primera!</div></div>';return;}
     container.innerHTML=snap.docs.map(d=>{
       const s=d.data(),cat=GAME_CHALLENGES[s.category];
