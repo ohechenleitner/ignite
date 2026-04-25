@@ -1027,14 +1027,12 @@ async function renderDeseos() {
     const partner = members[0];
     const pk = partner?[uid,partner.id].sort().join('_'):null;
     const myPts = pk?(group.pairPoints?.[pk]?.[uid]||0):0;
-    // Usar fantasías del grupo, pero si no tienen categoría las tomamos del DEFAULT
-    const groupFantasies = group.fantasies||[];
-    const fantasies = groupFantasies.length > 0 ? groupFantasies.map(f => ({
-      ...DEFAULT_FANTASIES.find(d=>d.id===f.id)||{},
-      ...f,
-      // Si no tiene category definida, buscarla en DEFAULT
-      category: f.category || DEFAULT_FANTASIES.find(d=>d.id===f.id)?.category || 'pareja'
-    })) : DEFAULT_FANTASIES;
+    // Enriquecer fantasías del grupo con categorías del DEFAULT si faltan
+    const groupFantasies = group.fantasies || [];
+    const fantasies = groupFantasies.length > 0 ? groupFantasies.map(f => {
+      const def = DEFAULT_FANTASIES.find(d => d.id === f.id);
+      return { ...f, category: f.category || def?.category || 'pareja' };
+    }) : DEFAULT_FANTASIES;
     const myReqs = myReqsSnap.docs.map(d=>({id:d.id,...d.data()}));
     const forMe = pendingSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.requestedBy!==uid);
 
@@ -1952,4 +1950,237 @@ function showToast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ===== MANTENEDORES =====
+// Integrado en perfil - se despliegan opciones inline
+function toggleMantenedores() {
+  const panel = document.getElementById('mant-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderMantenedores() {
+  document.getElementById('content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
+      <div style="font-size:16px;font-weight:500">🗂️ Mantenedores</div>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Gestiona el catálogo de tu grupo.</div>
+    <div class="card" onclick="showTab('mant-deseos')" style="cursor:pointer;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
+        <div style="width:48px;height:48px;border-radius:14px;background:var(--rose-glow);display:flex;align-items:center;justify-content:center;font-size:24px">🔥</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:500">Mantenedor de Deseos</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">Ver, agregar y eliminar deseos del catálogo</div>
+        </div>
+        <div style="color:var(--text3);font-size:20px">›</div>
+      </div>
+    </div>
+    <div class="card" onclick="showTab('mant-acciones')" style="cursor:pointer">
+      <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
+        <div style="width:48px;height:48px;border-radius:14px;background:var(--teal-glow);display:flex;align-items:center;justify-content:center;font-size:24px">⚡</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:500">Mantenedor de Acciones</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">Ver, agregar y eliminar acciones del grupo</div>
+        </div>
+        <div style="color:var(--text3);font-size:20px">›</div>
+      </div>
+    </div>`;
+}
+
+// ===== MANTENEDOR DESEOS =====
+async function renderMantDeseos() {
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const groupFantasies = groupSnap.data().fantasies || DEFAULT_FANTASIES;
+    // Enriquecer con categorías del DEFAULT si faltan
+    const fantasies = groupFantasies.map(f => ({
+      ...f,
+      category: f.category || DEFAULT_FANTASIES.find(d=>d.id===f.id)?.category || 'pareja'
+    }));
+    const levels = {basic:'🟢 Básico', medium:'🟡 Medio', high:'🔴 Alto'};
+    const cats = {pareja:'💑 Pareja', grupo:'👥 Grupo', ambos:'💑👥 Ambos'};
+
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('mantenedores')">← Volver</button>
+      <div style="font-size:16px;font-weight:500">🔥 Deseos (${fantasies.length})</div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Agregar nuevo deseo</div>
+      <div class="form-group"><label class="form-label">Emoji</label>
+        <input type="text" class="form-control" id="nf-icon" placeholder="🔥" maxlength="2"></div>
+      <div class="form-group"><label class="form-label">Nombre</label>
+        <input type="text" class="form-control" id="nf-name" placeholder="Nombre del deseo"></div>
+      <div class="form-group"><label class="form-label">Descripción</label>
+        <textarea class="form-control" id="nf-desc" rows="2" placeholder="Descripción breve"></textarea></div>
+      <div class="form-group"><label class="form-label">Puntos requeridos</label>
+        <input type="number" class="form-control" id="nf-pts" placeholder="Ej: 15"></div>
+      <div class="form-group"><label class="form-label">Nivel</label>
+        <select class="form-control" id="nf-level">
+          <option value="basic">🟢 Básico (8-20 pts)</option>
+          <option value="medium">🟡 Medio (25-40 pts)</option>
+          <option value="high">🔴 Alto (45-65 pts)</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">¿Para quién aplica?</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="nf-cat-pareja" checked style="width:16px;height:16px;accent-color:var(--rose)"> 💑 En pareja
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+            <input type="checkbox" id="nf-cat-grupo" style="width:16px;height:16px;accent-color:var(--rose)"> 👥 Con terceros / grupo
+          </label>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="addFantasyMant()">+ Agregar deseo</button>
+    </div>
+    <div class="section-hd"><div class="section-title">Catálogo actual (${fantasies.length})</div></div>`;
+
+    fantasies.forEach(f => {
+      html += `<div class="card" style="margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:26px">${f.icon||'🔥'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+            <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--bg4);color:var(--text2)">${levels[f.level]||f.level}</span>
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--bg4);color:var(--text2)">${cats[f.category]||'💑 Pareja'}</span>
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--rose-glow);color:var(--rose)">${f.pts} pts</span>
+            </div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="deleteFantasyMant('${f.id}')">🗑</button>
+        </div>
+        ${f.desc?`<div style="font-size:12px;color:var(--text2);margin-top:8px">${f.desc}</div>`:''}
+      </div>`;
+    });
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando deseos</div></div>';
+  }
+}
+
+async function addFantasyMant() {
+  const icon = document.getElementById('nf-icon')?.value||'🔥';
+  const name = document.getElementById('nf-name')?.value?.trim();
+  const desc = document.getElementById('nf-desc')?.value?.trim()||'';
+  const pts = parseInt(document.getElementById('nf-pts')?.value||'0');
+  const level = document.getElementById('nf-level')?.value;
+  const isPareja = document.getElementById('nf-cat-pareja')?.checked;
+  const isGrupo = document.getElementById('nf-cat-grupo')?.checked;
+  const category = isPareja && isGrupo ? 'ambos' : isGrupo ? 'grupo' : 'pareja';
+  if (!name||isNaN(pts)||pts===0) { showToast('Completa nombre y puntos'); return; }
+  const gid = currentUserData.groupId;
+  try {
+    await db.collection('groups').doc(gid).update({
+      fantasies: firebase.firestore.FieldValue.arrayUnion({id:'f_'+Date.now(), name, pts, level, icon, desc, category})
+    });
+    showToast('✓ Deseo agregado');
+    showTab('mant-deseos');
+  } catch(e) { showToast('Error: '+e.message); }
+}
+
+async function deleteFantasyMant(fid) {
+  if (!confirm('¿Eliminar este deseo del catálogo?')) return;
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const fantasies = (groupSnap.data().fantasies||[]).filter(f=>f.id!==fid);
+    await db.collection('groups').doc(gid).update({ fantasies });
+    showToast('✓ Deseo eliminado');
+    showTab('mant-deseos');
+  } catch(e) { showToast('Error: '+e.message); }
+}
+
+// ===== MANTENEDOR ACCIONES =====
+async function renderMantAcciones() {
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const group = groupSnap.data();
+    const actHim = group.actions?.him || DEFAULT_ACTIONS_HIM;
+    const actHer = group.actions?.her || DEFAULT_ACTIONS_HER;
+    const actNeutral = group.actions?.neutral || DEFAULT_ACTIONS_NEUTRAL;
+
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('mantenedores')">← Volver</button>
+      <div style="font-size:16px;font-weight:500">⚡ Acciones</div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px">➕ Agregar nueva acción</div>
+      <div class="form-group"><label class="form-label">Emoji</label>
+        <input type="text" class="form-control" id="na-icon" placeholder="⚡" maxlength="2"></div>
+      <div class="form-group"><label class="form-label">Nombre</label>
+        <input type="text" class="form-control" id="na-name" placeholder="Nombre de la acción"></div>
+      <div class="form-group"><label class="form-label">Puntos que otorga</label>
+        <input type="number" class="form-control" id="na-pts" placeholder="Ej: 5"></div>
+      <div class="form-group"><label class="form-label">¿Para quién es esta acción?</label>
+        <select class="form-control" id="na-type">
+          <option value="neutral">🌐 Para todos (cualquier género)</option>
+          <option value="him">👨 Para él</option>
+          <option value="her">👩 Para ella</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="addActionMant()">+ Agregar acción</button>
+    </div>`;
+
+    const sections = [
+      {label:'🌐 Para todos', actions: actNeutral, type:'neutral'},
+      {label:'👨 Para él', actions: actHim, type:'him'},
+      {label:'👩 Para ella', actions: actHer, type:'her'},
+    ];
+
+    sections.forEach(sec => {
+      html += `<div class="section-hd"><div class="section-title">${sec.label} (${sec.actions.length})</div></div>`;
+      sec.actions.forEach(a => {
+        html += `<div class="card" style="margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:22px">${a.icon||'⚡'}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:500">${a.name}</div>
+              <div style="font-size:11px;color:var(--teal);margin-top:2px">+${a.pts} pts</div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteActionMant('${a.id}','${sec.type}')">🗑</button>
+          </div>
+        </div>`;
+      });
+    });
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando acciones</div></div>';
+  }
+}
+
+async function addActionMant() {
+  const icon = document.getElementById('na-icon')?.value||'⚡';
+  const name = document.getElementById('na-name')?.value?.trim();
+  const pts = parseInt(document.getElementById('na-pts')?.value||'0');
+  const type = document.getElementById('na-type')?.value||'neutral';
+  if (!name||isNaN(pts)||pts===0) { showToast('Completa nombre y puntos'); return; }
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const actions = groupSnap.data().actions || {};
+    if (!actions[type]) actions[type] = [];
+    actions[type].push({id:'a_'+Date.now(), name, pts, icon});
+    await db.collection('groups').doc(gid).update({ actions });
+    showToast('✓ Acción agregada');
+    showTab('mant-acciones');
+  } catch(e) { showToast('Error: '+e.message); }
+}
+
+async function deleteActionMant(aid, type) {
+  if (!confirm('¿Eliminar esta acción?')) return;
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const actions = groupSnap.data().actions || {};
+    if (actions[type]) actions[type] = actions[type].filter(a=>a.id!==aid);
+    await db.collection('groups').doc(gid).update({ actions });
+    showToast('✓ Acción eliminada');
+    showTab('mant-acciones');
+  } catch(e) { showToast('Error: '+e.message); }
 }
