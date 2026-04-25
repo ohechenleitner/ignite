@@ -127,7 +127,7 @@
       </div>
       <span class="forgot-link" onclick="forgotPassword()">¿Olvidaste tu contraseña?</span>
       <div id="login-error" class="error-msg" style="display:none"></div>
-      <button class="btn btn-primary btn-full" onclick="loginUser()" style="margin-bottom:12px">Entrar</button>
+      <button class="btn btn-primary btn-full" onclick="loginUser()" ontouchstart="" type="button" style="margin-bottom:12px;-webkit-tap-highlight-color:transparent">Entrar</button>
       <div class="auth-switch">¿No tienes cuenta? <span onclick="showRegister()">Regístrate gratis</span></div>
     </div>
 
@@ -161,8 +161,14 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Código de invitación <span style="color:var(--text3);font-size:10px;text-transform:none">(opcional — si te invitaron)</span></label>
-        <input type="text" class="form-control" id="reg-code" placeholder="IGNITE-XXXX" autocomplete="off" style="text-transform:uppercase">
+        <label class="form-label">Código de invitación <span style="color:var(--text3);font-size:10px;text-transform:none;font-weight:400">(opcional)</span></label>
+        <div style="display:flex;align-items:center;gap:0">
+          <div style="background:var(--bg4);border:1px solid var(--border);border-right:none;border-radius:10px 0 0 10px;padding:12px 10px;font-size:13px;color:var(--text2);white-space:nowrap;font-weight:500">IGNITE-</div>
+          <input type="text" class="form-control" id="reg-code" placeholder="XXXX" autocomplete="off" maxlength="4"
+            style="text-transform:uppercase;border-radius:0 10px 10px 0;letter-spacing:3px;font-weight:600;font-size:16px"
+            oninput="this.value=this.value.replace(/[OoIi01]/g,'').toUpperCase()">
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:5px">Solo si alguien te invitó. Si no tienes, déjalo vacío.</div>
       </div>
       <div class="form-group">
         <label class="form-label">Género</label>
@@ -184,7 +190,7 @@
       </div>
       <div id="reg-error" class="error-msg" style="display:none"></div>
       <div id="reg-success" class="success-msg"></div>
-      <button class="btn btn-primary btn-full" onclick="registerUser()" style="margin-bottom:12px">Crear cuenta gratis</button>
+      <button class="btn btn-primary btn-full" onclick="registerUser()" ontouchstart="" type="button" style="margin-bottom:12px;-webkit-tap-highlight-color:transparent">Crear cuenta gratis</button>
       <div class="auth-switch">¿Ya tienes cuenta? <span onclick="showLogin()">Inicia sesión</span></div>
     </div>
   </div>

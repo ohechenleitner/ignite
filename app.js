@@ -424,12 +424,22 @@ async function loginUser() {
     if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
   }
 }
+// Genera código de 4 chars sin O, 0, I, 1 para evitar confusión
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 async function registerUser() {
   const name = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
   const pass = document.getElementById('reg-pass').value;
   const passConfirm = document.getElementById('reg-pass-confirm')?.value || '';
-  const code = document.getElementById('reg-code').value.trim().toUpperCase();
+  const codeInput = document.getElementById('reg-code').value.trim().toUpperCase();
+  // Si empieza con IGNITE- lo tomamos completo, sino agregamos el prefijo
+  const code = codeInput ? (codeInput.startsWith('IGNITE-') ? codeInput : 'IGNITE-' + codeInput) : '';
   const gender = document.getElementById('reg-gender').value;
   const orient = document.getElementById('reg-orient').value;
   const errEl = document.getElementById('reg-error');
@@ -461,7 +471,7 @@ async function registerUser() {
       groupId = groupRef.id;
       await groupRef.set({
         id: groupId, adminId: uid,
-        inviteCode: 'IGNITE-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
+        inviteCode: 'IGNITE-' + generateCode(),
         members: [uid],
         actions: { him: DEFAULT_ACTIONS_HIM, her: DEFAULT_ACTIONS_HER, neutral: DEFAULT_ACTIONS_NEUTRAL },
         fantasies: DEFAULT_FANTASIES,
