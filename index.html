@@ -39,7 +39,8 @@
     .approved-banner { background: linear-gradient(135deg, rgba(78,203,160,0.12), rgba(78,203,160,0.04)); border: 1px solid rgba(78,203,160,0.25); border-radius: 16px; padding: 16px; margin-bottom: 10px; }
 
     /* PENDING BADGE ON NAV */
-    .nav-badge { position: absolute; top: 2px; right: 8px; background: var(--rose); color: white; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 10px; min-width: 16px; text-align: center; }
+    .nav-badge { position: absolute; top: 2px; right: 8px; background: var(--rose); color: white; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; min-width: 16px; height: 16px; text-align: center; display: flex; align-items: center; justify-content: center; }
+    .notif-dot { position: absolute; top: 2px; right: 2px; background: var(--rose); border: 2px solid var(--bg); border-radius: 10px; min-width: 16px; height: 16px; font-size: 9px; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; padding: 0 3px; }
     .nav-item { position: relative; }
 
     /* FANTASY CATEGORY TABS */
@@ -131,67 +132,92 @@
       <div class="auth-switch">¿No tienes cuenta? <span onclick="showRegister()">Regístrate gratis</span></div>
     </div>
 
-    <!-- REGISTER -->
+    <!-- REGISTER WIZARD -->
     <div id="register-form" class="auth-form" style="display:none">
-      <div class="how-strip">
-        <div class="how-step"><div class="how-icon">⚡</div><div class="how-label">Haz acciones</div></div>
-        <div class="how-step"><div class="how-icon">🏆</div><div class="how-label">Gana puntos</div></div>
-        <div class="how-step"><div class="how-icon">🔥</div><div class="how-label">Pide deseos</div></div>
+      <!-- Barra de progreso -->
+      <div style="display:flex;gap:4px;margin-bottom:20px">
+        <div id="step-bar-1" style="flex:1;height:4px;border-radius:2px;background:var(--rose);transition:all 0.3s"></div>
+        <div id="step-bar-2" style="flex:1;height:4px;border-radius:2px;background:var(--bg4);transition:all 0.3s"></div>
+        <div id="step-bar-3" style="flex:1;height:4px;border-radius:2px;background:var(--bg4);transition:all 0.3s"></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Tu nombre</label>
-        <input type="text" class="form-control" id="reg-name" placeholder="¿Cómo te llamas?" autocomplete="name">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" class="form-control" id="reg-email" placeholder="tu@email.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Contraseña</label>
-        <div class="pass-wrap">
-          <input type="password" class="form-control" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
-          <button class="pass-toggle" onclick="togglePassword('reg-pass', this)" type="button">👁️</button>
+
+      <!-- PASO 1: Cuenta -->
+      <div id="reg-step-1">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:500;margin-bottom:4px">Crea tu cuenta</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Paso 1 de 3</div>
+        <div class="form-group">
+          <label class="form-label">Tu nombre</label>
+          <input type="text" class="form-control" id="reg-name" placeholder="¿Cómo te llamas?" autocomplete="name">
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Confirmar contraseña</label>
-        <div class="pass-wrap">
-          <input type="password" class="form-control" id="reg-pass-confirm" placeholder="Repite tu contraseña" autocomplete="new-password">
-          <button class="pass-toggle" onclick="togglePassword('reg-pass-confirm', this)" type="button">👁️</button>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-control" id="reg-email" placeholder="tu@email.com" autocomplete="email">
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Código de invitación <span style="color:var(--text3);font-size:10px;text-transform:none;font-weight:400">(opcional)</span></label>
-        <div style="display:flex;align-items:center;gap:0">
-          <div style="background:var(--bg4);border:1px solid var(--border);border-right:none;border-radius:10px 0 0 10px;padding:12px 10px;font-size:13px;color:var(--text2);white-space:nowrap;font-weight:500">IGNITE-</div>
-          <input type="text" class="form-control" id="reg-code" placeholder="XXXX" autocomplete="off" maxlength="4"
-            style="text-transform:uppercase;border-radius:0 10px 10px 0;letter-spacing:3px;font-weight:600;font-size:16px"
-            oninput="this.value=this.value.replace(/[OoIi01]/g,'').toUpperCase()">
+        <div class="form-group">
+          <label class="form-label">Contraseña</label>
+          <div class="pass-wrap">
+            <input type="password" class="form-control" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+            <button class="pass-toggle" onclick="togglePassword('reg-pass', this)" type="button">👁️</button>
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:5px">Solo si alguien te invitó. Si no tienes, déjalo vacío.</div>
+        <div class="form-group">
+          <label class="form-label">Confirmar contraseña</label>
+          <div class="pass-wrap">
+            <input type="password" class="form-control" id="reg-pass-confirm" placeholder="Repite tu contraseña" autocomplete="new-password">
+            <button class="pass-toggle" onclick="togglePassword('reg-pass-confirm', this)" type="button">👁️</button>
+          </div>
+        </div>
+        <div id="reg-error-1" class="error-msg" style="display:none"></div>
+        <button class="btn btn-primary btn-full" onclick="regNextStep(2)" type="button" style="margin-bottom:12px">Continuar →</button>
+        <div class="auth-switch">¿Ya tienes cuenta? <span onclick="showLogin()">Inicia sesión</span></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Género</label>
-        <select class="form-control" id="reg-gender">
-          <option value="hombre">Hombre</option>
-          <option value="mujer">Mujer</option>
-          <option value="no-binario">No binario</option>
-          <option value="otro">Prefiero no decir</option>
-        </select>
+
+      <!-- PASO 2: Perfil -->
+      <div id="reg-step-2" style="display:none">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:500;margin-bottom:4px">Tu perfil</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Paso 2 de 3 · Opcional pero útil</div>
+        <div class="form-group">
+          <label class="form-label">Género</label>
+          <select class="form-control" id="reg-gender">
+            <option value="hombre">Hombre</option>
+            <option value="mujer">Mujer</option>
+            <option value="no-binario">No binario</option>
+            <option value="otro">Prefiero no decir</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Orientación sexual</label>
+          <select class="form-control" id="reg-orient">
+            <option value="heterosexual">Heterosexual</option>
+            <option value="bisexual">Bisexual</option>
+            <option value="homosexual">Homosexual</option>
+            <option value="otro">Prefiero no decir</option>
+          </select>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Esta info personaliza las acciones que verás. Solo tú puedes verla.</div>
+        <button class="btn btn-primary btn-full" onclick="regNextStep(3)" type="button" style="margin-bottom:8px">Continuar →</button>
+        <button class="btn btn-outline btn-full" onclick="regNextStep(1)" type="button">← Atrás</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Orientación sexual</label>
-        <select class="form-control" id="reg-orient">
-          <option value="heterosexual">Heterosexual</option>
-          <option value="bisexual">Bisexual</option>
-          <option value="homosexual">Homosexual</option>
-          <option value="otro">Prefiero no decir</option>
-        </select>
+
+      <!-- PASO 3: Código -->
+      <div id="reg-step-3" style="display:none">
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:500;margin-bottom:4px">¿Tienes un código?</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Paso 3 de 3</div>
+        <div class="form-group">
+          <label class="form-label">Código de invitación <span style="color:var(--text3);font-size:10px;font-weight:400">(opcional)</span></label>
+          <div style="display:flex;align-items:center">
+            <div style="background:var(--bg4);border:1px solid var(--border);border-right:none;border-radius:10px 0 0 10px;padding:12px 10px;font-size:13px;color:var(--text2);white-space:nowrap;font-weight:500">IGNITE-</div>
+            <input type="text" class="form-control" id="reg-code" placeholder="XXXX" autocomplete="off" maxlength="4"
+              style="text-transform:uppercase;border-radius:0 10px 10px 0;letter-spacing:3px;font-weight:600;font-size:16px"
+              oninput="this.value=this.value.replace(/[OoIi01]/g,'').toUpperCase()">
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">Si alguien te invitó, pon su código. Si no, déjalo vacío y creas tu propio grupo.</div>
+        </div>
+        <div id="reg-error" class="error-msg" style="display:none"></div>
+        <div id="reg-success" class="success-msg"></div>
+        <button class="btn btn-primary btn-full" onclick="registerUser()" ontouchstart="" type="button" style="margin-bottom:8px;-webkit-tap-highlight-color:transparent">🔥 Crear cuenta gratis</button>
+        <button class="btn btn-outline btn-full" onclick="regNextStep(2)" type="button">← Atrás</button>
       </div>
-      <div id="reg-error" class="error-msg" style="display:none"></div>
-      <div id="reg-success" class="success-msg"></div>
-      <button class="btn btn-primary btn-full" onclick="registerUser()" ontouchstart="" type="button" style="margin-bottom:12px;-webkit-tap-highlight-color:transparent">Crear cuenta gratis</button>
-      <div class="auth-switch">¿Ya tienes cuenta? <span onclick="showLogin()">Inicia sesión</span></div>
     </div>
   </div>
 </div>

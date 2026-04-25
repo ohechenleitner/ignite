@@ -402,6 +402,29 @@ function showLogin() {
 function showRegister() {
   document.getElementById('login-form').style.display = 'none';
   document.getElementById('register-form').style.display = 'block';
+  regNextStep(1); // siempre empieza en paso 1
+}
+
+function regNextStep(step) {
+  // Validar paso 1 antes de avanzar
+  if (step === 2) {
+    const name = document.getElementById('reg-name')?.value?.trim();
+    const email = document.getElementById('reg-email')?.value?.trim();
+    const pass = document.getElementById('reg-pass')?.value;
+    const passConfirm = document.getElementById('reg-pass-confirm')?.value;
+    const errEl = document.getElementById('reg-error-1');
+    if (errEl) errEl.style.display = 'none';
+    if (!name || !email || !pass) { if (errEl) { errEl.textContent = 'Completa todos los campos'; errEl.style.display = 'block'; } return; }
+    if (pass.length < 6) { if (errEl) { errEl.textContent = 'La contraseña debe tener mínimo 6 caracteres'; errEl.style.display = 'block'; } return; }
+    if (passConfirm && pass !== passConfirm) { if (errEl) { errEl.textContent = 'Las contraseñas no coinciden'; errEl.style.display = 'block'; } return; }
+  }
+  // Mostrar paso correcto
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('reg-step-'+i);
+    const bar = document.getElementById('step-bar-'+i);
+    if (el) el.style.display = i === step ? 'block' : 'none';
+    if (bar) bar.style.background = i <= step ? 'var(--rose)' : 'var(--bg4)';
+  });
 }
 function togglePassword(fieldId, btn) {
   const field = document.getElementById(fieldId);
@@ -677,13 +700,18 @@ async function checkPendingBadges() {
     const pending = snap.docs.map(d=>d.data());
     const uid = currentUser.uid;
     const forMe = pending.filter(r => r.requestedBy !== uid);
-    const myPending = pending.filter(r => r.requestedBy === uid);
+    const actionsPending = forMe.filter(r=>r.type==='action').length;
+    const fantasiesPending = forMe.filter(r=>r.type==='fantasy').length;
+    const total = forMe.length;
+
     const gb = document.getElementById('badge-ganar');
     const db2 = document.getElementById('badge-deseos');
     const nd = document.getElementById('notif-dot');
-    if (gb) gb.style.display = forMe.filter(r=>r.type==='action').length > 0 ? 'block' : 'none';
-    if (db2) db2.style.display = forMe.filter(r=>r.type==='fantasy').length > 0 ? 'block' : 'none';
-    if (nd) nd.style.display = forMe.length > 0 ? 'block' : 'none';
+
+    // Mostrar número en badge
+    if (gb) { gb.style.display = actionsPending > 0 ? 'block' : 'none'; gb.textContent = actionsPending > 0 ? actionsPending : ''; }
+    if (db2) { db2.style.display = fantasiesPending > 0 ? 'block' : 'none'; db2.textContent = fantasiesPending > 0 ? fantasiesPending : ''; }
+    if (nd) { nd.style.display = total > 0 ? 'block' : 'none'; nd.textContent = total > 9 ? '9+' : (total || ''); }
   } catch(e) {}
 }
 
@@ -801,9 +829,9 @@ async function renderInicio() {
           </div>
           ${r.comment?`<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:10px">"${r.comment}"</div>`:''}
           ${r.evidenceUrl?`<img src="${r.evidenceUrl}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" onclick="viewEvidence('${r.evidenceUrl}')">`:'' }
-          <div class="row">
-            <button class="btn btn-teal btn-sm" onclick="aprobar('${r.id}')">✓ Aprobar</button>
-            <button class="btn btn-danger btn-sm" onclick="rechazar('${r.id}')">✕ Rechazar</button>
+          <div class="row" style="gap:10px;margin-top:4px">
+            <button class="btn btn-teal" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="aprobar('${r.id}')">✓ Aprobar</button>
+            <button class="btn btn-danger" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="rechazar('${r.id}')">✕ Rechazar</button>
           </div>
         </div>`;
       });
@@ -862,11 +890,15 @@ async function renderGanar() {
       <div style="font-size:13px;color:var(--text2)">Tu pareja lo aprueba y ganas los puntos.</div>
     </div>`;
 
-    // Acciones en grid visual
+    // Acciones en grid visual con buscador
     html += `<div class="section-hd"><div class="section-title">Selecciona una acción</div></div>
+    <div style="position:relative;margin-bottom:10px">
+      <input type="text" class="form-control" id="action-search" placeholder="🔍 Buscar acción..." 
+        oninput="filterActions(this.value)" style="padding-left:14px">
+    </div>
     <div class="action-grid" id="action-grid">`;
     myActions.forEach(a => {
-      html += `<div class="action-quick-card" id="ac-${a.id}" onclick="selectAction('${a.id}','${a.pts}','${a.name}')">
+      html += `<div class="action-quick-card" id="ac-${a.id}" onclick="selectAction('${a.id}','${a.pts}','${a.name}')" data-name="${a.name.toLowerCase()}">
         <div class="action-quick-icon">${a.icon}</div>
         <div class="action-quick-name">${a.name}</div>
         <div class="action-quick-pts">+${a.pts} pts</div>
@@ -923,9 +955,9 @@ async function renderGanar() {
           </div>
           ${r.comment?`<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:8px">"${r.comment}"</div>`:''}
           ${r.evidenceUrl?`<img src="${r.evidenceUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" onclick="viewEvidence('${r.evidenceUrl}')">`:'' }
-          <div class="row">
-            <button class="btn btn-teal btn-sm" onclick="aprobar('${r.id}')">✓ Aprobar</button>
-            <button class="btn btn-danger btn-sm" onclick="rechazar('${r.id}')">✕ Rechazar</button>
+          <div class="row" style="gap:10px;margin-top:4px">
+            <button class="btn btn-teal" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="aprobar('${r.id}')">✓ Aprobar</button>
+            <button class="btn btn-danger" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="rechazar('${r.id}')">✕ Rechazar</button>
           </div>
         </div>`;
       });
@@ -972,6 +1004,14 @@ async function renderGanar() {
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
   }
+}
+
+function filterActions(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('#action-grid .action-quick-card').forEach(card => {
+    const name = card.dataset.name || '';
+    card.style.display = (!q || name.includes(q)) ? '' : 'none';
+  });
 }
 
 function selectAction(id, pts, name) {
@@ -1078,7 +1118,13 @@ async function renderDeseos() {
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div><div style="font-size:16px;font-weight:500">Tus deseos</div>
       <div style="font-size:13px;color:var(--text2);margin-top:2px">Tienes <strong style="color:var(--rose)">${myPts} pts</strong> disponibles</div></div>
-    </div>`;
+    </div>
+    ${!partner ? `<div class="card" style="text-align:center;padding:20px;border-color:rgba(232,96,138,0.3);margin-bottom:16px">
+      <div style="font-size:36px;margin-bottom:8px">👫</div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:4px">Invita a tu pareja primero</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Sin pareja no hay quien apruebe tus deseos.<br>Invítala y empieza a jugar.</div>
+      <button class="btn btn-primary" onclick="showInviteModal()">Invitar ahora →</button>
+    </div>` : ''}`;
 
     // Por aprobar para mí
     if (forMe.length > 0) {
@@ -1091,9 +1137,9 @@ async function renderDeseos() {
             <span class="status pending">⏳</span>
           </div>
           ${r.comment?`<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:8px">"${r.comment}"</div>`:''}
-          <div class="row">
-            <button class="btn btn-teal btn-sm" onclick="aprobar('${r.id}')">✓ Aprobar</button>
-            <button class="btn btn-danger btn-sm" onclick="rechazar('${r.id}')">✕ Rechazar</button>
+          <div class="row" style="gap:10px;margin-top:4px">
+            <button class="btn btn-teal" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="aprobar('${r.id}')">✓ Aprobar</button>
+            <button class="btn btn-danger" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="rechazar('${r.id}')">✕ Rechazar</button>
           </div>
         </div>`;
       });
@@ -1372,9 +1418,30 @@ async function confirmarAprobacion(reqId) {
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
     closeModalDirect();
-    showToast('✓ Aprobado');
-    showTab(currentTab);
+    // Celebración visual
+    showCelebration(req.type === 'action' ? `+${req.pts} pts ⚡` : '🔥 Deseo aprobado');
+    setTimeout(() => showTab(currentTab), 1200);
   } catch(e) { showToast('Error: '+e.message); if (btn){btn.disabled=false;btn.textContent='Confirmar aprobación';} }
+}
+
+function showCelebration(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = `
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+    background:linear-gradient(135deg,var(--teal),#20C997);
+    color:white;padding:20px 32px;border-radius:20px;
+    font-size:22px;font-weight:700;z-index:999;
+    transition:all 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+    box-shadow:0 8px 32px rgba(78,203,160,0.4);text-align:center;
+  `;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.style.transform = 'translate(-50%,-50%) scale(1)', 50);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%,-60%) scale(0.8)';
+    setTimeout(() => el.remove(), 300);
+  }, 1000);
 }
 
 function rechazar(reqId) {
@@ -1734,7 +1801,7 @@ async function renderHistorial(){
   if(!currentUserData?.groupId){document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">📊</div></div>';return;}
   const gid=currentUserData.groupId,uid=currentUser.uid;
   try{
-    const snap=await db.collection('groups').doc(gid).collection('history').orderBy('createdAt','desc').limit(50).get();
+    const snap=await db.collection('groups').doc(gid).collection('history').limit(50).get();
     const mine=snap.docs.map(d=>d.data()).filter(h=>h.fromUser===uid||h.toUsers?.includes(uid));
     let html=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
@@ -1985,7 +2052,7 @@ async function showNotifs(){
   const gid=currentUserData.groupId,uid=currentUser.uid;
   try{
     const snap=await db.collection('groups').doc(gid).collection('notifications')
-      .where('toUserId','==',uid).orderBy('createdAt','desc').limit(20).get();
+      .where('toUserId','==',uid).limit(20).get();
     snap.docs.forEach(d=>{if(!d.data().read)db.collection('groups').doc(gid).collection('notifications').doc(d.id).update({read:true}).catch(()=>{});});
     const notifs=snap.docs.map(d=>({id:d.id,...d.data()}));
     let html=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal">
