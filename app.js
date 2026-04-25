@@ -1449,10 +1449,22 @@ async function renderPerfil() {
       <div class="menu-item-arrow">›</div>
     </div>
     ${isAdmin?`
-    <div class="menu-item" onclick="showTab('mantenedores')">
+    <div class="menu-item" onclick="toggleMantPanel()">
       <div class="menu-item-icon" style="background:var(--amber-glow)">🗂️</div>
       <div class="menu-item-text">Mantenedores</div>
-      <div class="menu-item-arrow">›</div>
+      <div class="menu-item-arrow" id="mant-arrow">›</div>
+    </div>
+    <div id="mant-panel" style="display:none;padding:0 0 8px 0">
+      <div onclick="showTab('mant-deseos')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border-radius:12px;cursor:pointer;margin-bottom:6px">
+        <span style="font-size:20px">🔥</span>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500">Deseos</div><div style="font-size:11px;color:var(--text2)">Ver, agregar y editar</div></div>
+        <span style="color:var(--text3)">›</span>
+      </div>
+      <div onclick="showTab('mant-acciones')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border-radius:12px;cursor:pointer">
+        <span style="font-size:20px">⚡</span>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500">Acciones</div><div style="font-size:11px;color:var(--text2)">Ver, agregar y editar</div></div>
+        <span style="color:var(--text3)">›</span>
+      </div>
     </div>
     <div class="menu-item" onclick="showTab('config')">
       <div class="menu-item-icon" style="background:var(--bg3)">⚙️</div>
@@ -1954,11 +1966,15 @@ function showToast(msg){
 
 // ===== MANTENEDORES =====
 // Integrado en perfil - se despliegan opciones inline
-function toggleMantenedores() {
+function toggleMantPanel() {
   const panel = document.getElementById('mant-panel');
+  const arrow = document.getElementById('mant-arrow');
   if (!panel) return;
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  if (arrow) arrow.textContent = open ? '⌄' : '›';
 }
+function toggleMantenedores() { toggleMantPanel(); }
 
 function renderMantenedores() {
   document.getElementById('content').innerHTML = `
@@ -2039,8 +2055,8 @@ async function renderMantDeseos() {
     <div class="section-hd"><div class="section-title">Catálogo actual (${fantasies.length})</div></div>`;
 
     fantasies.forEach(f => {
-      html += `<div class="card" style="margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:10px">
+      html += `<div class="card" style="margin-bottom:8px" id="fc-${f.id}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
           <div style="font-size:26px">${f.icon||'🔥'}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
@@ -2050,9 +2066,12 @@ async function renderMantDeseos() {
               <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--rose-glow);color:var(--rose)">${f.pts} pts</span>
             </div>
           </div>
-          <button class="btn btn-danger btn-sm" onclick="deleteFantasyMant('${f.id}')">🗑</button>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn btn-outline btn-sm" onclick="editFantasyMant('${f.id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteFantasyMant('${f.id}')">🗑</button>
+          </div>
         </div>
-        ${f.desc?`<div style="font-size:12px;color:var(--text2);margin-top:8px">${f.desc}</div>`:''}
+        ${f.desc?`<div style="font-size:12px;color:var(--text2)">${f.desc}</div>`:''}
       </div>`;
     });
 
@@ -2060,6 +2079,55 @@ async function renderMantDeseos() {
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando deseos</div></div>';
   }
+}
+
+function editFantasyMant(fid) {
+  // Buscar la fantasía actual
+  const card = document.getElementById('fc-'+fid);
+  if (!card) return;
+  // Hacer scroll al formulario y precargar datos
+  const groupPromise = db.collection('groups').doc(currentUserData.groupId).get();
+  groupPromise.then(groupSnap => {
+    const f = (groupSnap.data().fantasies||DEFAULT_FANTASIES).find(x=>x.id===fid);
+    if (!f) return;
+    document.getElementById('nf-icon').value = f.icon||'';
+    document.getElementById('nf-name').value = f.name||'';
+    document.getElementById('nf-desc').value = f.desc||'';
+    document.getElementById('nf-pts').value = f.pts||'';
+    document.getElementById('nf-level').value = f.level||'basic';
+    document.getElementById('nf-cat-pareja').checked = f.category==='pareja'||f.category==='ambos'||!f.category;
+    document.getElementById('nf-cat-grupo').checked = f.category==='grupo'||f.category==='ambos';
+    // Cambiar botón a "Guardar cambios"
+    const btn = document.querySelector('#nf-icon')?.closest('.card')?.querySelector('.btn-primary');
+    if (btn) {
+      btn.textContent = '💾 Guardar cambios';
+      btn.onclick = () => saveFantasyEdit(fid);
+    }
+    window.scrollTo({top:0, behavior:'smooth'});
+    showToast('Editando: '+f.name);
+  });
+}
+
+async function saveFantasyEdit(fid) {
+  const icon = document.getElementById('nf-icon')?.value||'🔥';
+  const name = document.getElementById('nf-name')?.value?.trim();
+  const desc = document.getElementById('nf-desc')?.value?.trim()||'';
+  const pts = parseInt(document.getElementById('nf-pts')?.value||'0');
+  const level = document.getElementById('nf-level')?.value;
+  const isPareja = document.getElementById('nf-cat-pareja')?.checked;
+  const isGrupo = document.getElementById('nf-cat-grupo')?.checked;
+  const category = isPareja && isGrupo ? 'ambos' : isGrupo ? 'grupo' : 'pareja';
+  if (!name||isNaN(pts)||pts===0) { showToast('Completa nombre y puntos'); return; }
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const fantasies = (groupSnap.data().fantasies||[]).map(f =>
+      f.id===fid ? {...f, icon, name, desc, pts, level, category} : f
+    );
+    await db.collection('groups').doc(gid).update({ fantasies });
+    showToast('✓ Deseo actualizado');
+    showTab('mant-deseos');
+  } catch(e) { showToast('Error: '+e.message); }
 }
 
 async function addFantasyMant() {
@@ -2102,7 +2170,7 @@ async function renderMantAcciones() {
     const group = groupSnap.data();
     const actHim = group.actions?.him || DEFAULT_ACTIONS_HIM;
     const actHer = group.actions?.her || DEFAULT_ACTIONS_HER;
-    const actNeutral = group.actions?.neutral || DEFAULT_ACTIONS_NEUTRAL;
+    const actNeutral = group.actions?.neutral || (typeof DEFAULT_ACTIONS_NEUTRAL !== 'undefined' ? DEFAULT_ACTIONS_NEUTRAL : []);
 
     let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="showTab('mantenedores')">← Volver</button>
