@@ -855,6 +855,7 @@ async function renderGanar() {
     const others = membersSnap.docs.map(d=>d.data()).filter(m=>m.id!==uid);
     const pendingSnap = await db.collection('groups').doc(gid).collection('requests').where('status','==','pending').get();
     const forApproval = pendingSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.requestedBy!==uid&&r.type==='action');
+    const myPending = pendingSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.requestedBy===uid&&r.type==='action');
 
     let html = `<div style="margin-bottom:16px">
       <div style="font-size:16px;font-weight:500;margin-bottom:4px">Registra lo que hiciste</div>
@@ -925,6 +926,40 @@ async function renderGanar() {
           <div class="row">
             <button class="btn btn-teal btn-sm" onclick="aprobar('${r.id}')">✓ Aprobar</button>
             <button class="btn btn-danger btn-sm" onclick="rechazar('${r.id}')">✕ Rechazar</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Mis acciones enviadas (todas, con estado)
+    const allMyActions = pendingSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.requestedBy===uid&&r.type==='action');
+    
+    // También traer las recientes aprobadas/rechazadas
+    const recentSnap = await db.collection('groups').doc(gid).collection('requests')
+      .where('requestedBy','==',uid).where('type','==','action').get();
+    const allSent = recentSnap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0))
+      .slice(0,10);
+
+    if (allSent.length > 0) {
+      const statusMap = {
+        pending:  {label:'⏳ Pendiente',  cls:'pending',  color:'var(--amber)'},
+        approved: {label:'✓ Aprobada',   cls:'approved', color:'var(--teal)'},
+        rejected: {label:'✕ Rechazada',  cls:'rejected', color:'var(--rose)'},
+      };
+      html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Mis acciones enviadas</div></div>`;
+      allSent.forEach(r => {
+        const st = statusMap[r.status] || statusMap.pending;
+        html += `<div class="card" style="margin-bottom:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">+${r.pts} pts · ${r.date||''}</div>
+              ${r.comment?`<div style="font-size:11px;color:var(--text3);margin-top:2px">"${r.comment}"</div>`:''}
+              ${r.status==='rejected'&&r.reason?`<div style="font-size:11px;color:var(--rose);margin-top:4px">Motivo: "${r.reason}"</div>`:''}
+              ${r.status==='approved'&&r.approveComment?`<div style="font-size:11px;color:var(--teal);margin-top:4px">"${r.approveComment}"</div>`:''}
+            </div>
+            <span class="status ${st.cls}" style="margin-left:8px;flex-shrink:0">${st.label}</span>
           </div>
         </div>`;
       });
