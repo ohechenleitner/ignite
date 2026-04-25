@@ -1,4 +1,4 @@
-// ===== IGNITE APP.JS v4 =====
+// ===== IGNITE APP.JS v7 =====
 const firebaseConfig = {
   apiKey: "AIzaSyBDkK9v9mplyOGcKSqkue2Q3HmjwHGbRs8",
   authDomain: "ignite-app-8bdb5.firebaseapp.com",
@@ -8,6 +8,10 @@ const firebaseConfig = {
   appId: "1:707291369583:web:ee195d5f976b20acf8bd9a"
 };
 
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
 
 // ===== STATE =====
 let currentUser = null;
