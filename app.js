@@ -1435,7 +1435,7 @@ async function renderPerfil() {
     </div>
     <div class="menu-item" onclick="showInviteModal()">
       <div class="menu-item-icon" style="background:var(--teal-glow)">👫</div>
-      <div class="menu-item-text">Invitar pareja</div>
+      <div class="menu-item-text">Invitar al grupo</div>
       <div class="menu-item-arrow">›</div>
     </div>
     <div class="menu-item" onclick="showTab('game')">
@@ -1544,7 +1544,19 @@ async function showInviteModal() {
     document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)">
       <div class="modal">
         <div class="modal-handle"></div>
-        <div class="modal-title">Compartir Ignite 🔥</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">← Volver</button>
+          <div class="modal-title" style="margin-bottom:0">Invitar al grupo 🔥</div>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">¿A quién estás invitando?</label>
+          <select class="form-control" id="invite-type">
+            <option value="pareja">💑 Mi pareja</option>
+            <option value="amigo">👫 Amigo/a con derechos</option>
+            <option value="tercero">🧑 Tercero para jugar</option>
+            <option value="grupo">👥 Integrante del grupo</option>
+          </select>
+        </div>
         <div style="font-size:13px;color:var(--text2);margin-bottom:8px">Código de acceso para quien invites:</div>
         <div class="code-block" onclick="copyCode('${code}')">${code} 📋</div>
         <div style="font-size:11px;color:var(--text2);text-align:center;margin:6px 0 14px">Toca para copiar</div>
@@ -2203,14 +2215,17 @@ async function renderMantAcciones() {
     sections.forEach(sec => {
       html += `<div class="section-hd"><div class="section-title">${sec.label} (${sec.actions.length})</div></div>`;
       sec.actions.forEach(a => {
-        html += `<div class="card" style="margin-bottom:6px">
+        html += `<div class="card" style="margin-bottom:6px" id="ac-${a.id}-${sec.type}">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-size:22px">${a.icon||'⚡'}</div>
             <div style="flex:1">
               <div style="font-size:13px;font-weight:500">${a.name}</div>
               <div style="font-size:11px;color:var(--teal);margin-top:2px">+${a.pts} pts</div>
             </div>
-            <button class="btn btn-danger btn-sm" onclick="deleteActionMant('${a.id}','${sec.type}')">🗑</button>
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <button class="btn btn-outline btn-sm" onclick="editActionMant('${a.id}','${sec.type}','${a.name}','${a.pts}','${a.icon||'⚡'}')">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteActionMant('${a.id}','${sec.type}')">🗑</button>
+            </div>
           </div>
         </div>`;
       });
@@ -2220,6 +2235,49 @@ async function renderMantAcciones() {
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando acciones</div></div>';
   }
+}
+
+function editActionMant(aid, type, name, pts, icon) {
+  // Precargar formulario con datos de la acción
+  document.getElementById('na-icon').value = icon||'⚡';
+  document.getElementById('na-name').value = name||'';
+  document.getElementById('na-pts').value = pts||'';
+  document.getElementById('na-type').value = type||'neutral';
+  // Cambiar botón
+  const btn = document.querySelector('#na-icon')?.closest('.card')?.querySelector('.btn-primary');
+  if (btn) {
+    btn.textContent = '💾 Guardar cambios';
+    btn.onclick = () => saveActionEdit(aid, type);
+  }
+  window.scrollTo({top:0, behavior:'smooth'});
+  showToast('Editando: '+name);
+}
+
+async function saveActionEdit(aid, type) {
+  const icon = document.getElementById('na-icon')?.value||'⚡';
+  const name = document.getElementById('na-name')?.value?.trim();
+  const pts = parseInt(document.getElementById('na-pts')?.value||'0');
+  const newType = document.getElementById('na-type')?.value||type;
+  if (!name||isNaN(pts)||pts===0) { showToast('Completa nombre y puntos'); return; }
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const actions = groupSnap.data().actions || {};
+    // Si cambió el tipo, mover de una lista a otra
+    if (newType !== type && actions[type]) {
+      actions[type] = actions[type].filter(a=>a.id!==aid);
+    }
+    if (!actions[newType]) actions[newType] = [];
+    const existing = actions[newType].find(a=>a.id===aid);
+    if (existing) {
+      actions[newType] = actions[newType].map(a=>a.id===aid?{...a,icon,name,pts}:a);
+    } else {
+      actions[newType].push({id:aid, icon, name, pts});
+    }
+    await db.collection('groups').doc(gid).update({ actions });
+    showToast('✓ Acción actualizada');
+    showTab('mant-acciones');
+  } catch(e) { showToast('Error: '+e.message); }
 }
 
 async function addActionMant() {
