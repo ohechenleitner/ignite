@@ -914,6 +914,39 @@ function showTab(tab) {
 }
 
 // ===== INICIO =====
+const DAILY_QUESTIONS = [
+  '¿Cuál es el recuerdo favorito que tienes de nosotros este año?',
+  '¿Qué es lo que más te gusta de nuestra relación?',
+  '¿Hay algo que quieras hacer juntos que aún no hemos hecho?',
+  '¿Cuál fue la última vez que te sentiste completamente feliz conmigo?',
+  '¿Qué es lo que más extrañas de cuando nos conocimos?',
+  '¿Cuál es tu lugar favorito para estar conmigo?',
+  '¿Qué pequeño detalle mío te hace sonreír sin que yo lo sepa?',
+  '¿Hay algo que quieras que haga más seguido?',
+  '¿Cuál es la canción que más te recuerda a nosotros?',
+  '¿Qué sueño tienes que todavía no me has contado?',
+  '¿Cuál fue nuestra mejor cita hasta ahora?',
+  '¿Qué es lo que más valoras de mí como persona?',
+  '¿Hay algo que hayas querido decirme pero no has encontrado el momento?',
+  '¿Qué te gustaría que hiciéramos diferente en nuestra rutina?',
+  '¿Cuál es el lugar del mundo donde más quisieras estar conmigo?',
+  '¿Qué es lo que más te atrae de mí hoy?',
+  '¿Hay alguna fantasía que quieras compartir conmigo?',
+  '¿Cuándo fue la última vez que te sorprendí de manera positiva?',
+  '¿Qué harías si tuviéramos un día solo para nosotros sin ningún plan?',
+  '¿Hay algo de ti que sientes que no conozco aún?',
+  '¿Qué canción te gustaría que bailáramos juntos?',
+  '¿Cuál es tu momento favorito del día cuando estamos juntos?',
+  '¿Hay algo que quieras probar juntos que te dé un poco de miedo?',
+  '¿Qué te hace sentir más amado/a por mí?',
+  '¿Si pudieras cambiar una cosa de nuestra relación, cuál sería?',
+  '¿Cuál es el mejor consejo que te han dado sobre el amor?',
+  '¿Qué es lo que más te hace reír de mí?',
+  '¿Cuándo fue la última vez que sentiste mariposas conmigo?',
+  '¿Qué cosa de nuestra relación nunca cambiarías?',
+  '¿Si pudiéramos revivir un día juntos, cuál elegirías?',
+];
+
 function getDailyQuestion() {
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000);
   return DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
@@ -1038,7 +1071,7 @@ async function renderInicio() {
 
     // Historial reciente
     if (history.length > 0) {
-      html += `<div class="section-hd"><div class="section-title">Actividad reciente</div><div class="see-all" onclick="showTab('historial')">Ver todo →</div></div>`;
+      html += `<div class="section-hd"><div class="section-title">Actividad reciente</div><div class="see-all" onclick="showTabHistorial('inicio')">Ver todo →</div></div>`;
       history.forEach(h => {
         html += `<div class="hist-item">
           <div class="hist-icon ${h.type}">${h.type==='add'?'⬆':'⬇'}</div>
@@ -1290,12 +1323,14 @@ async function renderDeseos() {
     const partner = members[0];
     const pk = partner?[uid,partner.id].sort().join('_'):null;
     const myPts = pk?(group.pairPoints?.[pk]?.[uid]||0):0;
-    // Enriquecer SIEMPRE con categorías del DEFAULT (Firestore puede tener datos viejos)
+    // Enriquecimiento de categorías: si el ID existe en DEFAULT, SIEMPRE usar
+    // la categoría del DEFAULT (evita datos obsoletos guardados en Firestore)
     const groupFantasies = group.fantasies || [];
     const fantasies = groupFantasies.length > 0 ? groupFantasies.map(f => {
       const def = DEFAULT_FANTASIES.find(d => d.id === f.id);
-      // Siempre usar la categoría del DEFAULT si existe, para asegurar datos actualizados
-      const category = def?.category || f.category || 'pareja';
+      // Si el ID está en DEFAULT, usar SU categoría siempre (puede haber cambiado)
+      // Solo usar f.category para fantasías custom (sin ID en DEFAULT)
+      const category = def ? def.category : (f.category || 'pareja');
       return { ...f, category };
     }) : DEFAULT_FANTASIES;
     const myReqs = myReqsSnap.docs.map(d=>({id:d.id,...d.data()}));
@@ -1340,15 +1375,22 @@ async function renderDeseos() {
       const statusMap = {pending:'pending',approved:'approved',rejected:'rejected',fulfilled:'fulfilled'};
       const labelMap = {pending:'⏳ Pendiente',approved:'✓ Aprobada',rejected:'✕ Rechazada',fulfilled:'⭐ Cumplida'};
       activaReqs.forEach(r => {
-        html += `<div class="card">
+        const isPending = r.status === 'pending';
+        html += `<div class="card" style="cursor:pointer" onclick="showMyRequestDetail('${r.id}')">
           <div style="display:flex;align-items:center;justify-content:space-between">
-            <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
-            <div style="font-size:11px;color:var(--text2);margin-top:2px">${r.pts} pts · ${r.date}</div></div>
-            <span class="status ${statusMap[r.status]}" style="margin-left:8px;flex-shrink:0">${labelMap[r.status]}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${r.pts} pts · ${r.date}</div>
+              ${r.tentativeDate?`<div style="font-size:11px;color:var(--purple);margin-top:2px">📅 ${new Date(r.tentativeDate+'T12:00:00').toLocaleDateString('es',{day:'numeric',month:'short'})}</div>`:''}
+              ${r.place?`<div style="font-size:11px;color:var(--text3);margin-top:1px">📍 ${r.place}</div>`:''}
+              ${(r.refPhotoUrls&&r.refPhotoUrls.length>0)?`<div style="font-size:11px;color:var(--text3);margin-top:1px">📷 ${r.refPhotoUrls.length} foto(s) adjunta(s)</div>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:8px">
+              <span class="status ${statusMap[r.status]}">${labelMap[r.status]}</span>
+              <span style="font-size:10px;color:var(--text3)">${isPending?'Toca para editar':'Ver detalle ›'}</span>
+            </div>
           </div>
-          ${r.reason?`<div style="font-size:12px;color:var(--rose);background:rgba(232,96,138,0.08);border-radius:8px;padding:8px;margin-top:6px">Motivo: "${r.reason}"</div>`:''}
-          ${r.approveComment?`<div style="font-size:12px;color:var(--teal);background:rgba(78,203,160,0.08);border-radius:8px;padding:8px;margin-top:6px">"${r.approveComment}"</div>`:''}
-          ${r.status==='approved'&&!r.fulfilled?`<button class="btn btn-teal btn-full btn-sm" style="margin-top:8px" onclick="markFulfilled('${r.id}')">⭐ Marcar como cumplida</button>`:''}
+          ${r.status==='approved'&&!r.fulfilled?`<button class="btn btn-teal btn-full btn-sm" style="margin-top:8px" onclick="event.stopPropagation();markFulfilled('${r.id}')">⭐ Marcar como cumplida</button>`:''}
         </div>`;
       });
     }
@@ -1416,6 +1458,11 @@ async function renderDeseos() {
   } catch(e) {
     document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
   }
+}
+
+function showTabHistorial(from) {
+  historialFrom = from || 'perfil';
+  showTab('historial');
 }
 
 function toggleHistory() {
@@ -1877,7 +1924,7 @@ async function renderPerfil() {
       <div class="menu-item-text">Ignite Game</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    <div class="menu-item" onclick="showTab('historial')">
+    <div class="menu-item" onclick="showTabHistorial('inicio')">
       <div class="menu-item-icon" style="background:var(--bg3)">📊</div>
       <div class="menu-item-text">Historial completo</div>
       <div class="menu-item-arrow">›</div>
@@ -2136,29 +2183,139 @@ async function loadGameHistory(){
 }
 
 // ===== HISTORIAL =====
-async function renderHistorial(){
+// Historial recibe 'from' para saber a dónde volver
+let historialFrom = 'perfil';
+
+async function renderHistorial(from){
+  if (from) historialFrom = from;
   if(!currentUserData?.groupId){document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">📊</div></div>';return;}
-  const gid=currentUserData.groupId,uid=currentUser.uid;
+  const gid=currentUserData.groupId, uid=currentUser.uid;
+  document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try{
-    const snap=await db.collection('groups').doc(gid).collection('history').limit(50).get();
-    const mine=snap.docs.map(d=>d.data()).filter(h=>h.fromUser===uid||h.toUsers?.includes(uid));
-    let html=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-      <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
+    // Traer historial aprobado + todas las solicitudes
+    const [histSnap, reqsSnap] = await Promise.all([
+      db.collection('groups').doc(gid).collection('history').limit(80).get(),
+      db.collection('groups').doc(gid).collection('requests')
+        .where('requestedBy','==',uid).get(),
+    ]);
+
+    // También solicitudes donde soy aprobador
+    const reqsForMeSnap = await db.collection('groups').doc(gid).collection('requests')
+      .where('toUsers','array-contains',uid).get();
+
+    const history = histSnap.docs.map(d=>d.data())
+      .filter(h=>h.fromUser===uid||h.toUsers?.includes(uid))
+      .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+
+    const myReqs = reqsSnap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+
+    const forMeReqs = reqsForMeSnap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(r=>r.requestedBy!==uid && (r.status==='pending'))
+      .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+
+    const statusColors = {
+      pending:  {bg:'rgba(245,166,35,0.12)', color:'var(--amber)',   label:'⏳ Pendiente'},
+      approved: {bg:'rgba(78,203,160,0.12)',  color:'var(--teal)',    label:'✓ Aprobada'},
+      rejected: {bg:'rgba(232,96,138,0.12)', color:'var(--rose)',    label:'✕ Rechazada'},
+      fulfilled:{bg:'rgba(155,127,232,0.12)',color:'var(--purple)', label:'⭐ Cumplida'},
+      cancelled:{bg:'rgba(90,88,117,0.12)',  color:'var(--text3)',   label:'— Retirada'},
+    };
+
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('${historialFrom}')">← Volver</button>
       <div style="font-size:16px;font-weight:500">Historial completo</div>
     </div>`;
-    if(mine.length===0){html+=`<div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-desc">Sin historial aún.</div></div>`;}
-    else{mine.forEach(h=>{
-      const isMe=h.fromUser===uid;
-      html+=`<div class="hist-item">
-        <div class="hist-icon ${h.type}">${h.type==='add'?'⬆':'⬇'}</div>
-        <div style="flex:1"><div class="hist-name">${h.action}</div>
-        <div class="hist-date">${isMe?'Tú':(h.fromUserName||'')} · ${h.date||''}${h.comment?' · "'+h.comment+'"':''}</div>
-        ${h.evidenceUrl?`<img src="${h.evidenceUrl}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;margin-top:4px;cursor:pointer" onclick="viewEvidence('${h.evidenceUrl}')">`:''}</div>
-        <div class="hist-pts ${h.type}">${h.type==='add'?'+':'-'}${h.pts}</div>
-      </div>`;
-    });}
-    document.getElementById('content').innerHTML=html;
-  }catch(e){document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';}
+
+    // POR APROBAR (de otros hacia mí)
+    if (forMeReqs.length > 0) {
+      html += `<div class="section-hd"><div class="section-title" style="color:var(--amber)">🔔 Por aprobar (${forMeReqs.length})</div></div>`;
+      forMeReqs.forEach(r => {
+        const typeIcon = r.type==='action' ? '⚡' : '🔥';
+        html += `<div class="card" style="cursor:pointer;border-color:rgba(245,166,35,0.25)" onclick="showRequestDetail('${r.id}',true)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:22px">${typeIcon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">${r.requestedByName} · +${r.pts} pts · ${r.date||''}</div>
+            </div>
+            <span style="font-size:11px;padding:4px 10px;border-radius:20px;background:rgba(245,166,35,0.12);color:var(--amber);font-weight:600;white-space:nowrap">⏳ Aprobar</span>
+          </div>
+        </div>`;
+      });
+    }
+
+    // MIS SOLICITUDES (acciones y deseos)
+    if (myReqs.length > 0) {
+      html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Mis solicitudes</div></div>`;
+
+      // Separar por tipo
+      const myActions = myReqs.filter(r=>r.type==='action');
+      const myDeseos = myReqs.filter(r=>r.type==='fantasy');
+
+      if (myActions.length > 0) {
+        html += `<div style="font-size:11px;font-weight:600;color:var(--teal);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;margin-top:4px">⚡ Acciones enviadas</div>`;
+        myActions.forEach(r => {
+          const st = statusColors[r.status] || statusColors.pending;
+          html += `<div class="card" style="cursor:pointer;margin-bottom:6px;border-left:3px solid ${st.color}" onclick="showRequestDetail('${r.id}',false)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">+${r.pts} pts · ${r.date||''}</div>
+                ${r.comment?`<div style="font-size:11px;color:var(--text3);margin-top:1px">"${r.comment}"</div>`:''}
+                ${r.reason?`<div style="font-size:11px;color:var(--rose);margin-top:2px">Motivo: "${r.reason}"</div>`:''}
+              </div>
+              <span style="font-size:10px;padding:3px 8px;border-radius:20px;background:${st.bg};color:${st.color};font-weight:600;margin-left:8px;flex-shrink:0">${st.label}</span>
+            </div>
+          </div>`;
+        });
+      }
+
+      if (myDeseos.length > 0) {
+        html += `<div style="font-size:11px;font-weight:600;color:var(--rose);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;margin-top:10px">🔥 Deseos solicitados</div>`;
+        myDeseos.forEach(r => {
+          const st = statusColors[r.status] || statusColors.pending;
+          html += `<div class="card" style="cursor:pointer;margin-bottom:6px;border-left:3px solid ${st.color}" onclick="showMyRequestDetail('${r.id}')">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:2px">${r.pts} pts · ${r.date||''}</div>
+                ${r.tentativeDate?`<div style="font-size:11px;color:var(--purple);margin-top:1px">📅 ${new Date(r.tentativeDate+'T12:00:00').toLocaleDateString('es',{day:'numeric',month:'short',year:'numeric'})}</div>`:''}
+                ${r.place?`<div style="font-size:11px;color:var(--text3);margin-top:1px">📍 ${r.place}</div>`:''}
+                ${(r.refPhotoUrls&&r.refPhotoUrls.length>0)?`<div style="font-size:11px;color:var(--text3);margin-top:1px">📷 ${r.refPhotoUrls.length} foto(s)</div>`:''}
+              </div>
+              <span style="font-size:10px;padding:3px 8px;border-radius:20px;background:${st.bg};color:${st.color};font-weight:600;margin-left:8px;flex-shrink:0">${st.label}</span>
+            </div>
+          </div>`;
+        });
+      }
+    }
+
+    // HISTORIAL APROBADO (puntos ganados/gastados)
+    if (history.length > 0) {
+      html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Puntos ganados y usados</div></div>`;
+      history.forEach(h => {
+        const isMe = h.fromUser===uid;
+        html += `<div class="hist-item">
+          <div class="hist-icon ${h.type}">${h.type==='add'?'⬆':'⬇'}</div>
+          <div style="flex:1;min-width:0">
+            <div class="hist-name">${h.action}</div>
+            <div class="hist-date">${isMe?'Tú':(h.fromUserName||'')} · ${h.date||''}${h.comment?' · "'+h.comment+'"':''}</div>
+            ${h.evidenceUrl?`<img src="${h.evidenceUrl}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;margin-top:4px;cursor:pointer" onclick="viewEvidence('${h.evidenceUrl}')">`:''}</div>
+          <div class="hist-pts ${h.type}">${h.type==='add'?'+':'-'}${h.pts}</div>
+        </div>`;
+      });
+    }
+
+    if (!forMeReqs.length && !myReqs.length && !history.length) {
+      html += `<div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-desc">Sin actividad aún. ¡Empieza registrando una acción!</div></div>`;
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    console.error(e);
+    document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
+  }
 }
 
 // ===== CONFIG (solo admin) =====
@@ -2492,11 +2649,11 @@ async function renderMantDeseos() {
   try {
     const groupSnap = await db.collection('groups').doc(gid).get();
     const groupFantasies = groupSnap.data().fantasies || DEFAULT_FANTASIES;
-    // Enriquecer con categorías del DEFAULT si faltan
-    const fantasies = groupFantasies.map(f => ({
-      ...f,
-      category: f.category || DEFAULT_FANTASIES.find(d=>d.id===f.id)?.category || 'pareja'
-    }));
+    // Enriquecer con categorías del DEFAULT - usar DEFAULT si el ID coincide
+    const fantasies = groupFantasies.map(f => {
+      const def = DEFAULT_FANTASIES.find(d => d.id === f.id);
+      return { ...f, category: def ? def.category : (f.category || 'pareja') };
+    });
     const levels = {basic:'🟢 Básico', medium:'🟡 Medio', high:'🔴 Alto'};
     const cats = {pareja:'💑 Pareja', grupo:'👥 Grupo', ambos:'💑👥 Ambos'};
 
