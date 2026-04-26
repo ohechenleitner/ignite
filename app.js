@@ -395,6 +395,125 @@ const SESSION_LOG = [
 ];
 
 // ===== AUTH FUNCTIONS =====
+// ===== SPLASH 18+ =====
+function checkSplash() {
+  const confirmed = localStorage.getItem('ignite_age_confirmed');
+  if (confirmed === 'true') {
+    hideSplash();
+  }
+  // Poner fecha máxima en birthdate (hoy - 18 años)
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() - 18);
+  const el = document.getElementById('reg-birthdate');
+  if (el) el.max = maxDate.toISOString().split('T')[0];
+}
+
+function hideSplash() {
+  const splash = document.getElementById('splash-screen');
+  const authScreen = document.getElementById('auth-screen');
+  if (splash) splash.style.display = 'none';
+  if (authScreen) { authScreen.style.display = ''; authScreen.classList.add('active'); }
+}
+
+function confirmAge(isAdult) {
+  if (!isAdult) {
+    document.getElementById('splash-screen').innerHTML = `
+      <div style="text-align:center;padding:40px 24px">
+        <div style="font-size:64px;margin-bottom:16px">🔒</div>
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:500;margin-bottom:12px">Acceso restringido</div>
+        <div style="font-size:14px;color:var(--text2);line-height:1.7">
+          Ignite es una aplicación exclusiva para mayores de 18 años.<br><br>
+          Si crees que es un error, cierra y vuelve a abrir la aplicación.
+        </div>
+      </div>`;
+    return;
+  }
+  localStorage.setItem('ignite_age_confirmed', 'true');
+  hideSplash();
+}
+
+// ===== TÉRMINOS Y POLÍTICA =====
+function showLegal(type) {
+  const isTerms = type === 'terms';
+  const title = isTerms ? 'Términos de Servicio' : 'Política de Privacidad';
+  const body = isTerms ? getTermsContent() : getPrivacyContent();
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" style="max-height:85vh">
+      <div class="modal-handle"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:600;flex:1">${title}</div>
+        <button class="btn btn-outline btn-sm" onclick="closeModalDirect()">Cerrar</button>
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.8;overflow-y:auto;max-height:60vh">
+        ${body}
+      </div>
+    </div>
+  </div>`;
+}
+
+function getTermsContent() {
+  return `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Última actualización: Abril 2026</div>
+
+    <strong style="color:var(--text)">1. Aceptación y elegibilidad</strong><br>
+    Al registrarte en Ignite confirmas que tienes 18 años o más. El uso de esta aplicación por menores de edad está estrictamente prohibido. La responsabilidad de la veracidad de la edad declarada recae exclusivamente en el usuario.<br><br>
+
+    <strong style="color:var(--text)">2. Naturaleza del contenido</strong><br>
+    Ignite es una plataforma de gamificación para parejas adultas. El contenido puede incluir material de naturaleza íntima y sexual entre adultos que consienten. Todo el contenido es generado por los propios usuarios dentro de su grupo privado.<br><br>
+
+    <strong style="color:var(--text)">3. Consentimiento y privacidad entre usuarios</strong><br>
+    Todo contenido compartido dentro de un grupo es visible únicamente para los miembros de ese grupo. El usuario es responsable de obtener el consentimiento de las personas involucradas antes de compartir cualquier contenido que las incluya.<br><br>
+
+    <strong style="color:var(--text)">4. Conducta prohibida</strong><br>
+    Está prohibido: compartir contenido de menores de edad en cualquier contexto, compartir contenido sin consentimiento de las personas involucradas, usar la plataforma para acosar o coaccionar a otras personas, o compartir el acceso a tu cuenta con terceros no autorizados.<br><br>
+
+    <strong style="color:var(--text)">5. Propiedad del contenido</strong><br>
+    El contenido que subes (fotos, textos) es de tu propiedad. Al subirlo otorgas a Ignite una licencia limitada para mostrarlo dentro de tu grupo privado. No compartimos tu contenido con terceros.<br><br>
+
+    <strong style="color:var(--text)">6. Limitación de responsabilidad</strong><br>
+    Ignite es una herramienta de comunicación entre adultos. No nos hacemos responsables por el uso indebido de la plataforma, ni por el contenido generado por los usuarios. El uso es bajo tu propia responsabilidad.<br><br>
+
+    <strong style="color:var(--text)">7. Modificaciones</strong><br>
+    Podemos actualizar estos términos. Te notificaremos de cambios significativos. El uso continuado de la app implica aceptación de los términos vigentes.<br><br>
+
+    <strong style="color:var(--text)">8. Contacto</strong><br>
+    Para consultas legales o reporte de uso indebido: soporte@igniteapp.co
+  `;
+}
+
+function getPrivacyContent() {
+  return `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Última actualización: Abril 2026</div>
+
+    <strong style="color:var(--text)">1. Datos que recopilamos</strong><br>
+    Recopilamos: nombre, email, fecha de nacimiento, género y orientación sexual (opcional), contenido que subes voluntariamente (fotos, textos), y datos de uso de la app (puntos, acciones, historial).<br><br>
+
+    <strong style="color:var(--text)">2. Para qué usamos tus datos</strong><br>
+    Tus datos se usan exclusivamente para: operar la aplicación, personalizar tu experiencia, y mostrarte contenido relevante dentro de tu grupo. No usamos tus datos para publicidad de terceros.<br><br>
+
+    <strong style="color:var(--text)">3. Datos sensibles</strong><br>
+    La fecha de nacimiento se usa para verificar mayoría de edad y no se comparte. El género y orientación sexual son opcionales y solo sirven para personalizar las acciones que ves. No los compartimos con nadie.<br><br>
+
+    <strong style="color:var(--text)">4. Almacenamiento</strong><br>
+    Tus datos se almacenan en servidores seguros de Google Firebase (Firebase Firestore y Storage), con cifrado en tránsito y en reposo. Los servidores están ubicados en Sudamérica (southamerica-east1).<br><br>
+
+    <strong style="color:var(--text)">5. Compartir datos</strong><br>
+    No vendemos ni compartimos tus datos personales con terceros. Los únicos que pueden ver tu contenido son los miembros de tu grupo de Ignite.<br><br>
+
+    <strong style="color:var(--text)">6. Tus derechos</strong><br>
+    Tienes derecho a: acceder a tus datos, corregirlos, eliminarlos, y retirar tu consentimiento en cualquier momento. Para ejercer estos derechos escríbenos a soporte@igniteapp.co<br><br>
+
+    <strong style="color:var(--text)">7. Eliminación de cuenta</strong><br>
+    Puedes solicitar la eliminación de tu cuenta y todos tus datos en cualquier momento desde tu Perfil o escribiéndonos. Procesamos las solicitudes en un máximo de 30 días.<br><br>
+
+    <strong style="color:var(--text)">8. Menores de edad</strong><br>
+    Ignite no está dirigida a menores de 18 años. Si detectamos que un usuario es menor de edad, eliminamos su cuenta y datos inmediatamente.<br><br>
+
+    <strong style="color:var(--text)">9. Contacto</strong><br>
+    Para ejercer tus derechos o consultas de privacidad: soporte@igniteapp.co
+  `;
+}
+
 function showLogin() {
   document.getElementById('login-form').style.display = 'block';
   document.getElementById('register-form').style.display = 'none';
@@ -412,11 +531,24 @@ function regNextStep(step) {
     const email = document.getElementById('reg-email')?.value?.trim();
     const pass = document.getElementById('reg-pass')?.value;
     const passConfirm = document.getElementById('reg-pass-confirm')?.value;
+    const birthdate = document.getElementById('reg-birthdate')?.value;
     const errEl = document.getElementById('reg-error-1');
     if (errEl) errEl.style.display = 'none';
     if (!name || !email || !pass) { if (errEl) { errEl.textContent = 'Completa todos los campos'; errEl.style.display = 'block'; } return; }
     if (pass.length < 6) { if (errEl) { errEl.textContent = 'La contraseña debe tener mínimo 6 caracteres'; errEl.style.display = 'block'; } return; }
     if (passConfirm && pass !== passConfirm) { if (errEl) { errEl.textContent = 'Las contraseñas no coinciden'; errEl.style.display = 'block'; } return; }
+    // Validar fecha de nacimiento
+    if (!birthdate) { if (errEl) { errEl.textContent = 'Ingresa tu fecha de nacimiento'; errEl.style.display = 'block'; } return; }
+    const birth = new Date(birthdate);
+    const today = new Date();
+    const age = today.getFullYear() - birth.getFullYear() - (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
+    if (age < 18) {
+      if (errEl) {
+        errEl.innerHTML = '🔞 Debes tener 18 años o más para usar Ignite.<br><span style="font-size:11px">Esta aplicación contiene contenido para adultos.</span>';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
   }
   // Mostrar paso correcto
   [1,2,3].forEach(i => {
@@ -465,11 +597,12 @@ async function registerUser() {
   const email = document.getElementById('reg-email').value.trim();
   const pass = document.getElementById('reg-pass').value;
   const passConfirm = document.getElementById('reg-pass-confirm')?.value || '';
+  const birthdate = document.getElementById('reg-birthdate')?.value || '';
   const codeInput = document.getElementById('reg-code').value.trim().toUpperCase();
-  // Si empieza con IGNITE- lo tomamos completo, sino agregamos el prefijo
   const code = codeInput ? (codeInput.startsWith('IGNITE-') ? codeInput : 'IGNITE-' + codeInput) : '';
   const gender = document.getElementById('reg-gender').value;
   const orient = document.getElementById('reg-orient').value;
+  const termsAccepted = document.getElementById('reg-terms')?.checked;
   const errEl = document.getElementById('reg-error');
   const successEl = document.getElementById('reg-success');
   errEl.style.display = 'none';
@@ -477,6 +610,15 @@ async function registerUser() {
   if (!name || !email || !pass) { showError(errEl, 'Completa nombre, email y contraseña'); return; }
   if (pass.length < 6) { showError(errEl, 'La contraseña debe tener mínimo 6 caracteres'); return; }
   if (passConfirm && pass !== passConfirm) { showError(errEl, 'Las contraseñas no coinciden'); return; }
+  // Validar T&C
+  if (!termsAccepted) { showError(errEl, 'Debes aceptar los Términos de Servicio para continuar'); return; }
+  // Validar edad de nuevo por seguridad
+  if (birthdate) {
+    const birth = new Date(birthdate);
+    const today = new Date();
+    const age = today.getFullYear() - birth.getFullYear() - (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
+    if (age < 18) { showError(errEl, '🔞 Debes tener 18 años o más para registrarte'); return; }
+  }
   const btn = document.querySelector('#register-form .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Creando cuenta...'; }
   try {
@@ -486,7 +628,7 @@ async function registerUser() {
       const groupSnap = await db.collection('groups').where('inviteCode', '==', code).limit(1).get();
       if (groupSnap.empty) { showError(errEl, 'Código inválido: ' + code); if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; } return; }
       groupId = groupSnap.docs[0].id;
-      role = 'viewer';
+      role = 'member';
     }
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     const uid = cred.user.uid;
@@ -512,7 +654,11 @@ async function registerUser() {
     }
     await db.collection('users').doc(uid).set({
       id: uid, name, email, initials, color, gender, orientation: orient,
-      role, active: true, groupId, firstLogin: true, streak: 0, lastActive: new Date().toDateString(),
+      role, active: true, groupId, firstLogin: true, streak: 0,
+      lastActive: new Date().toDateString(),
+      birthdate: birthdate || '',
+      termsAcceptedAt: new Date().toISOString(),
+      termsVersion: '1.0',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     if (successEl) { successEl.textContent = '✓ ¡Cuenta creada! Entrando...'; successEl.style.display = 'block'; }
@@ -526,6 +672,16 @@ async function registerUser() {
 function showError(el, msg) { el.textContent = msg; el.style.display = 'block'; }
 
 // ===== AUTH STATE =====
+// Inicializar splash al cargar
+document.addEventListener('DOMContentLoaded', () => {
+  checkSplash();
+  // Poner fecha máxima en birthdate
+  const maxDate = new Date();
+  maxDate.setFullYear(maxDate.getFullYear() - 18);
+  const el = document.getElementById('reg-birthdate');
+  if (el) el.max = maxDate.toISOString().split('T')[0];
+});
+
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
@@ -734,6 +890,11 @@ function showTab(tab) {
 }
 
 // ===== INICIO =====
+function getDailyQuestion() {
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+  return DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
+}
+
 async function renderInicio() {
   if (!currentUserData?.groupId) {
     document.getElementById('content').innerHTML = `<div class="empty-state">
@@ -784,7 +945,7 @@ async function renderInicio() {
       <div class="hero-label">Tus puntos${partner?' con '+partner.name:''}</div>
       <div class="hero-pts"><span class="pts-num">${myPts}</span> <span class="pts-label">pts</span></div>
       <div class="hero-sub">${partner
-        ? `<span class="hero-partner">${partner.name}</span> tiene ${partnerPts} pts`
+        ? `<span class="hero-partner">${partner?.name||'Pareja'}</span> tiene ${partnerPts} pts`
         : `<span style="cursor:pointer;color:var(--rose)" onclick="showInviteModal()">+ Invita a tu pareja →</span>`
       }</div>
     </div>`;
@@ -864,6 +1025,8 @@ async function renderInicio() {
     }
 
     document.getElementById('content').innerHTML = html;
+    // Cargar respuestas del día en background
+    if (currentUserData?.groupId) setTimeout(() => loadDailyAnswers(currentUserData.groupId), 300);
   } catch(e) {
     document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div><button class="btn btn-outline" onclick="showTab('inicio')">Reintentar</button></div>`;
   }
@@ -947,17 +1110,17 @@ async function renderGanar() {
     if (forApproval.length > 0) {
       html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Acciones por aprobar (${forApproval.length})</div></div>`;
       forApproval.forEach(r => {
-        html += `<div class="card">
+        html += `<div class="card" style="cursor:pointer" onclick="showRequestDetail('${r.id}', true)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <div><div style="font-size:13px;font-weight:500">${r.fantasyName}</div>
             <div style="font-size:11px;color:var(--text2)">+${r.pts} pts · ${r.requestedByName}</div></div>
             <span class="status pending">⏳</span>
           </div>
           ${r.comment?`<div style="font-size:12px;color:var(--text2);background:var(--bg4);border-radius:8px;padding:8px;margin-bottom:8px">"${r.comment}"</div>`:''}
-          ${r.evidenceUrl?`<img src="${r.evidenceUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px;cursor:pointer" onclick="viewEvidence('${r.evidenceUrl}')">`:'' }
+          ${r.evidenceUrl?`<div style="font-size:11px;color:var(--amber);margin-bottom:8px">📷 Tiene foto adjunta · Toca la tarjeta para ver</div>`:''}
           <div class="row" style="gap:10px;margin-top:4px">
-            <button class="btn btn-teal" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="aprobar('${r.id}')">✓ Aprobar</button>
-            <button class="btn btn-danger" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="rechazar('${r.id}')">✕ Rechazar</button>
+            <button class="btn btn-teal" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="event.stopPropagation();aprobar('${r.id}')">✓ Aprobar</button>
+            <button class="btn btn-danger" style="flex:1;padding:12px;font-size:14px;font-weight:600" onclick="event.stopPropagation();rechazar('${r.id}')">✕ Rechazar</button>
           </div>
         </div>`;
       });
@@ -982,16 +1145,17 @@ async function renderGanar() {
       html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Mis acciones enviadas</div></div>`;
       allSent.forEach(r => {
         const st = statusMap[r.status] || statusMap.pending;
-        html += `<div class="card" style="margin-bottom:6px">
+        html += `<div class="card" style="margin-bottom:6px;cursor:pointer;transition:all 0.2s" onclick="showRequestDetail('${r.id}', false)">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
               <div style="font-size:11px;color:var(--text2);margin-top:2px">+${r.pts} pts · ${r.date||''}</div>
-              ${r.comment?`<div style="font-size:11px;color:var(--text3);margin-top:2px">"${r.comment}"</div>`:''}
-              ${r.status==='rejected'&&r.reason?`<div style="font-size:11px;color:var(--rose);margin-top:4px">Motivo: "${r.reason}"</div>`:''}
-              ${r.status==='approved'&&r.approveComment?`<div style="font-size:11px;color:var(--teal);margin-top:4px">"${r.approveComment}"</div>`:''}
+              ${r.evidenceUrl?`<div style="font-size:11px;color:var(--text3);margin-top:2px">📷 Tiene foto adjunta</div>`:''}
             </div>
-            <span class="status ${st.cls}" style="margin-left:8px;flex-shrink:0">${st.label}</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+              <span class="status ${st.cls}">${st.label}</span>
+              <span style="color:var(--text3);font-size:14px">›</span>
+            </div>
           </div>
         </div>`;
       });
@@ -1255,6 +1419,8 @@ function setFF(val, el) { setCat(val, el); }
 async function showDeseoDetail(fid) {
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
+  // Reset fotos de referencia
+  window._refPhotos = [];
   try {
     const groupSnap = await db.collection('groups').doc(gid).get();
     const group = groupSnap.data();
@@ -1273,33 +1439,54 @@ async function showDeseoDetail(fid) {
     document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)">
       <div class="modal">
         <div class="modal-handle"></div>
-        <div style="text-align:center;margin-bottom:20px">
-          <div style="font-size:52px;margin-bottom:10px">${f.icon}</div>
-          <div style="font-family:var(--font-display);font-size:22px;font-weight:500;margin-bottom:6px">${f.name}</div>
+        <div style="text-align:center;margin-bottom:16px">
+          <div style="font-size:48px;margin-bottom:8px">${f.icon}</div>
+          <div style="font-family:var(--font-display);font-size:20px;font-weight:500;margin-bottom:6px">${f.name}</div>
           <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
             <span style="font-size:11px;color:${levelColors[f.level]};background:${levelColors[f.level]}22;padding:3px 10px;border-radius:20px;font-weight:600">${levelLabels[f.level]}</span>
             <span style="font-size:11px;color:var(--text2);background:var(--bg4);padding:3px 10px;border-radius:20px">${catLabel}</span>
           </div>
-          <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-top:12px">${f.desc}</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-top:10px">${f.desc}</div>
         </div>
-        <div style="display:flex;gap:8px;margin-bottom:16px">
-          <div style="flex:1;background:var(--bg4);border-radius:12px;padding:14px;text-align:center">
-            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Costo</div>
-            <div style="font-family:var(--font-display);font-size:26px;color:var(--rose);font-weight:500">${f.pts}</div>
-            <div style="font-size:11px;color:var(--text2)">puntos</div>
+
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <div style="flex:1;background:var(--bg4);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Costo</div>
+            <div style="font-family:var(--font-display);font-size:24px;color:var(--rose);font-weight:500">${f.pts}</div>
+            <div style="font-size:10px;color:var(--text2)">puntos</div>
           </div>
-          <div style="flex:1;background:var(--bg4);border-radius:12px;padding:14px;text-align:center">
-            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Tienes</div>
-            <div style="font-family:var(--font-display);font-size:26px;color:${canAfford?'var(--teal)':'var(--rose)'};font-weight:500">${myPts}</div>
-            <div style="font-size:11px;color:var(--text2)">puntos</div>
+          <div style="flex:1;background:var(--bg4);border-radius:12px;padding:12px;text-align:center">
+            <div style="font-size:10px;color:var(--text2);margin-bottom:3px">Tienes</div>
+            <div style="font-family:var(--font-display);font-size:24px;color:${canAfford?'var(--teal)':'var(--rose)'};font-weight:500">${myPts}</div>
+            <div style="font-size:10px;color:var(--text2)">puntos</div>
           </div>
         </div>
+
         ${canAfford?`
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)">📋 Detalla tu propuesta</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Mientras más detallas, más fácil es que te aprueben 😉</div>
+
         <div class="form-group">
-          <label class="form-label">Nota para tu pareja (opcional)</label>
-          <textarea class="form-control" id="fantasy-comment" rows="2" placeholder="Cuéntale más sobre lo que quieres..."></textarea>
+          <label class="form-label">Nota para tu pareja</label>
+          <textarea class="form-control" id="fantasy-comment" rows="2" placeholder="Cuéntale por qué quieres esto..."></textarea>
         </div>
-        <button class="btn btn-primary btn-full" onclick="requestFantasy('${f.id}')">🔥 Solicitar este deseo</button>`:
+        <div class="form-group">
+          <label class="form-label">📅 Fecha tentativa (opcional)</label>
+          <input type="date" class="form-control" id="fantasy-date" min="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">📍 Lugar o contexto (opcional)</label>
+          <input type="text" class="form-control" id="fantasy-place" placeholder="Ej: Cabaña en Cajón del Maipo, Hotel en Valparaíso...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">📸 Fotos de referencia (hasta 3)</label>
+          <div id="ref-photos-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+          <div id="ref-photo-btn" class="upload-btn" onclick="addRefPhoto()" style="${window._refPhotos?.length>=3?'display:none':''}">
+            📷 Agregar foto de referencia
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Del lugar, outfit, ambiente... lo que ayude a visualizar</div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="requestFantasy('${f.id}')">🔥 Enviar propuesta</button>`:
         `<div style="background:var(--bg4);border-radius:12px;padding:16px;text-align:center;margin-bottom:10px">
           <div style="font-size:13px;color:var(--text2)">Te faltan <strong style="color:var(--rose)">${f.pts-myPts} puntos</strong></div>
           <div style="font-size:12px;color:var(--text3);margin-top:4px">Sigue registrando acciones 💪</div>
@@ -1310,12 +1497,21 @@ async function showDeseoDetail(fid) {
   } catch(e) { showToast('Error'); }
 }
 
+// Agregar foto de referencia al modal de fantasía
+function addRefPhoto() {
+  window._uploadingRefPhoto = true;
+  document.getElementById('file-upload').click();
+}
+
 async function requestFantasy(fid) {
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
   const comment = document.getElementById('fantasy-comment')?.value||'';
+  const tentativeDate = document.getElementById('fantasy-date')?.value||'';
+  const place = document.getElementById('fantasy-place')?.value?.trim()||'';
+  const refPhotos = window._refPhotos||[];
   const btn = document.querySelector('#modal-container .btn-primary');
-  if (btn) { btn.disabled=true; btn.textContent='Solicitando...'; }
+  if (btn) { btn.disabled=true; btn.textContent='Enviando propuesta...'; }
   try {
     const groupSnap = await db.collection('groups').doc(gid).get();
     const group = groupSnap.data();
@@ -1332,13 +1528,27 @@ async function requestFantasy(fid) {
       pairPoints[pk][uid]=Math.max(0,(pairPoints[pk][uid]||0)-f.pts);
       await db.collection('groups').doc(gid).update({pairPoints});
     }
+    // Subir fotos de referencia si las hay
+    let refPhotoUrls = [];
+    if (refPhotos.length > 0) {
+      showToast('Subiendo fotos...');
+      for (let i = 0; i < refPhotos.length; i++) {
+        const url = await uploadEvidence(refPhotos[i], `refphotos/${gid}/${uid}/${Date.now()}_${i}.jpg`);
+        if (url) refPhotoUrls.push(url);
+      }
+    }
+    window._refPhotos = [];
+
     const reqRef = db.collection('groups').doc(gid).collection('requests').doc();
     await reqRef.set({
       id:reqRef.id, type:'fantasy',
       requestedBy:uid, requestedByName:currentUserData.name,
       toUsers:partner?[partner.id]:[],
       fantasyId:f.id, fantasyName:f.name, pts:f.pts,
-      status:'pending', comment, reason:'', approveComment:'', fulfilled:false,
+      status:'pending', comment,
+      tentativeDate, place,
+      refPhotoUrls,
+      reason:'', approveComment:'', fulfilled:false,
       date:new Date().toLocaleDateString('es'),
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -1442,6 +1652,102 @@ function showCelebration(msg) {
     el.style.transform = 'translate(-50%,-60%) scale(0.8)';
     setTimeout(() => el.remove(), 300);
   }, 1000);
+}
+
+// ===== MODAL DETALLE DE SOLICITUD =====
+async function showRequestDetail(reqId, canApprove) {
+  const gid = currentUserData.groupId;
+  try {
+    const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
+    const r = reqSnap.data();
+    if (!r) { showToast('No se encontró la solicitud'); return; }
+
+    const statusMap = {
+      pending:  { label:'⏳ Pendiente',  color:'var(--amber)' },
+      approved: { label:'✓ Aprobada',   color:'var(--teal)'  },
+      rejected: { label:'✕ Rechazada',  color:'var(--rose)'  },
+      fulfilled:{ label:'⭐ Cumplida',   color:'var(--purple)'},
+    };
+    const st = statusMap[r.status] || statusMap.pending;
+    const typeLabel = r.type === 'action' ? '⚡ Acción' : '🔥 Deseo';
+
+    document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal">
+        <div class="modal-handle"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <div style="font-size:17px;font-weight:600">${r.fantasyName}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${typeLabel} · +${r.pts} pts · ${r.date||''}</div>
+          </div>
+          <span style="padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;background:${st.color}22;color:${st.color}">${st.label}</span>
+        </div>
+
+        ${r.comment ? `
+        <div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:12px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Comentario</div>
+          <div style="font-size:13px;color:var(--text2)">"${r.comment}"</div>
+        </div>` : ''}
+
+        ${r.evidenceUrl ? `
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Evidencia</div>
+          <img src="${r.evidenceUrl}" style="width:100%;max-height:240px;object-fit:cover;border-radius:12px;cursor:pointer" onclick="viewEvidence('${r.evidenceUrl}')">
+          <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px">Toca para ver completa</div>
+        </div>` : ''}
+
+        ${r.tentativeDate||r.place ? `
+        <div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:12px">
+          ${r.tentativeDate?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:${r.place?'8px':'0'}">
+            <span style="font-size:18px">📅</span>
+            <div><div style="font-size:10px;color:var(--text3)">FECHA TENTATIVA</div>
+            <div style="font-size:13px;font-weight:500">${new Date(r.tentativeDate+'T12:00:00').toLocaleDateString('es',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div></div>
+          </div>`:''}
+          ${r.place?`<div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:18px">📍</span>
+            <div><div style="font-size:10px;color:var(--text3)">LUGAR</div>
+            <div style="font-size:13px;font-weight:500">${r.place}</div></div>
+          </div>`:''}
+        </div>` : ''}
+
+        ${r.refPhotoUrls&&r.refPhotoUrls.length>0 ? `
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Fotos de referencia</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${r.refPhotoUrls.map(url=>`<img src="${url}" style="width:calc(33% - 4px);aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer" onclick="viewEvidence('${url}')">`).join('')}
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Toca una foto para verla completa</div>
+        </div>` : (!r.evidenceUrl ? `
+        <div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:12px;text-align:center">
+          <div style="font-size:24px;margin-bottom:4px">📷</div>
+          <div style="font-size:12px;color:var(--text3)">Sin fotos adjuntas</div>
+        </div>` : '')}
+
+        ${r.approveComment ? `
+        <div style="background:rgba(78,203,160,0.1);border:1px solid rgba(78,203,160,0.2);border-radius:12px;padding:12px;margin-bottom:12px">
+          <div style="font-size:10px;color:var(--teal);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Comentario de aprobación</div>
+          <div style="font-size:13px;color:var(--teal)">"${r.approveComment}"</div>
+        </div>` : ''}
+
+        ${r.reason ? `
+        <div style="background:rgba(232,96,138,0.1);border:1px solid rgba(232,96,138,0.2);border-radius:12px;padding:12px;margin-bottom:12px">
+          <div style="font-size:10px;color:var(--rose);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Motivo de rechazo</div>
+          <div style="font-size:13px;color:var(--rose)">"${r.reason}"</div>
+        </div>` : ''}
+
+        <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:${canApprove && r.status==='pending'?'14px':'0'}">
+          Enviado por ${r.requestedByName||''}
+        </div>
+
+        ${canApprove && r.status === 'pending' ? `
+        <div class="row" style="gap:10px">
+          <button class="btn btn-teal" style="flex:1;padding:13px;font-size:14px;font-weight:600" onclick="closeModalDirect();aprobar('${r.id}')">✓ Aprobar</button>
+          <button class="btn btn-danger" style="flex:1;padding:13px;font-size:14px;font-weight:600" onclick="closeModalDirect();rechazar('${r.id}')">✕ Rechazar</button>
+        </div>` : `
+        <button class="btn btn-outline btn-full" onclick="closeModalDirect()">Cerrar</button>`}
+      </div>
+    </div>`;
+  } catch(e) { showToast('Error cargando detalle'); }
 }
 
 function rechazar(reqId) {
@@ -1552,7 +1858,6 @@ async function renderPerfil() {
       <div class="menu-item-text">Historial completo</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    ${isAdmin?`
     <div class="menu-item" onclick="toggleMantPanel()">
       <div class="menu-item-icon" style="background:var(--amber-glow)">🗂️</div>
       <div class="menu-item-text">Mantenedores</div>
@@ -1574,11 +1879,21 @@ async function renderPerfil() {
       <div class="menu-item-icon" style="background:var(--bg3)">⚙️</div>
       <div class="menu-item-text">Configuración</div>
       <div class="menu-item-arrow">›</div>
-    </div>`:''}
+    </div>
 
     <div class="menu-item" onclick="showTutorial()">
       <div class="menu-item-icon" style="background:var(--bg3)">🎓</div>
       <div class="menu-item-text">Ver tutorial</div>
+      <div class="menu-item-arrow">›</div>
+    </div>
+    <div class="menu-item" onclick="showLegal('terms')">
+      <div class="menu-item-icon" style="background:var(--bg3)">📄</div>
+      <div class="menu-item-text">Términos de Servicio</div>
+      <div class="menu-item-arrow">›</div>
+    </div>
+    <div class="menu-item" onclick="showLegal('privacy')">
+      <div class="menu-item-icon" style="background:var(--bg3)">🔒</div>
+      <div class="menu-item-text">Política de Privacidad</div>
       <div class="menu-item-arrow">›</div>
     </div>
   </div>
@@ -1824,7 +2139,7 @@ async function renderHistorial(){
 
 // ===== CONFIG (solo admin) =====
 async function renderConfig(){
-  if(currentUserData.role!=='admin'){document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">🔒</div><div class="empty-state-title">Solo administradores</div></div>';return;}
+  // Todos los miembros pueden configurar
   const gid=currentUserData.groupId;
   try{
     const [membersSnap,groupSnap]=await Promise.all([
@@ -2002,12 +2317,40 @@ function handleFileUpload(event){
   if(file.size>15*1024*1024){showToast('Foto demasiado grande (máx 15MB)');return;}
   showToast('Procesando foto...');
   compressImage(file, 1200, 0.75).then(base64 => {
-    pendingEvidenceBase64 = base64;
-    const preview=document.getElementById('evidence-preview-new');
-    if(preview)preview.innerHTML=`<img src="${base64}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-top:8px">
-      <button class="btn btn-danger btn-sm" style="margin-top:4px" onclick="clearEvidence()">✕ Quitar foto</button>`;
+    if (window._uploadingRefPhoto) {
+      // Es una foto de referencia para el modal de fantasía
+      window._uploadingRefPhoto = false;
+      if (!window._refPhotos) window._refPhotos = [];
+      if (window._refPhotos.length >= 3) { showToast('Máximo 3 fotos de referencia'); return; }
+      window._refPhotos.push(base64);
+      updateRefPhotosPreview();
+    } else {
+      // Es evidencia de acción
+      pendingEvidenceBase64 = base64;
+      const preview=document.getElementById('evidence-preview-new');
+      if(preview)preview.innerHTML=`<img src="${base64}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-top:8px">
+        <button class="btn btn-danger btn-sm" style="margin-top:4px" onclick="clearEvidence()">✕ Quitar foto</button>`;
+    }
   }).catch(() => showToast('Error procesando la foto'));
   event.target.value='';
+}
+
+function updateRefPhotosPreview() {
+  const preview = document.getElementById('ref-photos-preview');
+  const btn = document.getElementById('ref-photo-btn');
+  if (!preview) return;
+  preview.innerHTML = (window._refPhotos||[]).map((b64, i) => 
+    `<div style="position:relative">
+      <img src="${b64}" style="width:80px;height:80px;object-fit:cover;border-radius:8px">
+      <button onclick="removeRefPhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:var(--rose);border:none;border-radius:50%;width:20px;height:20px;color:white;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>`
+  ).join('');
+  if (btn) btn.style.display = (window._refPhotos||[]).length >= 3 ? 'none' : 'flex';
+}
+
+function removeRefPhoto(idx) {
+  if (window._refPhotos) window._refPhotos.splice(idx, 1);
+  updateRefPhotosPreview();
 }
 
 // Comprime imagen a máximo maxWidth px y calidad quality (0-1)
@@ -2259,6 +2602,8 @@ async function addFantasyMant() {
     await db.collection('groups').doc(gid).update({
       fantasies: firebase.firestore.FieldValue.arrayUnion({id:'f_'+Date.now(), name, pts, level, icon, desc, category})
     });
+    // Notificar a otros miembros
+    await notifyGroupMembers(gid, `📋 ${currentUserData.name} agregó un nuevo deseo al catálogo: "${name}"`);
     showToast('✓ Deseo agregado');
     showTab('mant-deseos');
   } catch(e) { showToast('Error: '+e.message); }
@@ -2380,6 +2725,279 @@ async function saveActionEdit(aid, type) {
     showToast('✓ Acción actualizada');
     showTab('mant-acciones');
   } catch(e) { showToast('Error: '+e.message); }
+}
+
+// ===== PREGUNTA DEL DÍA =====
+async function submitDailyAnswer() {
+  const answer = document.getElementById('daily-answer')?.value?.trim();
+  if (!answer) { showToast('Escribe tu respuesta primero'); return; }
+  const gid = currentUserData.groupId;
+  const uid = currentUser.uid;
+  const today = new Date().toISOString().split('T')[0];
+  const question = getDailyQuestion();
+  const btn = document.querySelector('#daily-answer-section .btn-purple');
+  if (btn) { btn.disabled=true; btn.textContent='Enviando...'; }
+  try {
+    await db.collection('groups').doc(gid).collection('dailyAnswers').doc(`${today}_${uid}`).set({
+      uid, name: currentUserData.name, date: today,
+      question, answer,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Notificar a pareja
+    await notifyGroupMembers(gid, `💬 ${currentUserData.name} respondió la pregunta del día`);
+    showToast('✓ Respuesta enviada');
+    // Mostrar confirmación en lugar del formulario
+    const section = document.getElementById('daily-answer-section');
+    if (section) section.innerHTML = `<div style="background:rgba(155,127,232,0.1);border-radius:10px;padding:10px;font-size:13px;color:var(--purple)">
+      ✓ Respuesta enviada. Tu pareja la verá cuando también responda.
+    </div>`;
+  } catch(e) { showToast('Error: '+e.message); if (btn) { btn.disabled=false; btn.textContent='Enviar respuesta 💬'; } }
+}
+
+async function loadDailyAnswers(gid) {
+  const today = new Date().toISOString().split('T')[0];
+  const uid = currentUser.uid;
+  try {
+    // Verificar si ya respondí hoy
+    const myAnswer = await db.collection('groups').doc(gid).collection('dailyAnswers').doc(`${today}_${uid}`).get();
+    if (myAnswer.exists) {
+      const section = document.getElementById('daily-answer-section');
+      if (section) {
+        // Ver si la pareja también respondió
+        const allAnswers = await db.collection('groups').doc(gid).collection('dailyAnswers')
+          .where('date','==',today).get();
+        if (allAnswers.size >= 2) {
+          // Ambos respondieron - mostrar las respuestas
+          const answers = allAnswers.docs.map(d=>d.data());
+          section.innerHTML = answers.map(a => `
+            <div style="background:rgba(155,127,232,0.08);border-radius:10px;padding:10px;margin-bottom:6px">
+              <div style="font-size:11px;color:var(--purple);font-weight:600;margin-bottom:4px">${a.name}</div>
+              <div style="font-size:13px;color:var(--text2)">"${a.answer}"</div>
+            </div>`).join('');
+        } else {
+          section.innerHTML = `<div style="background:rgba(155,127,232,0.08);border-radius:10px;padding:10px;font-size:13px;color:var(--text2)">
+            ✓ Ya respondiste hoy. Esperando que tu pareja también responda para ver ambas respuestas. 👀
+          </div>`;
+        }
+      }
+    }
+  } catch(e) {}
+}
+
+// ===== DETALLE DE MI PROPIA SOLICITUD =====
+async function showMyRequestDetail(reqId) {
+  const gid = currentUserData.groupId;
+  try {
+    const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
+    const r = reqSnap.data();
+    if (!r) return;
+
+    const statusMap = {
+      pending:  {label:'⏳ Pendiente',  color:'var(--amber)'},
+      approved: {label:'✓ Aprobada',   color:'var(--teal)'},
+      rejected: {label:'✕ Rechazada',  color:'var(--rose)'},
+      fulfilled:{label:'⭐ Cumplida',   color:'var(--purple)'},
+    };
+    const st = statusMap[r.status] || statusMap.pending;
+    const isPending = r.status === 'pending';
+
+    document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal">
+        <div class="modal-handle"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:17px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.fantasyName}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">🔥 Deseo · ${r.pts} pts · ${r.date||''}</div>
+          </div>
+          <span style="padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;background:${st.color}22;color:${st.color};margin-left:8px;flex-shrink:0">${st.label}</span>
+        </div>
+
+        ${r.comment?`<div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Tu nota</div>
+          <div style="font-size:13px;color:var(--text2)">"${r.comment}"</div>
+        </div>`:''}
+
+        ${r.tentativeDate||r.place?`<div style="background:var(--bg3);border-radius:12px;padding:12px;margin-bottom:10px">
+          ${r.tentativeDate?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:${r.place?'8px':'0'}">
+            <span>📅</span>
+            <div><div style="font-size:10px;color:var(--text3)">FECHA TENTATIVA</div>
+            <div style="font-size:13px;font-weight:500">${new Date(r.tentativeDate+'T12:00:00').toLocaleDateString('es',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div></div>
+          </div>`:''}
+          ${r.place?`<div style="display:flex;align-items:center;gap:8px">
+            <span>📍</span>
+            <div><div style="font-size:10px;color:var(--text3)">LUGAR</div>
+            <div style="font-size:13px;font-weight:500">${r.place}</div></div>
+          </div>`:''}
+        </div>`:''}
+
+        ${r.refPhotoUrls&&r.refPhotoUrls.length>0?`<div style="margin-bottom:10px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Fotos de referencia</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${r.refPhotoUrls.map(url=>`<img src="${url}" style="width:calc(33% - 4px);aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer" onclick="viewEvidence('${url}')">`).join('')}
+          </div>
+        </div>`:''}
+
+        ${r.approveComment?`<div style="background:rgba(78,203,160,0.1);border:1px solid rgba(78,203,160,0.2);border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--teal);text-transform:uppercase;margin-bottom:4px">Comentario al aprobar</div>
+          <div style="font-size:13px;color:var(--teal)">"${r.approveComment}"</div>
+        </div>`:''}
+
+        ${r.reason?`<div style="background:rgba(232,96,138,0.1);border:1px solid rgba(232,96,138,0.2);border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="font-size:10px;color:var(--rose);text-transform:uppercase;margin-bottom:4px">Motivo del rechazo</div>
+          <div style="font-size:13px;color:var(--rose)">"${r.reason}"</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:6px">💡 Puedes volver a solicitarlo mejorando la propuesta</div>
+        </div>`:''}
+
+        ${isPending?`
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;background:rgba(245,166,35,0.08);border-radius:10px;padding:10px">
+          ⏳ Esperando que tu pareja la revise. Puedes editarla o retirarla.
+        </div>
+        <div class="row" style="gap:8px">
+          <button class="btn btn-outline" style="flex:1" onclick="closeModalDirect();editMyRequest('${r.id}')">✏️ Editar</button>
+          <button class="btn btn-danger" style="flex:1" onclick="cancelMyRequest('${r.id}',${r.pts})">✕ Retirar</button>
+        </div>`:''}
+
+        ${r.status==='approved'&&!r.fulfilled?`
+        <button class="btn btn-teal btn-full" style="margin-top:8px" onclick="closeModalDirect();markFulfilled('${r.id}')">⭐ Marcar como cumplida</button>`:''}
+
+        ${r.status==='rejected'?`
+        <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="closeModalDirect();showTab('deseos')">🔥 Volver al catálogo</button>`:''}
+
+        <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cerrar</button>
+      </div>
+    </div>`;
+  } catch(e) { showToast('Error cargando detalle'); }
+}
+
+// Cancelar/retirar una solicitud pendiente y devolver puntos
+async function cancelMyRequest(reqId, pts) {
+  if (!confirm('¿Retirar esta solicitud? Se te devolverán los puntos.')) return;
+  const gid = currentUserData.groupId;
+  const uid = currentUser.uid;
+  try {
+    const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
+    const req = reqSnap.data();
+    if (req.status !== 'pending') { showToast('Esta solicitud ya fue procesada'); return; }
+
+    // Devolver puntos
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const pairPoints = groupSnap.data().pairPoints || {};
+    const membersSnap = await db.collection('users').where('groupId','==',gid).where('active','==',true).get();
+    const others = membersSnap.docs.map(d=>d.data()).filter(m=>m.id!==uid);
+    if (others[0]) {
+      const pk = [uid, others[0].id].sort().join('_');
+      if (!pairPoints[pk]) pairPoints[pk] = {};
+      pairPoints[pk][uid] = (pairPoints[pk][uid]||0) + pts;
+      await db.collection('groups').doc(gid).update({ pairPoints });
+    }
+
+    await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
+      status: 'cancelled', cancelledAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    closeModalDirect();
+    showToast('✓ Solicitud retirada. Puntos devueltos.');
+    showTab('deseos');
+  } catch(e) { showToast('Error: '+e.message); }
+}
+
+// Editar solicitud pendiente - abre modal de edición
+async function editMyRequest(reqId) {
+  const gid = currentUserData.groupId;
+  try {
+    const reqSnap = await db.collection('groups').doc(gid).collection('requests').doc(reqId).get();
+    const r = reqSnap.data();
+    if (!r || r.status !== 'pending') { showToast('No se puede editar esta solicitud'); return; }
+    window._refPhotos = r.refPhotoUrls ? [...r.refPhotoUrls.map(url=>url)] : [];
+    window._editingReqId = reqId;
+
+    document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div style="font-family:var(--font-display);font-size:20px;font-weight:500;margin-bottom:4px">✏️ Editar propuesta</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:16px">${r.fantasyName}</div>
+
+        <div class="form-group">
+          <label class="form-label">Nota para tu pareja</label>
+          <textarea class="form-control" id="edit-comment" rows="2">${r.comment||''}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">📅 Fecha tentativa</label>
+          <input type="date" class="form-control" id="edit-date" value="${r.tentativeDate||''}" min="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">📍 Lugar o contexto</label>
+          <input type="text" class="form-control" id="edit-place" value="${r.place||''}" placeholder="Ej: Cabaña en Cajón del Maipo...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">📸 Fotos de referencia</label>
+          <div id="ref-photos-preview" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+            ${(r.refPhotoUrls||[]).map((url,i)=>`<div style="position:relative">
+              <img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px">
+              <button onclick="removeRefPhoto(${i})" style="position:absolute;top:-6px;right:-6px;background:var(--rose);border:none;border-radius:50%;width:20px;height:20px;color:white;font-size:11px;cursor:pointer">✕</button>
+            </div>`).join('')}
+          </div>
+          <div id="ref-photo-btn" class="upload-btn" onclick="addRefPhoto()" style="${(r.refPhotoUrls||[]).length>=3?'display:none':''}">
+            📷 Agregar foto
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-full" onclick="saveMyRequestEdit('${reqId}')">💾 Guardar cambios</button>
+        <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
+      </div>
+    </div>`;
+  } catch(e) { showToast('Error'); }
+}
+
+async function saveMyRequestEdit(reqId) {
+  const comment = document.getElementById('edit-comment')?.value||'';
+  const tentativeDate = document.getElementById('edit-date')?.value||'';
+  const place = document.getElementById('edit-place')?.value?.trim()||'';
+  const gid = currentUserData.groupId;
+  const uid = currentUser.uid;
+  const btn = document.querySelector('#modal-container .btn-primary');
+  if (btn) { btn.disabled=true; btn.textContent='Guardando...'; }
+
+  try {
+    // Subir nuevas fotos (las que sean base64)
+    const newPhotos = [];
+    for (const photo of (window._refPhotos||[])) {
+      if (photo.startsWith('data:')) {
+        const url = await uploadEvidence(photo, `refphotos/${gid}/${uid}/${Date.now()}.jpg`);
+        if (url) newPhotos.push(url);
+      } else {
+        newPhotos.push(photo); // Ya es URL de Firebase
+      }
+    }
+
+    await db.collection('groups').doc(gid).collection('requests').doc(reqId).update({
+      comment, tentativeDate, place, refPhotoUrls: newPhotos
+    });
+
+    window._refPhotos = [];
+    closeModalDirect();
+    showToast('✓ Propuesta actualizada');
+    showTab('deseos');
+  } catch(e) {
+    showToast('Error: '+e.message);
+    if (btn) { btn.disabled=false; btn.textContent='💾 Guardar cambios'; }
+  }
+}
+
+async function notifyGroupMembers(gid, text) {
+  try {
+    const uid = currentUser.uid;
+    const membersSnap = await db.collection('users').where('groupId','==',gid).where('active','==',true).get();
+    const others = membersSnap.docs.map(d=>d.data()).filter(m=>m.id!==uid);
+    for (const m of others) {
+      await db.collection('groups').doc(gid).collection('notifications').add({
+        toUserId: m.id, text, read: false,
+        date: new Date().toLocaleDateString('es'),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  } catch(e) {}
 }
 
 async function addActionMant() {

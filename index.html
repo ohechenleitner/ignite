@@ -95,12 +95,67 @@
     .color-dot { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; transition: transform 0.15s; border: 3px solid transparent; }
     .color-dot:hover { transform: scale(1.15); }
     .color-dot.active { border-color: white; transform: scale(1.1); }
+    .btn-purple { background: rgba(155,127,232,0.15); color: var(--purple); border: 1px solid rgba(155,127,232,0.3); }
+    .btn-purple:hover { background: rgba(155,127,232,0.25); }
   </style>
 </head>
 <body>
 
+<!-- SPLASH 18+ -->
+<div id="splash-screen" class="screen active">
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:var(--bg);text-align:center">
+    <div style="font-size:64px;margin-bottom:16px">🔞</div>
+    <div style="font-family:var(--font-display);font-size:28px;font-weight:600;margin-bottom:8px;color:var(--text)">Contenido para adultos</div>
+    <div style="font-size:15px;color:var(--text2);line-height:1.7;margin-bottom:32px;max-width:340px">
+      Ignite es una aplicación exclusiva para personas <strong style="color:var(--rose)">mayores de 18 años</strong>. Contiene contenido de naturaleza íntima y adulta.
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;max-width:340px;width:100%;text-align:left">
+      <div style="font-size:13px;color:var(--text2);line-height:1.7">
+        Al continuar confirmas que:<br>
+        ✓ Tienes 18 años o más<br>
+        ✓ Es legal acceder a este contenido en tu país<br>
+        ✓ Aceptas los <span style="color:var(--rose);cursor:pointer" onclick="showLegal('terms')">Términos de Servicio</span> y la <span style="color:var(--rose);cursor:pointer" onclick="showLegal('privacy')">Política de Privacidad</span>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" style="max-width:340px;padding:16px;font-size:16px" onclick="confirmAge(true)" ontouchstart="">
+      ✓ Tengo 18 años o más — Entrar
+    </button>
+    <button class="btn btn-outline btn-full" style="max-width:340px;margin-top:10px;padding:14px" onclick="confirmAge(false)" ontouchstart="">
+      Soy menor de edad — Salir
+    </button>
+    <div style="font-size:11px;color:var(--text3);margin-top:24px;max-width:300px;line-height:1.6">
+      Esta verificación es requerida por ley. Ignite no almacena documentos de identidad. Tu privacidad está protegida.
+    </div>
+  </div>
+</div>
+
+<!-- SPLASH 18+ -->
+<div id="splash-screen" class="screen active" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px;text-align:center;background:var(--bg)">
+  <div style="font-size:64px;margin-bottom:16px">🔞</div>
+  <div style="font-family:var(--font-display);font-size:28px;font-weight:500;margin-bottom:8px;color:var(--text)">Contenido para adultos</div>
+  <div style="font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:32px;max-width:320px">
+    Ignite contiene contenido de naturaleza íntima y sexual. Solo pueden acceder personas mayores de 18 años.
+  </div>
+  <div style="width:100%;max-width:340px">
+    <button class="btn btn-primary btn-full" onclick="confirmAge(true)" type="button"
+      style="margin-bottom:12px;padding:16px;font-size:16px">
+      ✓ Tengo 18 años o más — Entrar
+    </button>
+    <button class="btn btn-outline btn-full" onclick="confirmAge(false)" type="button"
+      style="color:var(--text2);padding:14px">
+      Soy menor de edad — Salir
+    </button>
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-top:24px;max-width:300px;line-height:1.6">
+    Al ingresar confirmas que tienes 18 años o más y aceptas nuestros
+    <span onclick="showLegal('terms')" style="color:var(--rose);cursor:pointer">Términos de Servicio</span>
+    y
+    <span onclick="showLegal('privacy')" style="color:var(--rose);cursor:pointer">Política de Privacidad</span>
+  </div>
+</div>
+
 <!-- AUTH SCREEN -->
-<div id="auth-screen" class="screen active">
+<div id="auth-screen" class="screen" style="display:none">
   <div class="auth-bg">
     <div class="flame-orb orb1"></div>
     <div class="flame-orb orb2"></div>
@@ -167,6 +222,24 @@
             <button class="pass-toggle" onclick="togglePassword('reg-pass-confirm', this)" type="button">👁️</button>
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de nacimiento <span style="color:var(--rose)">*</span></label>
+          <input type="date" class="form-control" id="reg-birthdate"
+            max="" style="color-scheme:dark"
+            onchange="validateAge(this)" id="reg-birthdate">
+          <div id="age-error" style="display:none;font-size:11px;color:var(--rose);margin-top:4px">
+            ❌ Debes tener 18 años o más para usar Ignite.
+          </div>
+          <div id="age-ok" style="display:none;font-size:11px;color:var(--teal);margin-top:4px">
+            ✓ Edad verificada
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de nacimiento <span style="color:var(--rose);font-size:10px">* Debes tener 18+</span></label>
+          <input type="date" class="form-control" id="reg-birthdate"
+            max="" placeholder="dd/mm/aaaa">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Necesaria para verificar que eres mayor de edad</div>
+        </div>
         <div id="reg-error-1" class="error-msg" style="display:none"></div>
         <button class="btn btn-primary btn-full" onclick="regNextStep(2)" type="button" style="margin-bottom:12px">Continuar →</button>
         <div class="auth-switch">¿Ya tienes cuenta? <span onclick="showLogin()">Inicia sesión</span></div>
@@ -212,6 +285,28 @@
               oninput="this.value=this.value.replace(/[OoIi01]/g,'').toUpperCase()">
           </div>
           <div style="font-size:11px;color:var(--text3);margin-top:6px">Si alguien te invitó, pon su código. Si no, déjalo vacío y creas tu propio grupo.</div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+            <input type="checkbox" id="reg-terms" style="width:18px;height:18px;accent-color:var(--rose);margin-top:2px;flex-shrink:0">
+            <span style="font-size:12px;color:var(--text2);line-height:1.6">
+              Declaro que tengo <strong>18 años o más</strong>, he leído y acepto los
+              <span style="color:var(--rose);cursor:pointer" onclick="showLegal('terms')">Términos de Servicio</span>
+              y la <span style="color:var(--rose);cursor:pointer" onclick="showLegal('privacy')">Política de Privacidad</span>.
+              Entiendo que esta plataforma contiene contenido adulto.
+            </span>
+          </label>
+        </div>
+        <div style="background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:14px">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+            <input type="checkbox" id="reg-terms" style="width:18px;height:18px;margin-top:2px;accent-color:var(--rose);flex-shrink:0">
+            <span style="font-size:12px;color:var(--text2);line-height:1.6">
+              Declaro que tengo <strong style="color:var(--rose)">18 años o más</strong>, he leído y acepto los
+              <span onclick="showLegal('terms')" style="color:var(--rose);cursor:pointer;text-decoration:underline">Términos de Servicio</span>
+              y la
+              <span onclick="showLegal('privacy')" style="color:var(--rose);cursor:pointer;text-decoration:underline">Política de Privacidad</span>
+            </span>
+          </label>
         </div>
         <div id="reg-error" class="error-msg" style="display:none"></div>
         <div id="reg-success" class="success-msg"></div>
