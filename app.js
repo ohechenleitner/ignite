@@ -2605,24 +2605,14 @@ async function renderConfig(){
       <button class="btn btn-primary btn-full" onclick="adjustPts()">Aplicar</button>
     </div>`;
 
-    html+=`<div class="section-hd" style="margin-top:8px"><div class="section-title">Fechas especiales</div></div>`;
-    (group.specialDates||DEFAULT_SPECIAL_DATES).forEach(d=>{
-      html+=`<div class="special-date-card">
-        <div><div style="font-size:13px;font-weight:500">${d.icon} ${d.name}</div><div style="font-size:11px;color:var(--text2)">${d.date} · +${d.pts} pts</div></div>
-        <button class="btn btn-sm btn-primary" onclick="applyDate('${d.name}',${d.pts})">Aplicar</button>
-      </div>`;
-    });
-
     html+=`<div class="section-hd" style="margin-top:16px"><div class="section-title">Catálogo</div></div>
     <div class="card" style="margin-bottom:8px">
       <div style="font-size:13px;font-weight:500;margin-bottom:4px">Actualizar catálogo oficial</div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Sincroniza los deseos y acciones con la versión más reciente. Tus deseos y acciones personalizados se conservan.</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Sincroniza los deseos y acciones con la versión más reciente. Tus deseos personalizados se conservan.</div>
       <button class="btn btn-primary btn-full" onclick="resetCatalog()">🔄 Actualizar catálogo oficial</button>
     </div>
     <div class="section-hd" style="margin-top:8px"><div class="section-title">Interno</div></div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="showTab('minutas')">📝 Minutas de desarrollo</button>`;
-
-    document.getElementById('content').innerHTML=html;
   }catch(e){document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';}
 }
 
