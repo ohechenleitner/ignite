@@ -1065,6 +1065,7 @@ function showTab(tab) {
   else if (tab === 'historial') renderHistorial();
   else if (tab === 'minutas') renderMinutas();
   else if (tab === 'config') renderConfig();
+  else if (tab === 'fechas') renderFechas();
   else if (tab === 'mantenedores') renderMantenedores();
   else if (tab === 'mant-deseos') renderMantDeseos();
   else if (tab === 'mant-acciones') renderMantAcciones();
@@ -1638,7 +1639,7 @@ async function renderDeseos() {
       const panelId = 'lvl-panel-' + lvl;
       html += `<div class="action-cat-header" onclick="toggleDeseoLevel('${panelId}')">
         <span style="font-size:13px;font-weight:600;color:${lvlColors[lvl]}">${lvlIcons[lvl]} ${lvlLabels[lvl]}</span>
-        <span style="font-size:11px;color:var(--text3)">${group.length} deseos · ${canAffordCount} al alcance</span>
+        <span style="font-size:11px;color:var(--text3)">${group.length} deseos${myPts===0 ? ' · Gana puntos para desbloquear' : canAffordCount > 0 ? ' · ' + canAffordCount + ' disponibles para ti' : ' · Sigue ganando puntos 💪'}</span>
         <span id="${panelId}-arrow" style="color:var(--text3);font-size:14px;margin-left:auto">›</span>
       </div>
       <div id="${panelId}" style="display:none">`;
@@ -2185,6 +2186,11 @@ async function renderPerfil() {
       <div class="menu-item-arrow">›</div>
     </div>
 
+    <div class="menu-item" onclick="showTab('fechas')">
+      <div class="menu-item-icon" style="background:rgba(245,166,35,0.15)">📅</div>
+      <div class="menu-item-text">Fechas especiales</div>
+      <div class="menu-item-arrow">›</div>
+    </div>
     <div class="menu-item" onclick="showTutorial()">
       <div class="menu-item-icon" style="background:var(--bg3)">🎓</div>
       <div class="menu-item-text">Ver tutorial</div>
@@ -2679,6 +2685,41 @@ async function addFantasy(){
 }
 
 // ===== MINUTAS =====
+
+async function renderFechas() {
+  const gid = currentUserData?.groupId;
+  if (!gid) return;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const dates = groupSnap.data().specialDates || DEFAULT_SPECIAL_DATES;
+
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
+      <div style="font-size:16px;font-weight:500">📅 Fechas especiales</div>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5">
+      Aplica puntos bonus a todos los miembros del grupo en fechas importantes.
+    </div>`;
+
+    dates.forEach(d => {
+      html += `<div class="card" style="margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:14px;font-weight:500">${d.icon} ${d.name}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${d.date} · <span style="color:var(--teal)">+${d.pts} pts</span></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="applyDate('${d.name}',${d.pts})">
+            Aplicar bonus
+          </button>
+        </div>
+      </div>`;
+    });
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
+  }
+}
 
 function renderMinutas(){
   let html=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
