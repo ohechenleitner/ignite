@@ -2613,7 +2613,12 @@ async function renderConfig(){
     </div>
     <div class="section-hd" style="margin-top:8px"><div class="section-title">Interno</div></div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="showTab('minutas')">📝 Minutas de desarrollo</button>`;
-  }catch(e){document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';}
+
+    document.getElementById('content').innerHTML=html;
+  }catch(e){
+    console.error('Config error:',e);
+    document.getElementById('content').innerHTML='<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
+  }
 }
 
 async function changeRole(uid,role){try{await db.collection('users').doc(uid).update({role});showToast('Rol actualizado');}catch(e){showToast('Error');}}
