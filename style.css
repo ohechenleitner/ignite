@@ -42,6 +42,8 @@ html, body {
 /* ===== SCREENS ===== */
 .screen { display: none; }
 .screen.active { display: block; }
+#app-screen.active { display: flex; flex-direction: column; }
+#auth-screen.active { display: flex; flex-direction: column; }
 
 /* ===== AUTH ===== */
 .auth-bg {
