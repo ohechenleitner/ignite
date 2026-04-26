@@ -3463,14 +3463,31 @@ async function resetCatalog() {
     const cleanCustomF = customFantasies.map(cleanF);
     const cleanCustomA = (arr) => filterCustomActions(arr).map(cleanA);
 
-    await db.collection('groups').doc(gid).update({
+    const dataToWrite = {
       fantasies: [...cleanFantasies, ...cleanCustomF],
       actions: {
         neutral: [...DEFAULT_ACTIONS_NEUTRAL.map(cleanA), ...cleanCustomA(existingActions.neutral)],
         him: [...DEFAULT_ACTIONS_HIM.map(cleanA), ...cleanCustomA(existingActions.him)],
         her: [...DEFAULT_ACTIONS_HER.map(cleanA), ...cleanCustomA(existingActions.her)],
       }
-    });
+    };
+
+    // Verificar undefined antes de escribir
+    const findUndefined = (obj, path='') => {
+      if (obj === undefined) return [path];
+      if (obj === null) return [];
+      if (Array.isArray(obj)) return obj.flatMap((v,i) => findUndefined(v, path+'['+i+']'));
+      if (typeof obj === 'object') return Object.entries(obj).flatMap(([k,v]) => findUndefined(v, path+'.'+k));
+      return [];
+    };
+    const undefinedPaths = findUndefined(dataToWrite);
+    if (undefinedPaths.length > 0) {
+      showToast('Debug - undefined en: ' + undefinedPaths.slice(0,3).join(', '));
+      console.error('Undefined paths:', undefinedPaths);
+      return;
+    }
+
+    await db.collection('groups').doc(gid).update(dataToWrite);
 
     await notifyGroupMembers(gid, '🔄 Catálogo actualizado a la versión más reciente');
     showToast('✅ Catálogo actualizado correctamente');
