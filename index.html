@@ -97,6 +97,14 @@
     .color-dot.active { border-color: white; transform: scale(1.1); }
     .btn-purple { background: rgba(155,127,232,0.15); color: var(--purple); border: 1px solid rgba(155,127,232,0.3); }
     .btn-purple:hover { background: rgba(155,127,232,0.25); }
+
+    /* ACTION CATEGORY HEADERS */
+    .action-cat-header { display:flex; align-items:center; gap:8px; padding:12px 14px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; cursor:pointer; margin-bottom:6px; transition:all 0.2s; user-select:none; }
+    .action-cat-header:hover { background:var(--bg3); border-color:var(--border2); }
+    .action-cat-panel { display:grid; gap:8px; margin-bottom:8px; }
+
+    /* DESIRE LEVEL DOTS REMOVED - now using colapsable */
+    .desire-card { margin-bottom:8px; }
   </style>
 </head>
 <body>
@@ -195,21 +203,9 @@
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Fecha de nacimiento <span style="color:var(--rose)">*</span></label>
-          <input type="date" class="form-control" id="reg-birthdate"
-            max="" style="color-scheme:dark"
-            onchange="validateAge(this)" id="reg-birthdate">
-          <div id="age-error" style="display:none;font-size:11px;color:var(--rose);margin-top:4px">
-            ❌ Debes tener 18 años o más para usar Ignite.
-          </div>
-          <div id="age-ok" style="display:none;font-size:11px;color:var(--teal);margin-top:4px">
-            ✓ Edad verificada
-          </div>
-        </div>
-        <div class="form-group">
           <label class="form-label">Fecha de nacimiento <span style="color:var(--rose);font-size:10px">* Debes tener 18+</span></label>
           <input type="date" class="form-control" id="reg-birthdate"
-            max="" placeholder="dd/mm/aaaa">
+            max="" style="color-scheme:dark">
           <div style="font-size:11px;color:var(--text3);margin-top:4px">Necesaria para verificar que eres mayor de edad</div>
         </div>
         <div id="reg-error-1" class="error-msg" style="display:none"></div>
