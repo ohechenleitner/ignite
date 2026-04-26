@@ -397,22 +397,26 @@ const SESSION_LOG = [
 // ===== AUTH FUNCTIONS =====
 // ===== SPLASH 18+ =====
 function checkSplash() {
-  const confirmed = localStorage.getItem('ignite_age_confirmed');
-  if (confirmed === 'true') {
-    hideSplash();
-  }
   // Poner fecha máxima en birthdate (hoy - 18 años)
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() - 18);
   const el = document.getElementById('reg-birthdate');
   if (el) el.max = maxDate.toISOString().split('T')[0];
+
+  const confirmed = localStorage.getItem('ignite_age_confirmed');
+  if (confirmed === 'true') {
+    // Ya confirmó edad - ocultar splash, dejar que onAuthStateChanged maneje el resto
+    const splash = document.getElementById('splash-screen');
+    if (splash) splash.style.display = 'none';
+  }
+  // Si no confirmó, el splash ya está visible por defecto en el HTML
 }
 
 function hideSplash() {
   const splash = document.getElementById('splash-screen');
-  const authScreen = document.getElementById('auth-screen');
-  if (splash) splash.style.display = 'none';
-  if (authScreen) { authScreen.style.display = ''; authScreen.classList.add('active'); }
+  if (splash) { splash.style.display = 'none'; splash.classList.remove('active'); }
+  // No mostramos auth aquí - onAuthStateChanged lo maneja
+  // Si no hay usuario, onAuthStateChanged ya mostrará el auth screen
 }
 
 function confirmAge(isAdult) {
@@ -683,8 +687,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 auth.onAuthStateChanged(async (user) => {
+  const splash = document.getElementById('splash-screen');
+  const authScreen = document.getElementById('auth-screen');
+  const appScreen = document.getElementById('app-screen');
+
+  // Siempre ocultar splash cuando ya sabemos el estado de auth
+  if (splash) splash.style.display = 'none';
+
   if (user) {
     currentUser = user;
+    // Ocultar auth, mostrar app
+    if (authScreen) { authScreen.style.display = 'none'; authScreen.classList.remove('active'); }
     try {
       let snap = await db.collection('users').doc(user.uid).get();
       if (!snap.exists) { await auth.signOut(); return; }
@@ -703,8 +716,15 @@ auth.onAuthStateChanged(async (user) => {
     } catch (e) { console.error(e); }
   } else {
     currentUser = null; currentUserData = null;
-    document.getElementById('app-screen').classList.remove('active');
-    document.getElementById('auth-screen').classList.add('active');
+    if (appScreen) { appScreen.style.display = 'none'; appScreen.classList.remove('active'); }
+    // Mostrar auth solo si ya confirmó edad
+    const confirmed = localStorage.getItem('ignite_age_confirmed');
+    if (confirmed === 'true') {
+      if (authScreen) { authScreen.style.display = 'flex'; authScreen.classList.add('active'); }
+    } else {
+      // Mostrar splash
+      if (splash) splash.style.display = 'flex';
+    }
   }
 });
 
@@ -725,8 +745,12 @@ async function updateStreak() {
 }
 
 function showApp() {
-  document.getElementById('auth-screen').classList.remove('active');
-  document.getElementById('app-screen').classList.add('active');
+  const authScreen = document.getElementById('auth-screen');
+  const appScreen = document.getElementById('app-screen');
+  const splash = document.getElementById('splash-screen');
+  if (splash) splash.style.display = 'none';
+  if (authScreen) { authScreen.style.display = 'none'; authScreen.classList.remove('active'); }
+  if (appScreen) { appScreen.style.display = 'flex'; appScreen.classList.add('active'); }
   updateHeader();
   showTab('inicio');
 }
