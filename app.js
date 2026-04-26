@@ -548,8 +548,9 @@ function checkSplash() {
   const el = document.getElementById('reg-birthdate');
   if (el) el.max = maxDate.toISOString().split('T')[0];
 
-  const confirmed = localStorage.getItem('ignite_age_confirmed');
-  if (confirmed === 'true') {
+  let confirmed = false;
+  try { confirmed = localStorage.getItem('ignite_age_confirmed') === 'true'; } catch(e) {}
+  if (confirmed) {
     // Ya confirmó edad - ocultar splash, dejar que onAuthStateChanged maneje el resto
     const splash = document.getElementById('splash-screen');
     if (splash) splash.style.display = 'none';
@@ -577,7 +578,8 @@ function confirmAge(isAdult) {
       </div>`;
     return;
   }
-  localStorage.setItem('ignite_age_confirmed', 'true');
+  // Guardar confirmación — con try/catch por si localStorage no está disponible (Safari privado)
+  try { localStorage.setItem('ignite_age_confirmed', 'true'); } catch(e) {}
   hideSplash();
 }
 
@@ -858,13 +860,23 @@ auth.onAuthStateChanged(async (user) => {
         await db.collection('users').doc(user.uid).update({ firstLogin: false });
         setTimeout(() => showTutorial(), 800);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      // Si Firestore falla, igual mostrar la app para no bloquear al usuario
+      if (currentUserData) {
+        showApp();
+      } else {
+        // No hay datos de usuario - volver al login
+        await auth.signOut();
+      }
+    }
   } else {
     currentUser = null; currentUserData = null;
     if (appScreen) { appScreen.style.display = 'none'; appScreen.classList.remove('active'); }
     // Mostrar auth solo si ya confirmó edad
-    const confirmed = localStorage.getItem('ignite_age_confirmed');
-    if (confirmed === 'true') {
+    let ageConfirmed = false;
+    try { ageConfirmed = localStorage.getItem('ignite_age_confirmed') === 'true'; } catch(e) {}
+    if (ageConfirmed) {
       if (authScreen) { authScreen.style.display = 'flex'; authScreen.classList.add('active'); }
     } else {
       // Mostrar splash
