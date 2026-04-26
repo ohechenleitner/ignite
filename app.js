@@ -3429,21 +3429,41 @@ async function resetCatalog() {
     const groupSnap = await db.collection('groups').doc(gid).get();
     const group = groupSnap.data();
 
-    // Los defaults SIEMPRE están — solo actualizamos su versión
-    // Conservar además los custom que el grupo haya creado
+    // IDs que pertenecen al DEFAULT (todos los prefijos usados)
+    const isDefault = (id) => /^(fb|fm|ff|fp|fn|an|ah|ae)\d+$/.test(id);
+
+    // Conservar solo los custom (no del DEFAULT)
     const existingFantasies = group.fantasies || [];
-    const customFantasies = existingFantasies.filter(f => !/^(fb|fm|ff)\d+$/.test(f.id));
+    const customFantasies = existingFantasies.filter(f => f && f.id && !isDefault(f.id));
 
     const existingActions = group.actions || {};
-    const filterCustom = (arr) => (arr || []).filter(a => !/^(an|ah|ae)\d+$/.test(a.id));
+    const filterCustomActions = (arr) => (arr || []).filter(a => a && a.id && !isDefault(a.id));
 
-    // DEFAULT completo + custom del grupo (nunca se pierden)
+    // Sanitizar DEFAULT_FANTASIES — eliminar cualquier campo undefined
+    const cleanFantasies = DEFAULT_FANTASIES.map(f => ({
+      id: f.id || '',
+      name: f.name || '',
+      pts: f.pts || 0,
+      level: f.level || 'basic',
+      icon: f.icon || '🔥',
+      desc: f.desc || '',
+      category: f.category || 'pareja',
+    }));
+
+    const cleanActions = (arr) => arr.map(a => ({
+      id: a.id || '',
+      name: a.name || '',
+      pts: a.pts || 0,
+      icon: a.icon || '⚡',
+      cat: a.cat || 'otro',
+    }));
+
     await db.collection('groups').doc(gid).update({
-      fantasies: [...DEFAULT_FANTASIES, ...customFantasies],
+      fantasies: [...cleanFantasies, ...customFantasies],
       actions: {
-        neutral: [...DEFAULT_ACTIONS_NEUTRAL, ...filterCustom(existingActions.neutral)],
-        him: [...DEFAULT_ACTIONS_HIM, ...filterCustom(existingActions.him)],
-        her: [...DEFAULT_ACTIONS_HER, ...filterCustom(existingActions.her)],
+        neutral: [...cleanActions(DEFAULT_ACTIONS_NEUTRAL), ...filterCustomActions(existingActions.neutral)],
+        him: [...cleanActions(DEFAULT_ACTIONS_HIM), ...filterCustomActions(existingActions.him)],
+        her: [...cleanActions(DEFAULT_ACTIONS_HER), ...filterCustomActions(existingActions.her)],
       }
     });
 
