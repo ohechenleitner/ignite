@@ -440,7 +440,7 @@ const DEFAULT_FANTASIES = [
     id: 'ff15', name: 'Realizar la lista de deseos íntimos', pts: 65, level: 'high', icon: '📝',
     desc: 'Cada uno escribe su lista de 5 deseos íntimos. Se intercambian y se comprometen a cumplirlos.',
     category: 'pareja',
-  },,
+  },
 
   // ===== NUEVAS - MÁS DESEOS EN PAREJA =====
   // BÁSICAS adicionales
