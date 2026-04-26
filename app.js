@@ -3439,31 +3439,36 @@ async function resetCatalog() {
     const existingActions = group.actions || {};
     const filterCustomActions = (arr) => (arr || []).filter(a => a && a.id && !isDefault(a.id));
 
-    // Sanitizar DEFAULT_FANTASIES — eliminar cualquier campo undefined
-    const cleanFantasies = DEFAULT_FANTASIES.map(f => ({
+    // Sanitizar datos — eliminar undefined, null, o campos vacíos
+    const cleanF = (f) => ({
       id: f.id || '',
       name: f.name || '',
-      pts: f.pts || 0,
+      pts: Number(f.pts) || 0,
       level: f.level || 'basic',
       icon: f.icon || '🔥',
       desc: f.desc || '',
       category: f.category || 'pareja',
-    }));
+    });
 
-    const cleanActions = (arr) => arr.map(a => ({
+    const cleanA = (a) => ({
       id: a.id || '',
       name: a.name || '',
-      pts: a.pts || 0,
+      pts: Number(a.pts) || 0,
       icon: a.icon || '⚡',
       cat: a.cat || 'otro',
-    }));
+    });
+
+    // Sanitizar DEFAULT y también los custom existentes
+    const cleanFantasies = DEFAULT_FANTASIES.map(cleanF);
+    const cleanCustomF = customFantasies.map(cleanF);
+    const cleanCustomA = (arr) => filterCustomActions(arr).map(cleanA);
 
     await db.collection('groups').doc(gid).update({
-      fantasies: [...cleanFantasies, ...customFantasies],
+      fantasies: [...cleanFantasies, ...cleanCustomF],
       actions: {
-        neutral: [...cleanActions(DEFAULT_ACTIONS_NEUTRAL), ...filterCustomActions(existingActions.neutral)],
-        him: [...cleanActions(DEFAULT_ACTIONS_HIM), ...filterCustomActions(existingActions.him)],
-        her: [...cleanActions(DEFAULT_ACTIONS_HER), ...filterCustomActions(existingActions.her)],
+        neutral: [...DEFAULT_ACTIONS_NEUTRAL.map(cleanA), ...cleanCustomA(existingActions.neutral)],
+        him: [...DEFAULT_ACTIONS_HIM.map(cleanA), ...cleanCustomA(existingActions.him)],
+        her: [...DEFAULT_ACTIONS_HER.map(cleanA), ...cleanCustomA(existingActions.her)],
       }
     });
 
