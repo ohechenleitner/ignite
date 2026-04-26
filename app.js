@@ -119,18 +119,86 @@ const GAME_CHALLENGES = {
 // - neutral: acciones para cualquier persona (se usan para todos)
 
 const DEFAULT_ACTIONS_NEUTRAL = [
-  // ACCIONES BÁSICAS (suman pocos puntos, fáciles de hacer)
+  // ===== CONEXIÓN EMOCIONAL =====
+  { id:'an1',  name:'Mensaje cariñoso durante el día',           pts:3,  icon:'💬', cat:'emocional' },
+  { id:'an2',  name:'Decirle algo genuinamente bonito',           pts:4,  icon:'💕', cat:'emocional' },
+  { id:'an3',  name:'Escuchar activamente sin interrumpir',       pts:4,  icon:'👂', cat:'emocional' },
+  { id:'an4',  name:'Recordar algo importante que mencionó',      pts:5,  icon:'🧠', cat:'emocional' },
+  { id:'an5',  name:'Nota escrita a mano o carta',                pts:6,  icon:'💌', cat:'emocional' },
+  { id:'an6',  name:'Llamada solo para decir que lo extrañas',    pts:4,  icon:'📞', cat:'emocional' },
+  { id:'an7',  name:'Agradecer algo específico que hace por ti',  pts:4,  icon:'🙏', cat:'emocional' },
+  { id:'an8',  name:'Compartir algo que te hizo pensar en él/ella', pts:3, icon:'💭', cat:'emocional' },
+  { id:'an9',  name:'Pedirle su opinión sobre algo importante',   pts:4,  icon:'🤝', cat:'emocional' },
+  { id:'an10', name:'Disculparse sinceramente por algo',          pts:6,  icon:'🕊️', cat:'emocional' },
 
-  // ACCIONES MEDIAS (requieren más esfuerzo)
+  // ===== TIEMPO DE CALIDAD =====
+  { id:'an11', name:'Acurrucarse juntos sin pantallas',           pts:5,  icon:'🛋️', cat:'tiempo' },
+  { id:'an12', name:'Bailar juntos en casa',                      pts:6,  icon:'💃', cat:'tiempo' },
+  { id:'an13', name:'Ver juntos algo que le gusta',               pts:5,  icon:'🎬', cat:'tiempo' },
+  { id:'an14', name:'Salir a caminar juntos sin destino',         pts:5,  icon:'🚶', cat:'tiempo' },
+  { id:'an15', name:'Noche de juegos de mesa o cartas juntos',    pts:5,  icon:'🎲', cat:'tiempo' },
+  { id:'an16', name:'Cocinar juntos algo nuevo',                  pts:6,  icon:'🍳', cat:'tiempo' },
+  { id:'an17', name:'Leer el mismo libro y comentarlo',           pts:6,  icon:'📚', cat:'tiempo' },
+  { id:'an18', name:'Ver un amanecer o atardecer juntos',         pts:7,  icon:'🌅', cat:'tiempo' },
+  { id:'an19', name:'Picnic improvisado en casa o al aire libre', pts:6,  icon:'🧺', cat:'tiempo' },
+  { id:'an20', name:'Noche de música — elegir canciones juntos',  pts:5,  icon:'🎵', cat:'tiempo' },
 
-  // ACCIONES FUERTES (requieren valentía o esfuerzo considerable)
+  // ===== ACTOS DE SERVICIO =====
+  { id:'an21', name:'Preparar el desayuno sin que lo pidan',      pts:5,  icon:'☕', cat:'servicio' },
+  { id:'an22', name:'Resolver algo sin que te lo pidan',          pts:5,  icon:'🔧', cat:'servicio' },
+  { id:'an23', name:'Hacer una tarea que no te corresponde',      pts:6,  icon:'🧹', cat:'servicio' },
+  { id:'an24', name:'Traerle algo que sabe que le gusta',         pts:5,  icon:'🎁', cat:'servicio' },
+  { id:'an25', name:'Organizar una salida completa sin ayuda',    pts:8,  icon:'🗓️', cat:'servicio' },
+
+  // ===== CONTACTO FÍSICO AFECTIVO =====
+  { id:'an26', name:'Masaje en espalda u hombros espontáneo',     pts:6,  icon:'💆', cat:'contacto' },
+  { id:'an27', name:'Abrazo largo sin razón específica',          pts:4,  icon:'🤗', cat:'contacto' },
+  { id:'an28', name:'Tomarse de la mano en público',              pts:4,  icon:'🤝', cat:'contacto' },
+  { id:'an29', name:'Beso apasionado sin que lleve a nada más',   pts:5,  icon:'💋', cat:'contacto' },
+  { id:'an30', name:'Dormirse abrazados',                         pts:5,  icon:'🌙', cat:'contacto' },
+
+  // ===== CRECIMIENTO CONJUNTO =====
+  { id:'an31', name:'Compartir una meta personal que tienes',     pts:5,  icon:'🎯', cat:'crecimiento' },
+  { id:'an32', name:'Proponer un proyecto o sueño juntos',        pts:7,  icon:'✨', cat:'crecimiento' },
+  { id:'an33', name:'Hablar sobre el futuro que imaginan',        pts:6,  icon:'🌟', cat:'crecimiento' },
+  { id:'an34', name:'Meditar o hacer yoga juntos',                pts:6,  icon:'🧘', cat:'crecimiento' },
+  { id:'an35', name:'Ejercitarse juntos',                         pts:5,  icon:'🏃', cat:'crecimiento' },
+
+  // ===== SEDUCCIÓN Y PASIÓN =====
+  { id:'an36', name:'Foto coqueta enviada por privado',           pts:7,  icon:'📸', cat:'pasion' },
+  { id:'an37', name:'Mensaje seductor inesperado',                pts:6,  icon:'🔥', cat:'pasion' },
+  { id:'an38', name:'Tomar la iniciativa en la intimidad',        pts:9,  icon:'⚡', cat:'pasion' },
+  { id:'an39', name:'Proponer algo nuevo en la intimidad',        pts:10, icon:'💫', cat:'pasion' },
+  { id:'an40', name:'Vestirse sexy por iniciativa propia',        pts:10, icon:'👗', cat:'pasion' },
 ];
 
 const DEFAULT_ACTIONS_HIM = [
+  { id:'ah1', name:'Flores o detalle sin razón',                  pts:6,  icon:'🌸' },
+  { id:'ah2', name:'Planificar cena romántica completa',          pts:9,  icon:'🕯️' },
+  { id:'ah3', name:'Desayuno en cama por sorpresa',              pts:7,  icon:'🍳' },
+  { id:'ah4', name:'Escucharla sin el teléfono en mano',         pts:5,  icon:'👂' },
+  { id:'ah5', name:'Decirle algo que admira de ella',            pts:6,  icon:'💬' },
+  { id:'ah6', name:'Comprar algo que mencionó querer',           pts:8,  icon:'🎁' },
+  { id:'ah7', name:'Buscarla físicamente sin que ella inicie',   pts:9,  icon:'💋' },
+  { id:'ah8', name:'Escribirle un poema o carta de amor',        pts:8,  icon:'📝' },
+  { id:'ah9', name:'Llevarla a un lugar que ella quería conocer', pts:10, icon:'🗺️' },
+  { id:'ah10', name:'Recordar una fecha especial y celebrarla',  pts:8,  icon:'🎂' },
 ];
 
 const DEFAULT_ACTIONS_HER = [
+  { id:'ae1', name:'Buscarlo sin que él lo inicie',              pts:9,  icon:'💋' },
+  { id:'ae2', name:'Mensaje seductor durante el día',            pts:6,  icon:'💬' },
+  { id:'ae3', name:'Foto íntima enviada por privado',            pts:8,  icon:'📸' },
+  { id:'ae4', name:'Ponerse algo sexy por iniciativa propia',    pts:10, icon:'✨' },
+  { id:'ae5', name:'Sorprenderlo con su comida favorita',        pts:7,  icon:'🍽️' },
+  { id:'ae6', name:'Decirle algo específico que admira de él',  pts:6,  icon:'💬' },
+  { id:'ae7', name:'Tomar la iniciativa completamente',          pts:10, icon:'🔥' },
+  { id:'ae8', name:'Proponer algo nuevo por su cuenta',          pts:10, icon:'💫' },
+  { id:'ae9', name:'Carta o nota romántica escrita a mano',      pts:7,  icon:'💌' },
+  { id:'ae10', name:'Planificar una sorpresa especial para él',  pts:9,  icon:'🎉' },
 ];
+
+
 
 // ===== FANTASÍAS COMPLETAS =====
 // BÁSICAS: se desbloquean con 3-4 acciones
@@ -372,7 +440,84 @@ const DEFAULT_FANTASIES = [
     id: 'ff15', name: 'Realizar la lista de deseos íntimos', pts: 65, level: 'high', icon: '📝',
     desc: 'Cada uno escribe su lista de 5 deseos íntimos. Se intercambian y se comprometen a cumplirlos.',
     category: 'pareja',
-  },
+  },,
+
+  // ===== NUEVAS - MÁS DESEOS EN PAREJA =====
+  // BÁSICAS adicionales
+  { id:'fp1', name:'Noche de confesiones íntimas', pts:14, level:'basic', icon:'🤫',
+    desc:'Contarse cosas que nunca han dicho. Fantasías, miedos, deseos sin filtro. Solo entre los dos.', category:'pareja' },
+  { id:'fp2', name:'Masaje de pies y piernas', pts:10, level:'basic', icon:'🦶',
+    desc:'Un masaje completo de pies y piernas. Relajante, íntimo y sin apuros.', category:'pareja' },
+  { id:'fp3', name:'Baño de espuma juntos', pts:16, level:'basic', icon:'🛁',
+    desc:'Baño con espuma, velas y buena música. Sin prisa, sin teléfonos.', category:'pareja' },
+  { id:'fp4', name:'Tarde de lectura juntos', pts:8, level:'basic', icon:'📖',
+    desc:'Leer juntos en la cama o sofá. Cada uno su libro pero cerca. Simple y cálido.', category:'pareja' },
+  { id:'fp5', name:'Noche de películas temática', pts:12, level:'basic', icon:'🎬',
+    desc:'Elegir un género juntos y ver varias películas seguidas con snacks y manta.', category:'pareja' },
+  // MEDIAS adicionales
+  { id:'fp6', name:'Escapada de un día sin destino', pts:26, level:'medium', icon:'🚗',
+    desc:'Subirse al auto sin plan fijo. Parar donde se les antoje. Solo los dos.', category:'pareja' },
+  { id:'fp7', name:'Sesión de fotos íntima en casa', pts:28, level:'medium', icon:'📷',
+    desc:'Una sesión fotográfica privada. El estilo que quieran. Solo para sus ojos.', category:'pareja' },
+  { id:'fp8', name:'Cena a ciegas en casa', pts:24, level:'medium', icon:'🍽️',
+    desc:'Uno cocina sorpresa y el otro come con los ojos vendados. Luego se invierten.', category:'pareja' },
+  { id:'fp9', name:'Noche de rol: primera cita', pts:30, level:'medium', icon:'💑',
+    desc:'Simular ser dos desconocidos que se conocen por primera vez. Salida, galantería y todo.', category:'pareja' },
+  { id:'fp10', name:'Spa en casa completo', pts:34, level:'medium', icon:'💆',
+    desc:'Masajes, aceites, música y velas. Turnarse en ser quien da y quien recibe.', category:'pareja' },
+  // ALTAS adicionales
+  { id:'fp11', name:'Noche de total entrega', pts:52, level:'high', icon:'💫',
+    desc:'Una noche donde uno decide todo y el otro acepta sin preguntar. Con confianza y amor.', category:'pareja' },
+  { id:'fp12', name:'Viaje sorpresa de fin de semana', pts:58, level:'high', icon:'✈️',
+    desc:'Un fin de semana organizado en secreto. Destino, hotel y plan elegidos por uno solo.', category:'pareja' },
+  { id:'fp13', name:'Noche de juegos sin reglas', pts:48, level:'high', icon:'🎭',
+    desc:'Una noche de juegos íntimos sin restricciones. Solo los dos, en total confianza.', category:'pareja' },
+  { id:'fp14', name:'Cumplir una fantasía confesada', pts:55, level:'high', icon:'⭐',
+    desc:'Hacer realidad algo que el otro confesó querer. Planificado con detalle y amor.', category:'pareja' },
+  { id:'fp15', name:'Escapada romántica con jacuzzi', pts:60, level:'high', icon:'🌙',
+    desc:'Una noche fuera con jacuzzi privado. Sin interrupciones, sin reglas, solo ustedes.', category:'pareja' },
+
+  // ===== NUEVOS BÁSICOS - PAREJA =====
+  { id:'fn1', name:'Desayuno romántico con nota sorpresa', pts:12, level:'basic', icon:'☕',
+    desc:'Preparar el desayuno favorito con una nota especial escondida. Sin razón particular, solo porque sí.', category:'pareja' },
+  { id:'fn2', name:'Noche de karaoke privado', pts:10, level:'basic', icon:'🎤',
+    desc:'Cantar juntos sus canciones favoritas en casa. Sin vergüenza, solo diversión.', category:'pareja' },
+  { id:'fn3', name:'Crear una playlist juntos', pts:9, level:'basic', icon:'🎵',
+    desc:'Elegir juntos las canciones que cuentan su historia. Cada uno agrega las suyas con significado.', category:'pareja' },
+
+  // ===== NUEVOS BÁSICOS - GRUPO =====
+  { id:'fn4', name:'Noche de juegos con amigos íntimos', pts:15, level:'basic', icon:'🎲',
+    desc:'Verdad o reto en grupo pequeño de confianza. Nivel de picardía que todos acuerden.', category:'grupo' },
+  { id:'fn5', name:'Salida casual en grupo de confianza', pts:14, level:'basic', icon:'🍻',
+    desc:'Cena o bebidas con uno o dos amigos cercanos. Ambiente relajado y sin expectativas.', category:'grupo' },
+
+  // ===== NUEVOS MEDIOS - PAREJA =====
+  { id:'fn6', name:'Recrear la primera cita', pts:28, level:'medium', icon:'🌹',
+    desc:'Volver al lugar donde se conocieron o tuvieron su primera cita. Vestirse bien y vivir ese momento de nuevo.', category:'pareja' },
+  { id:'fn7', name:'Noche de vino y conversación profunda', pts:24, level:'medium', icon:'🍷',
+    desc:'Buena botella, preguntas íntimas preparadas, sin teléfonos. Conocerse de nuevo.', category:'pareja' },
+  { id:'fn8', name:'Sesión de fotos boudoir para él', pts:32, level:'medium', icon:'📸',
+    desc:'Ella produce una sesión fotográfica íntima y provocadora solo para sus ojos. Un regalo visual.', category:'pareja' },
+
+  // ===== NUEVOS MEDIOS - GRUPO =====
+  { id:'fn9', name:'Noche de piscina con tercero de confianza', pts:30, level:'medium', icon:'🏊',
+    desc:'Noche de piscina privada con alguien de total confianza. Libertad, diversión y sin reglas estrictas.', category:'grupo' },
+  { id:'fn10', name:'Karaoke nocturno en grupo pequeño', pts:26, level:'medium', icon:'🎤',
+    desc:'Salir a karaoke o hacerlo en casa con una o dos personas de confianza. Ambiente libre y divertido.', category:'grupo' },
+
+  // ===== NUEVOS ALTOS - PAREJA =====
+  { id:'fn11', name:'Noche de juguetes íntimos por primera vez', pts:50, level:'high', icon:'💋',
+    desc:'Explorar juntos el uso de juguetes íntimos. Elegir juntos, sin prisa, con total confianza.', category:'pareja' },
+  { id:'fn12', name:'Noche de rol intenso acordado', pts:54, level:'high', icon:'🎭',
+    desc:'Adoptar un personaje o rol durante toda la noche. Acordado antes, sin límite de imaginación.', category:'pareja' },
+  { id:'fn13', name:'Experiencia sensorial con venda', pts:48, level:'high', icon:'🖤',
+    desc:'Uno entrega el sentido de la vista. El otro guía la experiencia. Confianza total, sorpresas reales.', category:'pareja' },
+
+  // ===== NUEVOS ALTOS - GRUPO =====
+  { id:'fn14', name:'Noche en spa adulto o sauna mixto', pts:55, level:'high', icon:'🧖',
+    desc:'Asistir a un spa o sauna de ambiente adulto libre. Sin obligaciones, solo explorar el ambiente.', category:'grupo' },
+  { id:'fn15', name:'Reto íntimo colectivo acordado', pts:62, level:'high', icon:'🔥',
+    desc:'Un reto íntimo definido por todos antes. Consentido, con reglas claras y en total confianza mutua.', category:'grupo' }
 ];
 
 const DEFAULT_SPECIAL_DATES = [
@@ -1110,21 +1255,50 @@ async function renderGanar() {
       <div style="font-size:13px;color:var(--text2)">Tu pareja lo aprueba y ganas los puntos.</div>
     </div>`;
 
-    // Acciones en grid visual con buscador
-    html += `<div class="section-hd"><div class="section-title">Selecciona una acción</div></div>
-    <div style="position:relative;margin-bottom:10px">
-      <input type="text" class="form-control" id="action-search" placeholder="🔍 Buscar acción..." 
+    // Acciones agrupadas por categoría con buscador
+    const ACTION_CATS = {
+      emocional:   { label:'💕 Palabras y gestos',      color:'var(--rose)' },
+      tiempo:      { label:'✨ Momentos juntos',         color:'var(--teal)' },
+      servicio:    { label:'🎁 Detalles especiales',     color:'var(--amber)' },
+      contacto:    { label:'🤗 Contacto y cercanía',     color:'var(--purple)' },
+      crecimiento: { label:'🌱 Crecer juntos',           color:'#4ECBA0' },
+      pasion:      { label:'🔥 Chispa y deseo',          color:'var(--rose)' },
+      otro:        { label:'⚡ Otras acciones',           color:'var(--text2)' },
+    };
+
+    html += \`<div class="section-hd"><div class="section-title">Selecciona una acción</div></div>
+    <div style="position:relative;margin-bottom:12px">
+      <input type="text" class="form-control" id="action-search" placeholder="🔍 Buscar acción..."
         oninput="filterActions(this.value)" style="padding-left:14px">
-    </div>
-    <div class="action-grid" id="action-grid">`;
+    </div>\`;
+
+    // Agrupar por categoría
+    const grouped = {};
     myActions.forEach(a => {
-      html += `<div class="action-quick-card" id="ac-${a.id}" onclick="selectAction('${a.id}','${a.pts}','${a.name}')" data-name="${a.name.toLowerCase()}">
-        <div class="action-quick-icon">${a.icon}</div>
-        <div class="action-quick-name">${a.name}</div>
-        <div class="action-quick-pts">+${a.pts} pts</div>
-      </div>`;
+      const cat = a.cat || 'otro';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(a);
     });
-    html += `</div>`;
+
+    Object.entries(grouped).forEach(([cat, actions]) => {
+      const catInfo = ACTION_CATS[cat] || ACTION_CATS.otro;
+      const catId = 'cat-' + cat;
+      html += \`<div class="action-cat-header" onclick="toggleActionCat('${catId}')" data-cat="${cat}">
+        <span style="font-size:13px;font-weight:600;color:\${catInfo.color}">\${catInfo.label}</span>
+        <span style="font-size:11px;color:var(--text3)">\${actions.length} acciones</span>
+        <span id="${catId}-arrow" style="color:var(--text3);font-size:14px;margin-left:auto">›</span>
+      </div>
+      <div id="${catId}" class="action-cat-panel" style="display:none">
+        <div class="action-grid">\`;
+      actions.forEach(a => {
+        html += \`<div class="action-quick-card" id="ac-\${a.id}" onclick="selectAction('\${a.id}','\${a.pts}','\${a.name}')" data-name="\${a.name.toLowerCase()}" data-cat="\${a.cat||'otro'}">
+          <div class="action-quick-icon">\${a.icon}</div>
+          <div class="action-quick-name">\${a.name}</div>
+          <div class="action-quick-pts">+\${a.pts} pts</div>
+        </div>\`;
+      });
+      html += \`</div></div>\`;
+    });
 
     // Formulario de envío
     html += `<div id="action-form" style="display:none">
@@ -1227,11 +1401,36 @@ async function renderGanar() {
   }
 }
 
+function toggleActionCat(panelId) {
+  const panel = document.getElementById(panelId);
+  const arrow = document.getElementById(panelId + '-arrow');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'grid';
+  if (arrow) arrow.textContent = isOpen ? '›' : '⌄';
+}
+
 function filterActions(query) {
   const q = query.toLowerCase().trim();
-  document.querySelectorAll('#action-grid .action-quick-card').forEach(card => {
+  if (!q) {
+    // Sin búsqueda - volver a estado colapsado
+    document.querySelectorAll('.action-cat-panel').forEach(p => { p.style.display = 'none'; });
+    document.querySelectorAll('[id$="-arrow"]').forEach(a => { if (a.id.includes('cat-')) a.textContent = '›'; });
+    return;
+  }
+  // Con búsqueda - expandir todo y filtrar
+  document.querySelectorAll('.action-cat-panel').forEach(p => { p.style.display = 'grid'; });
+  document.querySelectorAll('[id$="-arrow"]').forEach(a => { if (a.id.includes('cat-')) a.textContent = '⌄'; });
+  document.querySelectorAll('.action-quick-card').forEach(card => {
     const name = card.dataset.name || '';
-    card.style.display = (!q || name.includes(q)) ? '' : 'none';
+    card.style.display = name.includes(q) ? '' : 'none';
+  });
+  // Ocultar categorías vacías
+  document.querySelectorAll('.action-cat-panel').forEach(panel => {
+    const visible = panel.querySelectorAll('.action-quick-card:not([style*="display: none"])').length;
+    const header = panel.previousElementSibling;
+    if (header) header.style.display = visible > 0 ? '' : 'none';
+    panel.style.display = visible > 0 ? 'grid' : 'none';
   });
 }
 
@@ -1323,20 +1522,18 @@ async function renderDeseos() {
     const partner = members[0];
     const pk = partner?[uid,partner.id].sort().join('_'):null;
     const myPts = pk?(group.pairPoints?.[pk]?.[uid]||0):0;
-    // Enriquecimiento de categorías: si el ID existe en DEFAULT, SIEMPRE usar
-    // la categoría del DEFAULT (evita datos obsoletos guardados en Firestore)
+    // SOLUCIÓN DEFINITIVA: Siempre usar DEFAULT_FANTASIES como base
+    // Las fantasías custom (creadas por el usuario, sin ID fb/fm/ff) se agregan encima
     const groupFantasies = group.fantasies || [];
-    const fantasies = groupFantasies.length > 0 ? groupFantasies.map(f => {
-      const def = DEFAULT_FANTASIES.find(d => d.id === f.id);
-      // Si el ID está en DEFAULT, usar SU categoría siempre (puede haber cambiado)
-      // Solo usar f.category para fantasías custom (sin ID en DEFAULT)
-      const category = def ? def.category : (f.category || 'pareja');
-      return { ...f, category };
-    }) : DEFAULT_FANTASIES;
+    const customFantasies = groupFantasies.filter(f => 
+      !f.id.match(/^(fb|fm|ff)\d+$/)
+    );
+    // DEFAULT completo + custom del usuario
+    const fantasies = [...DEFAULT_FANTASIES, ...customFantasies];
     const myReqs = myReqsSnap.docs.map(d=>({id:d.id,...d.data()}));
     const forMe = pendingSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.requestedBy!==uid);
 
-    const levels = { basic:{label:'Básico',color:'var(--teal)'}, medium:{label:'Medio',color:'var(--amber)'}, high:{label:'Alto',color:'var(--rose)'} };
+    const levels = { basic:{label:'Básico',color:'var(--teal)',icon:'🟢'}, medium:{label:'Medio',color:'var(--amber)',icon:'🟡'}, high:{label:'Alto',color:'var(--rose)',icon:'🔴'} };
 
     let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div><div style="font-size:16px;font-weight:500">Tus deseos</div>
@@ -1416,26 +1613,47 @@ async function renderDeseos() {
     else if (fantasyFilter==='grupo') filtered=filtered.filter(f=>f.category==='grupo'||f.category==='ambos');
     if (fantasyLevel!=='all') filtered=filtered.filter(f=>f.level===fantasyLevel);
 
+    // Agrupar por nivel - colapsables
+    const levelOrder = ['basic','medium','high'];
+    const levelGroups = {};
     filtered.forEach(f => {
-      const canAfford = myPts >= f.pts;
-      const levelColor = levels[f.level]?.color||'var(--text2)';
-      const dots = f.level==='basic'?1:f.level==='medium'?2:3;
-      html += `<div class="desire-card ${canAfford?'':'locked'}" onclick="showDeseoDetail('${f.id}')">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div class="fantasy-emoji ${f.level}" style="width:46px;height:46px;font-size:24px">${f.icon}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
-            <div style="font-size:11px;color:${levelColor};margin-top:2px">${levels[f.level]?.label||''} · ${f.category==='grupo'?'👥':f.category==='ambos'?'💑👥':'💑'}</div>
+      const lvl = f.level || 'basic';
+      if (!levelGroups[lvl]) levelGroups[lvl] = [];
+      levelGroups[lvl].push(f);
+    });
+    const lvlIcons = {basic:'🟢',medium:'🟡',high:'🔴'};
+    const lvlLabels = {basic:'Básico',medium:'Medio',high:'Alto'};
+    const lvlColors = {basic:'var(--teal)',medium:'var(--amber)',high:'var(--rose)'};
+
+    levelOrder.forEach(lvl => {
+      const group = levelGroups[lvl] || [];
+      if (group.length === 0) return;
+      const canAffordCount = group.filter(f => myPts >= f.pts).length;
+      const panelId = 'lvl-panel-' + lvl;
+      html += `<div class="action-cat-header" onclick="toggleDeseoLevel('${panelId}')">
+        <span style="font-size:13px;font-weight:600;color:${lvlColors[lvl]}">${lvlIcons[lvl]} ${lvlLabels[lvl]}</span>
+        <span style="font-size:11px;color:var(--text3)">${group.length} deseos · ${canAffordCount} al alcance</span>
+        <span id="${panelId}-arrow" style="color:var(--text3);font-size:14px;margin-left:auto">›</span>
+      </div>
+      <div id="${panelId}" style="display:none">`;
+      group.forEach(f => {
+        const canAfford = myPts >= f.pts;
+        const catIcon = f.category==='grupo'?'👥':f.category==='ambos'?'💑👥':'💑';
+        html += `<div class="desire-card ${canAfford?'':'locked'}" onclick="showDeseoDetail('${f.id}')">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="fantasy-emoji ${f.level}" style="width:46px;height:46px;font-size:24px">${f.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+              <div style="font-size:11px;color:${lvlColors[lvl]};margin-top:2px">${catIcon}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div class="pts-badge ${canAfford?f.level:'locked'}">${f.pts} pts</div>
+              ${!canAfford?`<div style="font-size:10px;color:var(--text3);margin-top:3px">faltan ${f.pts-myPts}</div>`:''}
+            </div>
           </div>
-          <div style="text-align:right;flex-shrink:0">
-            <div class="pts-badge ${canAfford?f.level:'locked'}">${f.pts} pts</div>
-            ${!canAfford?`<div style="font-size:10px;color:var(--text3);margin-top:3px">faltan ${f.pts-myPts}</div>`:''}
-          </div>
-        </div>
-        <div class="desire-level-bar">
-          ${[1,2,3].map(i=>`<div class="desire-level-dot ${i<=dots?'filled':''}"></div>`).join('')}
-        </div>
-      </div>`;
+        </div>`;
+      });
+      html += `</div>`;
     });
 
     // Historial de solicitudes previas
@@ -1463,6 +1681,15 @@ async function renderDeseos() {
 function showTabHistorial(from) {
   historialFrom = from || 'perfil';
   showTab('historial');
+}
+
+function toggleDeseoLevel(panelId) {
+  const panel = document.getElementById(panelId);
+  const arrow = document.getElementById(panelId + '-arrow');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.textContent = isOpen ? '›' : '⌄';
 }
 
 function toggleHistory() {
@@ -1924,7 +2151,7 @@ async function renderPerfil() {
       <div class="menu-item-text">Ignite Game</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    <div class="menu-item" onclick="showTabHistorial('inicio')">
+    <div class="menu-item" onclick="showTabHistorial('perfil')">
       <div class="menu-item-icon" style="background:var(--bg3)">📊</div>
       <div class="menu-item-text">Historial completo</div>
       <div class="menu-item-arrow">›</div>
@@ -2649,11 +2876,9 @@ async function renderMantDeseos() {
   try {
     const groupSnap = await db.collection('groups').doc(gid).get();
     const groupFantasies = groupSnap.data().fantasies || DEFAULT_FANTASIES;
-    // Enriquecer con categorías del DEFAULT - usar DEFAULT si el ID coincide
-    const fantasies = groupFantasies.map(f => {
-      const def = DEFAULT_FANTASIES.find(d => d.id === f.id);
-      return { ...f, category: def ? def.category : (f.category || 'pareja') };
-    });
+    // Usar DEFAULT como base + custom del usuario encima
+    const customF = groupFantasies.filter(f => !f.id.match(/^(fb|fm|ff)\d+$/));
+    const fantasies = [...DEFAULT_FANTASIES, ...customF];
     const levels = {basic:'🟢 Básico', medium:'🟡 Medio', high:'🔴 Alto'};
     const cats = {pareja:'💑 Pareja', grupo:'👥 Grupo', ambos:'💑👥 Ambos'};
 
@@ -3210,4 +3435,36 @@ async function deleteActionMant(aid, type) {
     showToast('✓ Acción eliminada');
     showTab('mant-acciones');
   } catch(e) { showToast('Error: '+e.message); }
+}
+
+// ===== RESTABLECER CATÁLOGO =====
+async function resetCatalog() {
+  if (!confirm('¿Actualizar el catálogo?\nSe agregarán los deseos y acciones oficiales más recientes.\nNada se eliminará — solo se actualiza lo existente.')) return;
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const group = groupSnap.data();
+
+    // Los defaults SIEMPRE están — solo actualizamos su versión
+    // Conservar además los custom que el grupo haya creado
+    const existingFantasies = group.fantasies || [];
+    const customFantasies = existingFantasies.filter(f => !/^(fb|fm|ff)\d+$/.test(f.id));
+
+    const existingActions = group.actions || {};
+    const filterCustom = (arr) => (arr || []).filter(a => !/^(an|ah|ae)\d+$/.test(a.id));
+
+    // DEFAULT completo + custom del grupo (nunca se pierden)
+    await db.collection('groups').doc(gid).update({
+      fantasies: [...DEFAULT_FANTASIES, ...customFantasies],
+      actions: {
+        neutral: [...DEFAULT_ACTIONS_NEUTRAL, ...filterCustom(existingActions.neutral)],
+        him: [...DEFAULT_ACTIONS_HIM, ...filterCustom(existingActions.him)],
+        her: [...DEFAULT_ACTIONS_HER, ...filterCustom(existingActions.her)],
+      }
+    });
+
+    await notifyGroupMembers(gid, '🔄 Catálogo actualizado a la versión más reciente');
+    showToast('✅ Catálogo actualizado correctamente');
+    showTab('config');
+  } catch(e) { showToast('Error: ' + e.message); }
 }
