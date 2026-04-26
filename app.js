@@ -2607,35 +2607,13 @@ async function renderConfig(){
       </div>`;
     });
 
-    html+=`<div class="section-hd" style="margin-top:16px"><div class="section-title">Agregar deseo al catálogo</div></div>
-    <div class="card">
-      <div class="form-group"><label class="form-label">Emoji</label><input type="text" class="form-control" id="nf-icon" placeholder="🔥" maxlength="2"></div>
-      <div class="form-group"><label class="form-label">Nombre</label><input type="text" class="form-control" id="nf-name" placeholder="Nombre del deseo"></div>
-      <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-control" id="nf-desc" placeholder="Descripción breve"></div>
-      <div class="form-group"><label class="form-label">Puntos requeridos</label><input type="number" class="form-control" id="nf-pts" placeholder="Ej: 15"></div>
-      <div class="form-group"><label class="form-label">Nivel</label>
-        <select class="form-control" id="nf-level">
-          <option value="basic">🟢 Básico (8-20 pts)</option>
-          <option value="medium">🟡 Medio (25-40 pts)</option>
-          <option value="high">🔴 Alto (45-65 pts)</option>
-        </select>
-      </div>
-      <div class="form-group"><label class="form-label">¿Para quién aplica?</label>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-            <input type="checkbox" id="nf-cat-pareja" checked style="width:16px;height:16px;accent-color:var(--rose)">
-            💑 En pareja
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-            <input type="checkbox" id="nf-cat-grupo" style="width:16px;height:16px;accent-color:var(--rose)">
-            👥 Con terceros / grupo
-          </label>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Puedes marcar ambas si aplica para los dos casos</div>
-      </div>
-      <button class="btn btn-primary btn-full" onclick="addFantasy()">Agregar deseo</button>
+    html+=`<div class="section-hd" style="margin-top:16px"><div class="section-title">Catálogo</div></div>
+    <div class="card" style="margin-bottom:8px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">Actualizar catálogo oficial</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Sincroniza los deseos y acciones con la versión más reciente. Tus deseos y acciones personalizados se conservan.</div>
+      <button class="btn btn-primary btn-full" onclick="resetCatalog()">🔄 Actualizar catálogo oficial</button>
     </div>
-    <div class="section-hd" style="margin-top:16px"><div class="section-title">Interno</div></div>
+    <div class="section-hd" style="margin-top:8px"><div class="section-title">Interno</div></div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="showTab('minutas')">📝 Minutas de desarrollo</button>`;
 
     document.getElementById('content').innerHTML=html;
