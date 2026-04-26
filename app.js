@@ -1278,11 +1278,8 @@ async function renderGanar() {
       otro:        { label:'⚡ Otras acciones',           color:'var(--text2)' },
     };
 
-    html += \`<div class="section-hd"><div class="section-title">Selecciona una acción</div></div>
-    <div style="position:relative;margin-bottom:12px">
-      <input type="text" class="form-control" id="action-search" placeholder="🔍 Buscar acción..."
-        oninput="filterActions(this.value)" style="padding-left:14px">
-    </div>\`;
+    html += '<div class="section-hd"><div class="section-title">Selecciona una acción</div></div>';
+    html += '<div style="position:relative;margin-bottom:12px"><input type="text" class="form-control" id="action-search" placeholder="🔍 Buscar acción..." oninput="filterActions(this.value)" style="padding-left:14px"></div>';
 
     // Agrupar por categoría
     const grouped = {};
@@ -1295,21 +1292,18 @@ async function renderGanar() {
     Object.entries(grouped).forEach(([cat, actions]) => {
       const catInfo = ACTION_CATS[cat] || ACTION_CATS.otro;
       const catId = 'cat-' + cat;
-      html += \`<div class="action-cat-header" onclick="toggleActionCat('${catId}')" data-cat="${cat}">
-        <span style="font-size:13px;font-weight:600;color:\${catInfo.color}">\${catInfo.label}</span>
-        <span style="font-size:11px;color:var(--text3)">\${actions.length} acciones</span>
-        <span id="${catId}-arrow" style="color:var(--text3);font-size:14px;margin-left:auto">›</span>
-      </div>
-      <div id="${catId}" class="action-cat-panel" style="display:none">
-        <div class="action-grid">\`;
+      html += '<div class="action-cat-header" onclick="toggleActionCat(\'' + catId + '\')" data-cat="' + cat + '">';
+      html += '<span style="font-size:13px;font-weight:600;color:' + catInfo.color + '">' + catInfo.label + '</span>';
+      html += '<span style="font-size:11px;color:var(--text3)">' + actions.length + ' acciones</span>';
+      html += '<span id="' + catId + '-arrow" style="color:var(--text3);font-size:14px;margin-left:auto">›</span></div>';
+      html += '<div id="' + catId + '" class="action-cat-panel" style="display:none"><div class="action-grid">';
       actions.forEach(a => {
-        html += \`<div class="action-quick-card" id="ac-\${a.id}" onclick="selectAction('\${a.id}','\${a.pts}','\${a.name}')" data-name="\${a.name.toLowerCase()}" data-cat="\${a.cat||'otro'}">
-          <div class="action-quick-icon">\${a.icon}</div>
-          <div class="action-quick-name">\${a.name}</div>
-          <div class="action-quick-pts">+\${a.pts} pts</div>
-        </div>\`;
+        html += '<div class="action-quick-card" id="ac-' + a.id + '" onclick="selectAction(\'' + a.id + '\',\'' + a.pts + '\',\'' + a.name.replace(/'/g, "\\'") + '\')" data-name="' + a.name.toLowerCase() + '" data-cat="' + (a.cat||'otro') + '">';
+        html += '<div class="action-quick-icon">' + a.icon + '</div>';
+        html += '<div class="action-quick-name">' + a.name + '</div>';
+        html += '<div class="action-quick-pts">+' + a.pts + ' pts</div></div>';
       });
-      html += \`</div></div>\`;
+      html += '</div></div>';
     });
 
     // Formulario de envío
