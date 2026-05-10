@@ -810,6 +810,7 @@ async function registerUser() {
       birthdate: birthdate || '',
       termsAcceptedAt: new Date().toISOString(),
       termsVersion: '1.0',
+      showGroupDeseos: false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     if (successEl) { successEl.textContent = '✓ ¡Cuenta creada! Entrando...'; successEl.style.display = 'block'; }
@@ -1105,6 +1106,62 @@ const DAILY_QUESTIONS = [
   '¿Si pudiéramos revivir un día juntos, cuál elegirías?',
 ];
 
+const DAILY_CHALLENGES = [
+  'Envíale un mensaje diciéndole algo que aprecias de él/ella hoy 💬',
+  'Dale un abrazo de al menos 20 segundos sin razón aparente 🤗',
+  'Prepara algo que le guste sin que te lo pida ☕',
+  'Dile en voz alta algo que admiras de él/ella hoy 💕',
+  'Tómale una foto bonita y envíasela con un mensaje lindo 📸',
+  'Hazle un masaje de 5 minutos sin pedir nada a cambio 💆',
+  'Cuéntale algo que te hizo pensar en él/ella hoy 💭',
+  'Planifica algo especial para esta semana y cuéntale 🗓️',
+  'Baila con él/ella aunque sea una canción en casa 💃',
+  'Escríbele una nota y déjala donde la encuentre 💌',
+  'Cocinen algo juntos esta noche 🍳',
+  'Cuéntale un recuerdo favorito de los dos ✨',
+  'Sorpréndelo/a con su comida o bebida favorita 🎁',
+  'Pregúntale cómo se siente hoy y escucha sin interrumpir 👂',
+  'Mándale una canción que te recuerde a él/ella 🎵',
+  'Planifiquen juntos algo que quieran hacer este mes 🌟',
+  'Dile gracias por algo específico que hizo por ti 🙏',
+  'Acurrúcate con él/ella sin teléfono por al menos 15 minutos 🛋️',
+  'Cuéntale un sueño o meta que tienes y pídele su opinión 🎯',
+  'Mándale un mensaje seductor inesperado durante el día 🔥',
+  'Hazle reír con algo gracioso que recuerdes de los dos 😄',
+  'Propónle hacer algo nuevo juntos esta semana 🚀',
+  'Dile en persona "te amo" o "te quiero" mirándole a los ojos ❤️',
+  'Sorpréndele con algo pequeño pero significativo hoy 🌹',
+  'Tómense 10 minutos para hablar sin pantallas ni distracciones 💬',
+  'Envíale una foto de algo que te hizo pensar en él/ella 📷',
+  'Hazle un cumplido sincero sobre cómo luce hoy ✨',
+  'Invítale a caminar juntos aunque sea 20 minutos 🚶',
+  'Cuéntale una fantasía o deseo que tengas pendiente 🔥',
+  'Dedícale una canción y dile por qué esa 🎶',
+];
+
+function getDailyChallenge() {
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+  return DAILY_CHALLENGES[dayOfYear % DAILY_CHALLENGES.length];
+}
+
+async function completeChallenge() {
+  const gid = currentUserData?.groupId;
+  const uid = currentUser?.uid;
+  if (!gid || !uid) return;
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    await db.collection('groups').doc(gid).collection('challenges').doc(today + '_' + uid).set({
+      uid, name: currentUserData.name,
+      challenge: getDailyChallenge(),
+      date: today,
+      completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await notifyGroupMembers(gid, '⚡ ' + currentUserData.name + ' completó el reto del día');
+    showToast('⚡ ¡Reto completado! Tu pareja fue notificada');
+    showTab('inicio');
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
 function getDailyQuestion() {
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000);
   return DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
@@ -1213,6 +1270,38 @@ async function renderInicio() {
       });
     }
 
+    // Recordatorio si hay pendientes de más de 24h
+    const oldPending = forMe.filter(r => {
+      if (!r.createdAt?.seconds) return false;
+      const hoursAgo = (Date.now() - r.createdAt.seconds * 1000) / 3600000;
+      return hoursAgo > 24;
+    });
+    if (oldPending.length > 0) {
+      html += `<div class="card" style="background:linear-gradient(135deg,rgba(245,166,35,0.12),rgba(245,166,35,0.04));border-color:rgba(245,166,35,0.3);margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:28px">⏰</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--amber)">Tienes ${oldPending.length} solicitud(es) esperando más de 24h</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Tu pareja está esperando tu respuesta</div>
+          </div>
+          <button class="btn btn-sm" style="background:var(--amber);color:#000;font-weight:600" onclick="showTab('ganar')">Ver →</button>
+        </div>
+      </div>`;
+    }
+
+    // Reto del día
+    const dailyChallenge = getDailyChallenge();
+    html += `<div class="card" style="background:linear-gradient(135deg,#0D1520,#150D20);border-color:rgba(155,127,232,0.25);margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:18px">⚡</span>
+        <div style="font-size:11px;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:0.5px">Reto del día</div>
+      </div>
+      <div style="font-size:14px;font-weight:500;line-height:1.6;margin-bottom:10px">${dailyChallenge}</div>
+      <button class="btn btn-sm" style="background:rgba(155,127,232,0.15);color:var(--purple);border:1px solid rgba(155,127,232,0.3)" onclick="completeChallenge()">
+        ✓ Lo hice hoy
+      </button>
+    </div>`;
+
     // Acciones rápidas
     html += `<div class="section-hd" style="margin-top:4px"><div class="section-title">¿Qué quieres hacer?</div></div>
     <div class="row" style="margin-bottom:8px">
@@ -1223,9 +1312,7 @@ async function renderInicio() {
         <span style="font-size:24px">🔥</span><span style="font-size:12px">Pedir un deseo</span>
       </button>
     </div>
-    <button class="btn btn-full" style="background:linear-gradient(135deg,#1A1225,#1A1520);border:1px solid rgba(155,127,232,0.3);color:var(--purple);margin-bottom:16px;height:52px" onclick="showTab('game')">
-      🎮 Jugar Ignite Game
-    </button>`;
+`
 
     // Historial reciente
     if (history.length > 0) {
@@ -1600,7 +1687,13 @@ async function renderDeseos() {
     }
 
     // Categorías de fantasías
-    html += `<div class="section-hd" style="margin-top:8px"><div class="section-title">Catálogo de deseos</div></div>
+    const showGroup = currentUserData?.showGroupDeseos === true;
+    html += `<div class="section-hd" style="margin-top:8px">
+      <div class="section-title">Catálogo de deseos</div>
+      <button class="btn btn-sm" onclick="toggleGroupDeseos()" style="font-size:11px;padding:4px 10px;background:${showGroup?'var(--teal-glow)':'var(--bg3)'};color:${showGroup?'var(--teal)':'var(--text2)'};border:1px solid ${showGroup?'var(--teal)':'var(--border)'}">
+        👥 ${showGroup?'Con terceros ✓':'Sin terceros'}
+      </button>
+    </div>
     <div class="cat-tabs">
       <button class="cat-tab ${fantasyFilter==='all'?'active':''}" onclick="setCat('all',this)">Todos</button>
       <button class="cat-tab ${fantasyFilter==='pareja'?'active':''}" onclick="setCat('pareja',this)">💑 Pareja</button>
@@ -1613,9 +1706,11 @@ async function renderDeseos() {
       <button class="filter-chip ${fantasyLevel==='high'?'active':''}" onclick="setLevel('high',this)">🔴 Alto</button>
     </div>`;
 
-    // Filtros independientes combinados
-    // category: pareja, grupo, ambos (aparece en ambos filtros)
-    let filtered = fantasies;
+    // Filtrar deseos de grupo según preferencia del usuario
+    let fantasiesFiltered = showGroup ? fantasies : fantasies.filter(f => f.category !== 'grupo' && f.category !== 'ambos');
+
+    // Filtros de categoría y nivel
+    let filtered = fantasiesFiltered;
     if (fantasyFilter==='pareja') filtered=filtered.filter(f=>f.category==='pareja'||f.category==='ambos'||!f.category);
     else if (fantasyFilter==='grupo') filtered=filtered.filter(f=>f.category==='grupo'||f.category==='ambos');
     if (fantasyLevel!=='all') filtered=filtered.filter(f=>f.level===fantasyLevel);
@@ -1709,6 +1804,26 @@ function setCat(cat, el) {
   document.querySelectorAll('.cat-tab').forEach(c=>c.classList.remove('active'));
   if (el) el.classList.add('active');
   showTab('deseos');
+}
+
+async function toggleGroupDeseos() {
+  const current = currentUserData?.showGroupDeseos === true;
+  if (!current) {
+    // Activar - mostrar alerta primero
+    const confirmed = confirm(
+      '¿Incluir deseos con terceros?\n\n' +
+      'Estos deseos involucran a personas adicionales a la pareja, ' +
+      'elegidas y decididas por ustedes de mutuo acuerdo.\n\n' +
+      '¿Están seguros de incluir esta categoría?'
+    );
+    if (!confirmed) return;
+  }
+  try {
+    await db.collection('users').doc(currentUser.uid).update({ showGroupDeseos: !current });
+    currentUserData.showGroupDeseos = !current;
+    showToast(current ? '✓ Deseos con terceros ocultados' : '✓ Deseos con terceros activados');
+    showTab('deseos');
+  } catch(e) { showToast('Error: ' + e.message); }
 }
 
 function setLevel(level, el) {
@@ -2153,11 +2268,7 @@ async function renderPerfil() {
       <div class="menu-item-text">Invitar al grupo</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    <div class="menu-item" onclick="showTab('game')">
-      <div class="menu-item-icon" style="background:var(--purple-glow)">🎮</div>
-      <div class="menu-item-text">Ignite Game</div>
-      <div class="menu-item-arrow">›</div>
-    </div>
+
     <div class="menu-item" onclick="showTabHistorial('perfil')">
       <div class="menu-item-icon" style="background:var(--bg3)">📊</div>
       <div class="menu-item-text">Historial completo</div>
@@ -2190,6 +2301,11 @@ async function renderPerfil() {
       <div class="menu-item-icon" style="background:rgba(245,166,35,0.15)">📅</div>
       <div class="menu-item-text">Fechas especiales</div>
       <div class="menu-item-arrow">›</div>
+    </div>
+    <div class="menu-item" onclick="togglePushNotifications()">
+      <div class="menu-item-icon" style="background:${currentUserData?.pushEnabled?'rgba(78,203,160,0.15)':'var(--bg3)'}">🔔</div>
+      <div class="menu-item-text">${currentUserData?.pushEnabled?'Notificaciones activadas':'Activar notificaciones'}</div>
+      <div class="menu-item-arrow">${currentUserData?.pushEnabled?'✓':''}</div>
     </div>
     <div class="menu-item" onclick="showTutorial()">
       <div class="menu-item-icon" style="background:var(--bg3)">🎓</div>
@@ -2738,7 +2854,50 @@ function renderMinutas(){
 }
 
 // ===== FILE UPLOAD =====
-function triggerUpload(context){uploadContext=context;document.getElementById('file-upload').click();}
+function triggerUpload(context) {
+  uploadContext = context;
+  // Mostrar opciones en móvil: cámara o galería
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    const existing = document.getElementById('upload-options-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'upload-options-modal';
+    modal.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px;border-top:1px solid var(--border)';
+    modal.innerHTML = `
+      <div style="text-align:center;margin-bottom:16px;font-size:15px;font-weight:500">Agregar foto</div>
+      <button class="btn btn-outline btn-full" style="margin-bottom:10px;font-size:14px;padding:14px" onclick="openCamera()">
+        📷 Tomar foto con cámara
+      </button>
+      <button class="btn btn-outline btn-full" style="margin-bottom:10px;font-size:14px;padding:14px" onclick="openGallery()">
+        🖼️ Elegir de galería
+      </button>
+      <button class="btn btn-full" style="color:var(--text2);padding:12px" onclick="document.getElementById('upload-options-modal').remove()">
+        Cancelar
+      </button>`;
+    document.body.appendChild(modal);
+  } else {
+    document.getElementById('file-upload').click();
+  }
+}
+
+function openCamera() {
+  const el = document.getElementById('upload-options-modal');
+  if (el) el.remove();
+  const input = document.getElementById('file-upload');
+  input.removeAttribute('capture');
+  input.setAttribute('capture', 'environment');
+  input.click();
+  setTimeout(() => input.removeAttribute('capture'), 1000);
+}
+
+function openGallery() {
+  const el = document.getElementById('upload-options-modal');
+  if (el) el.remove();
+  const input = document.getElementById('file-upload');
+  input.removeAttribute('capture');
+  input.click();
+}
 function handleFileUpload(event){
   const file=event.target.files[0];
   if(!file)return;
@@ -3529,4 +3688,76 @@ async function resetCatalog() {
     showToast('✅ Catálogo actualizado correctamente');
     showTab('config');
   } catch(e) { showToast('Error: ' + e.message); }
+}
+
+
+// ===== NOTIFICACIONES PUSH =====
+// VAPID_KEY: Reemplazar con tu clave de Firebase Cloud Messaging
+const VAPID_KEY = 'TU_VAPID_KEY_AQUI';
+
+async function initPushNotifications() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    console.log('Notificaciones push no soportadas en este browser');
+    return false;
+  }
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.log('Permiso de notificaciones denegado');
+      return false;
+    }
+    // Registrar service worker
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    // Suscribir al push
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+    });
+    // Guardar token en Firestore
+    await db.collection('users').doc(currentUser.uid).update({
+      pushSubscription: JSON.stringify(subscription),
+      pushEnabled: true,
+    });
+    showToast('🔔 Notificaciones activadas');
+    return true;
+  } catch(e) {
+    console.error('Error activando notificaciones:', e);
+    return false;
+  }
+}
+
+async function disablePushNotifications() {
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+    if (registration) {
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) await subscription.unsubscribe();
+    }
+    await db.collection('users').doc(currentUser.uid).update({
+      pushEnabled: false,
+      pushSubscription: null,
+    });
+    showToast('🔕 Notificaciones desactivadas');
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function togglePushNotifications() {
+  const enabled = currentUserData?.pushEnabled === true;
+  if (enabled) {
+    await disablePushNotifications();
+    currentUserData.pushEnabled = false;
+  } else {
+    const ok = await initPushNotifications();
+    if (ok) currentUserData.pushEnabled = true;
+  }
+  showTab('perfil');
 }
