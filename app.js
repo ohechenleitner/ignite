@@ -911,6 +911,10 @@ function showApp() {
   if (appScreen) { appScreen.style.display = 'flex'; appScreen.classList.add('active'); }
   updateHeader();
   showTab('inicio');
+  // Identificar usuario en OneSignal si ya tiene notificaciones activas
+  if (currentUserData?.pushEnabled && window.OneSignal) {
+    try { OneSignal.login(currentUser.uid); } catch(e) {}
+  }
 }
 
 // ===== TUTORIAL TIPO VIDEOJUEGO =====
@@ -2334,7 +2338,11 @@ async function renderPerfil() {
       <div class="menu-item-text">Fechas especiales</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    <!-- Notificaciones: se activarán con OneSignal -->
+    <div class="menu-item" onclick="togglePushNotifications()">
+      <div class="menu-item-icon" style="background:${currentUserData?.pushEnabled?'rgba(78,203,160,0.15)':'var(--bg3)'}">🔔</div>
+      <div class="menu-item-text">${currentUserData?.pushEnabled?'Notificaciones activadas':'Activar notificaciones'}</div>
+      <div class="menu-item-arrow">${currentUserData?.pushEnabled?'✓':'›'}</div>
+    </div>
     ${currentUserData?.juegoActivo ? `<div class="menu-item" onclick="showTab('juego')">
       <div class="menu-item-icon" style="background:rgba(155,127,232,0.15)">🎭</div>
       <div class="menu-item-text">Verdad o Reto</div>
@@ -4232,63 +4240,32 @@ function getJuegoCards() {
   return juegoState.cards;
 }
 
-// ===== NOTIFICACIONES PUSH =====
-// VAPID_KEY: Reemplazar con tu clave de Firebase Cloud Messaging
-const VAPID_KEY = 'TU_VAPID_KEY_AQUI';
+// ===== NOTIFICACIONES PUSH (OneSignal) =====
+const ONESIGNAL_APP_ID = '14d8dcf8-a7d6-4b8c-b033-3f3e81254e6e';
 
 async function initPushNotifications() {
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-    console.log('Notificaciones push no soportadas en este browser');
-    return false;
-  }
   try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.log('Permiso de notificaciones denegado');
-      return false;
-    }
-    // Registrar service worker
-    const registration = await navigator.serviceWorker.register('/sw.js');
-    // Suscribir al push
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
-    });
-    // Guardar token en Firestore
-    await db.collection('users').doc(currentUser.uid).update({
-      pushSubscription: JSON.stringify(subscription),
-      pushEnabled: true,
-    });
+    if (!window.OneSignal) { showToast('Cargando sistema de notificaciones...'); return false; }
+    const permission = await OneSignal.Notifications.requestPermission();
+    if (!permission) { showToast('Permiso de notificaciones denegado'); return false; }
+    // Guardar el external user ID para identificar al usuario
+    await OneSignal.login(currentUser.uid);
+    await db.collection('users').doc(currentUser.uid).update({ pushEnabled: true });
     showToast('🔔 Notificaciones activadas');
     return true;
   } catch(e) {
     console.error('Error activando notificaciones:', e);
+    showToast('Error al activar notificaciones');
     return false;
   }
 }
 
 async function disablePushNotifications() {
   try {
-    const registration = await navigator.serviceWorker.getRegistration('/sw.js');
-    if (registration) {
-      const subscription = await registration.pushManager.getSubscription();
-      if (subscription) await subscription.unsubscribe();
-    }
-    await db.collection('users').doc(currentUser.uid).update({
-      pushEnabled: false,
-      pushSubscription: null,
-    });
+    await OneSignal.logout();
+    await db.collection('users').doc(currentUser.uid).update({ pushEnabled: false });
     showToast('🔕 Notificaciones desactivadas');
   } catch(e) { showToast('Error: ' + e.message); }
-}
-
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
 }
 
 async function togglePushNotifications() {
