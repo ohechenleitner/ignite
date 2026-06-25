@@ -521,16 +521,16 @@ const DEFAULT_FANTASIES = [
 ];
 
 const DEFAULT_SPECIAL_DATES = [
-  { name: 'Cumpleaños de ella', date: '28-01', pts: 30, icon: '🎂' },
-  { name: 'Cumpleaños de él', date: '25-05', pts: 30, icon: '🎂' },
-  { name: 'Aniversario', date: '06-03', pts: 25, icon: '💑' },
-  { name: 'Día de la Madre', date: '2do domingo mayo', pts: 20, icon: '🌸' },
-  { name: 'Día del Padre', date: '3er domingo junio', pts: 20, icon: '👔' },
-  { name: 'Día del Ingeniero VE', date: '28-10', pts: 15, icon: '⚙️' },
-  { name: 'Día del Ingeniero CL', date: '14-05', pts: 15, icon: '⚙️' },
-  { name: 'San Valentín', date: '14-02', pts: 15, icon: '❤️' },
-  { name: 'Navidad', date: '25-12', pts: 15, icon: '🎄' },
-  { name: 'Año Nuevo', date: '31-12', pts: 10, icon: '🎆' },
+  { name: 'Cumpleaños de ella', date: '28-01', pts: 30, icon: '🎂', target: 'mujer' },
+  { name: 'Cumpleaños de él',   date: '25-05', pts: 30, icon: '🎂', target: 'hombre' },
+  { name: 'Aniversario',        date: '06-03', pts: 25, icon: '💑', target: 'ambos' },
+  { name: 'Día de la Madre',    date: '2do domingo mayo', pts: 20, icon: '🌸', target: 'mujer' },
+  { name: 'Día del Padre',      date: '3er domingo junio', pts: 20, icon: '👔', target: 'hombre' },
+  { name: 'Día del Ingeniero VE', date: '28-10', pts: 15, icon: '⚙️', target: 'ambos' },
+  { name: 'Día del Ingeniero CL', date: '14-05', pts: 15, icon: '⚙️', target: 'ambos' },
+  { name: 'San Valentín',       date: '14-02', pts: 15, icon: '❤️', target: 'ambos' },
+  { name: 'Navidad',            date: '25-12', pts: 15, icon: '🎄', target: 'ambos' },
+  { name: 'Año Nuevo',          date: '31-12', pts: 10, icon: '🎆', target: 'ambos' },
 ];
 
 // ===== MINUTAS =====
@@ -1067,6 +1067,9 @@ function showTab(tab) {
   else if (tab === 'minutas') renderMinutas();
   else if (tab === 'config') renderConfig();
   else if (tab === 'fechas') renderFechas();
+  else if (tab === 'juego') renderJuego();
+  else if (tab === 'juego-mant') renderJuegoMant();
+  else if (tab === 'juego-partida') renderJuegoPartida();
   else if (tab === 'mantenedores') renderMantenedores();
   else if (tab === 'mant-deseos') renderMantDeseos();
   else if (tab === 'mant-acciones') renderMantAcciones();
@@ -1150,6 +1153,13 @@ async function completeChallenge() {
   if (!gid || !uid) return;
   const today = new Date().toISOString().split('T')[0];
   try {
+    // Verificar si ya lo completó hoy
+    const existing = await db.collection('groups').doc(gid)
+      .collection('challenges').doc(today + '_' + uid).get();
+    if (existing.exists) {
+      showToast('Ya completaste el reto de hoy 💪');
+      return;
+    }
     await db.collection('groups').doc(gid).collection('challenges').doc(today + '_' + uid).set({
       uid, name: currentUserData.name,
       challenge: getDailyChallenge(),
@@ -1160,6 +1170,20 @@ async function completeChallenge() {
     showToast('⚡ ¡Reto completado! Tu pareja fue notificada');
     showTab('inicio');
   } catch(e) { showToast('Error: ' + e.message); }
+}
+
+async function checkChallengeCompleted(gid) {
+  const uid = currentUser?.uid;
+  if (!uid) return;
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const existing = await db.collection('groups').doc(gid)
+      .collection('challenges').doc(today + '_' + uid).get();
+    const el = document.getElementById('challenge-status');
+    if (el && existing.exists) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--teal);font-weight:600">✓ Reto completado hoy 🎉</div>';
+    }
+  } catch(e) {}
 }
 
 function getDailyQuestion() {
@@ -1297,9 +1321,11 @@ async function renderInicio() {
         <div style="font-size:11px;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:0.5px">Reto del día</div>
       </div>
       <div style="font-size:14px;font-weight:500;line-height:1.6;margin-bottom:10px">${dailyChallenge}</div>
-      <button class="btn btn-sm" style="background:rgba(155,127,232,0.15);color:var(--purple);border:1px solid rgba(155,127,232,0.3)" onclick="completeChallenge()">
-        ✓ Lo hice hoy
-      </button>
+      <div id="challenge-status">
+        <button class="btn btn-sm" style="background:rgba(155,127,232,0.15);color:var(--purple);border:1px solid rgba(155,127,232,0.3)" onclick="completeChallenge()">
+          ✓ Lo hice hoy
+        </button>
+      </div>
     </div>`;
 
     // Acciones rápidas
@@ -1328,7 +1354,10 @@ async function renderInicio() {
 
     document.getElementById('content').innerHTML = html;
     // Cargar respuestas del día en background
-    if (currentUserData?.groupId) setTimeout(() => loadDailyAnswers(currentUserData.groupId), 300);
+    if (currentUserData?.groupId) {
+      setTimeout(() => loadDailyAnswers(currentUserData.groupId), 300);
+      setTimeout(() => checkChallengeCompleted(currentUserData.groupId), 400);
+    }
   } catch(e) {
     document.getElementById('content').innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div><button class="btn btn-outline" onclick="showTab('inicio')">Reintentar</button></div>`;
   }
@@ -1490,6 +1519,10 @@ async function renderGanar() {
     pendingEvidenceBase64 = null;
     window._selectedActionId = null;
     document.getElementById('content').innerHTML = html;
+    // Auto-seleccionar pareja si solo hay una persona
+    if (others.length === 1) {
+      setTimeout(() => toggleUserSel(others[0].id), 50);
+    }
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
   }
@@ -2236,7 +2269,6 @@ async function renderPerfil() {
     totalActions = actionsSnap.size;
   } catch(e) {}
 
-  const isAdmin = u?.role === 'admin';
 
   document.getElementById('content').innerHTML = `
   <div class="profile-hero">
@@ -2244,7 +2276,7 @@ async function renderPerfil() {
     <div class="profile-name">${u.name}</div>
     <div class="profile-email">${u.email}</div>
     <div class="profile-badges">
-      <span class="role-badge ${isAdmin?'role-admin':'role-viewer'}">${isAdmin?'👑 Admin':'👁 Viewer'}</span>
+
       <span class="role-badge role-viewer">${u.gender}</span>
       ${u.streak>1?`<span class="role-badge" style="background:rgba(245,166,35,0.15);color:var(--amber)">🔥 ${u.streak} días</span>`:''}
     </div>
@@ -2302,11 +2334,12 @@ async function renderPerfil() {
       <div class="menu-item-text">Fechas especiales</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    <div class="menu-item" onclick="togglePushNotifications()">
-      <div class="menu-item-icon" style="background:${currentUserData?.pushEnabled?'rgba(78,203,160,0.15)':'var(--bg3)'}">🔔</div>
-      <div class="menu-item-text">${currentUserData?.pushEnabled?'Notificaciones activadas':'Activar notificaciones'}</div>
-      <div class="menu-item-arrow">${currentUserData?.pushEnabled?'✓':''}</div>
-    </div>
+    <!-- Notificaciones: se activarán con OneSignal -->
+    ${currentUserData?.juegoActivo ? `<div class="menu-item" onclick="showTab('juego')">
+      <div class="menu-item-icon" style="background:rgba(155,127,232,0.15)">🎭</div>
+      <div class="menu-item-text">Verdad o Reto</div>
+      <div class="menu-item-arrow">›</div>
+    </div>` : ''}
     <div class="menu-item" onclick="showTutorial()">
       <div class="menu-item-icon" style="background:var(--bg3)">🎓</div>
       <div class="menu-item-text">Ver tutorial</div>
@@ -2696,17 +2729,8 @@ async function renderConfig(){
           <div class="user-avatar-lg" style="background:${m.color}22;color:${m.color}">${m.initials}</div>
           <div style="flex:1"><div class="user-name-text">${m.name}</div>
           <div class="user-meta">${m.email} · ${m.gender}</div>
-          <div style="margin-top:4px;display:flex;gap:4px">
-            <span class="role-badge ${m.role==='admin'?'role-admin':'role-viewer'}">${m.role==='admin'?'👑 Admin':'👁 Viewer'}</span>
-            ${!m.active?'<span class="role-badge role-disabled">🚫</span>':''}
-          </div></div>
-          ${m.id!==currentUser.uid?`<div style="display:flex;flex-direction:column;gap:4px">
-            <select class="form-control" style="padding:4px 8px;font-size:11px" onchange="changeRole('${m.id}',this.value)">
-              <option value="admin" ${m.role==='admin'?'selected':''}>👑 Admin</option>
-              <option value="viewer" ${m.role==='viewer'?'selected':''}>👁 Viewer</option>
-            </select>
-            <button class="btn btn-sm ${m.active?'btn-danger':'btn-teal'}" onclick="toggleMember('${m.id}',${m.active})">${m.active?'🚫':'✓'}</button>
-          </div>`:'<span style="font-size:11px;color:var(--text2)">Tú</span>'}
+          ${!m.active?'<div style="margin-top:4px"><span class="role-badge role-disabled">🚫 Inactivo</span></div>':''}</div>
+          ${m.id!==currentUser.uid?`<button class="btn btn-sm ${m.active?'btn-danger':'btn-teal'}" onclick="toggleMember('${m.id}',${m.active})">${m.active?'🚫':'✓'}</button>`:'<span style="font-size:11px;color:var(--text2)">Tú</span>'}
         </div>
       </div>`;
     });
@@ -2764,18 +2788,47 @@ async function adjustPts(){
   }catch(e){showToast('Error: '+e.message);}
 }
 
-async function applyDate(name,pts){
-  if(!confirm(`Aplicar +${pts} pts a todos por: ${name}?`))return;
-  const gid=currentUserData.groupId;
-  try{
-    const groupSnap=await db.collection('groups').doc(gid).get();
-    const pairPoints=groupSnap.data().pairPoints||{};
-    const membersSnap=await db.collection('users').where('groupId','==',gid).where('active','==',true).get();
-    const members=membersSnap.docs.map(d=>d.data());
-    members.forEach(m=>{members.forEach(n=>{if(m.id!==n.id){const pk=[m.id,n.id].sort().join('_');if(!pairPoints[pk])pairPoints[pk]={};pairPoints[pk][m.id]=(pairPoints[pk][m.id]||0)+pts;}});});
-    await db.collection('groups').doc(gid).update({pairPoints});
-    showToast(`✓ +${pts} pts a todos`);showTab('config');
-  }catch(e){showToast('Error');}
+async function applyDate(name, pts, target) {
+  const targetLabel = target==='mujer'?'ella':target==='hombre'?'él':'todos';
+  if (!confirm(`Aplicar +${pts} pts a ${targetLabel} por: ${name}?`)) return;
+  const gid = currentUserData.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const pairPoints = groupSnap.data().pairPoints || {};
+    const membersSnap = await db.collection('users').where('groupId','==',gid).where('active','==',true).get();
+    const members = membersSnap.docs.map(d => d.data());
+
+    // Filtrar destinatarios según target
+    const recipients = target === 'ambos'
+      ? members
+      : members.filter(m => m.gender === target);
+
+    if (recipients.length === 0) {
+      showToast('No hay miembros que coincidan con esta fecha');
+      return;
+    }
+
+    recipients.forEach(m => {
+      members.forEach(n => {
+        if (m.id !== n.id) {
+          const pk = [m.id, n.id].sort().join('_');
+          if (!pairPoints[pk]) pairPoints[pk] = {};
+          pairPoints[pk][m.id] = (pairPoints[pk][m.id] || 0) + pts;
+        }
+      });
+    });
+
+    await db.collection('groups').doc(gid).update({ pairPoints });
+    await db.collection('groups').doc(gid).collection('history').add({
+      fromUser: currentUser.uid, fromUserName: currentUserData.name,
+      toUsers: recipients.map(m => m.id),
+      action: `Bonus ${name}`, pts, type: 'add',
+      date: new Date().toLocaleDateString('es'),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast(`✓ +${pts} pts aplicados a ${targetLabel}`);
+    showTab('fechas');
+  } catch(e) { showToast('Error: ' + e.message); }
 }
 
 async function addFantasy(){
@@ -2802,7 +2855,7 @@ async function renderFechas() {
   if (!gid) return;
   try {
     const groupSnap = await db.collection('groups').doc(gid).get();
-    const dates = groupSnap.data().specialDates || DEFAULT_SPECIAL_DATES;
+    const dates = DEFAULT_SPECIAL_DATES; // Siempre usar el catálogo actualizado
 
     let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
@@ -2817,10 +2870,10 @@ async function renderFechas() {
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div>
             <div style="font-size:14px;font-weight:500">${d.icon} ${d.name}</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:3px">${d.date} · <span style="color:var(--teal)">+${d.pts} pts</span></div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${d.date} · <span style="color:var(--teal)">+${d.pts} pts</span> · <span style="color:var(--text3)">${d.target==='mujer'?'👩 Para ella':d.target==='hombre'?'👨 Para él':'👫 Para ambos'}</span></div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="applyDate('${d.name}',${d.pts})">
-            Aplicar bonus
+          <button class="btn btn-primary btn-sm" onclick="applyDate('${d.name}',${d.pts},'${d.target||'ambos'}')">
+            Aplicar ${d.target==='mujer'?'a ella':d.target==='hombre'?'a él':'a ambos'}
           </button>
         </div>
       </div>`;
@@ -2830,6 +2883,434 @@ async function renderFechas() {
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
   }
+}
+
+// ===== FUNCIONES DEL JUEGO VERDAD O RETO =====
+
+async function toggleJuego() {
+  const gid = currentUserData?.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const actual = groupSnap.data().juegoVerdadRetoActivo === true;
+    await db.collection('groups').doc(gid).update({ juegoVerdadRetoActivo: !actual });
+    // Actualizar estado local del usuario
+    currentUserData.juegoActivo = !actual;
+    showToast(actual ? '🎭 Juego desactivado' : '🎭 Juego activado');
+    showTab('config');
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+// Pantalla de inicio del juego
+async function renderJuego() {
+  const gid = currentUserData?.groupId;
+  document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const group = groupSnap.data();
+    // Cargar cartas del grupo o usar defaults
+    const cards = group.juegoCards || IGNITE_CARDS_DEFAULT;
+    juegoState.cards = cards;
+
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
+      <div style="font-size:16px;font-weight:500">🎭 Verdad o Reto</div>
+    </div>
+    <div style="text-align:center;padding:20px 0 24px">
+      <div style="font-size:52px;margin-bottom:12px">🔥</div>
+      <div style="font-family:var(--font-display);font-size:26px;font-weight:500;margin-bottom:8px">Ignite</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;max-width:280px;margin:0 auto">Verdad o Reto para adultos.<br>Progresivo, elegante y sin culpas.</div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:14px">👥 Participantes</div>
+      <div id="juego-participantes">`;
+
+    // Mostrar participantes ya agregados
+    juegoState.participantes.forEach((p, i) => {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div><div style="font-size:13px;font-weight:500">${p.nombre}</div>
+        <div style="font-size:11px;color:var(--text2)">${p.vinculo} · ${p.genero}</div></div>
+        <button onclick="quitarParticipante(${i})" style="background:none;border:none;color:var(--rose);font-size:18px;cursor:pointer">✕</button>
+      </div>`;
+    });
+    html += `</div>
+      <button class="btn btn-outline btn-full btn-sm" style="margin-top:10px" onclick="agregarParticipante()">+ Agregar participante</button>
+    </div>`;
+
+    if (juegoState.participantes.length >= 2) {
+      html += `<button class="btn btn-primary btn-full" style="padding:16px;font-size:15px" onclick="iniciarPartida()">🎭 Iniciar partida</button>`;
+    } else {
+      html += `<div style="text-align:center;font-size:12px;color:var(--text3);padding:10px">Agrega al menos 2 participantes para comenzar</div>`;
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error</div></div>';
+  }
+}
+
+function agregarParticipante() {
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="font-size:16px;font-weight:500;margin-bottom:16px">Agregar participante</div>
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input type="text" class="form-control" id="jp-nombre" placeholder="Nombre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Género</label>
+        <select class="form-control" id="jp-genero">
+          <option value="hombre">Hombre</option>
+          <option value="mujer">Mujer</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vínculo</label>
+        <select class="form-control" id="jp-vinculo">
+          <option value="esposo">Esposo</option>
+          <option value="esposa">Esposa</option>
+          <option value="amigo">Amigo/a (tercero)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="confirmarParticipante()">Agregar</button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+function confirmarParticipante() {
+  const nombre = document.getElementById('jp-nombre')?.value?.trim();
+  const genero = document.getElementById('jp-genero')?.value;
+  const vinculo = document.getElementById('jp-vinculo')?.value;
+  if (!nombre) { showToast('Ingresa un nombre'); return; }
+  juegoState.participantes.push({ nombre, genero, vinculo });
+  closeModalDirect();
+  renderJuego();
+}
+
+function quitarParticipante(idx) {
+  juegoState.participantes.splice(idx, 1);
+  renderJuego();
+}
+
+function iniciarPartida() {
+  if (juegoState.participantes.length < 2) { showToast('Agrega al menos 2 participantes'); return; }
+  juegoState.nivel = 'suave';
+  juegoState.turnoIdx = 0;
+  juegoState.usadas = new Set();
+  juegoState.prendas = [];
+  juegoState.shots = {};
+  juegoState.verdadUsadaEn = {};
+  showTab('juego-partida');
+}
+
+// Pantalla de partida
+function renderJuegoPartida() {
+  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const nivelLabels = { suave:'🟢 Suave', medio:'🟡 Medio', candela:'🔴 Candela' };
+  const nivelColors = { suave:'var(--teal)', medio:'var(--amber)', candela:'var(--rose)' };
+  const verdadBloqueada = juegoState.verdadUsadaEn[participante.nombre] === juegoState.turnoIdx;
+
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <button class="btn btn-outline btn-sm" onclick="if(confirm('¿Terminar la partida?'))showTab('juego')">✕ Salir</button>
+    <div style="font-size:12px;font-weight:600;color:${nivelColors[juegoState.nivel]}">${nivelLabels[juegoState.nivel]}</div>
+    <button class="btn btn-sm" style="font-size:11px;background:var(--bg4);color:var(--text2)" onclick="cambiarNivelDirector()">🎬 Director</button>
+  </div>
+
+  <div style="text-align:center;margin-bottom:24px">
+    <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Turno de</div>
+    <div style="font-family:var(--font-display);font-size:28px;font-weight:500;color:var(--text)">${participante.nombre}</div>
+    <div style="font-size:11px;color:var(--text3)">${participante.vinculo}</div>
+  </div>`;
+
+  // Prendas activas
+  if (juegoState.prendas.length > 0) {
+    html += `<div style="background:rgba(232,96,138,0.1);border:1px solid rgba(232,96,138,0.2);border-radius:12px;padding:10px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--rose);font-weight:600;margin-bottom:4px">👗 Prendas activas</div>
+      ${juegoState.prendas.map(p=>`<div style="font-size:12px;color:var(--text2)">• ${p}</div>`).join('')}
+    </div>`;
+  }
+
+  html += `<div style="display:flex;gap:10px;margin-bottom:12px">
+    <button class="btn btn-primary" style="flex:1;padding:18px;font-size:15px;font-weight:600;flex-direction:column;gap:4px;${verdadBloqueada?'opacity:0.4;pointer-events:none':''}" onclick="jugarVerdad()">
+      <span style="font-size:22px">💬</span>
+      <span>Verdad</span>
+      ${verdadBloqueada?'<span style="font-size:10px;opacity:0.7">Bloqueada</span>':''}
+    </button>
+    <button class="btn btn-danger" style="flex:1;padding:18px;font-size:15px;font-weight:600;flex-direction:column;gap:4px" onclick="jugarReto()">
+      <span style="font-size:22px">⚡</span>
+      <span>Reto</span>
+    </button>
+  </div>
+  <button class="btn btn-outline btn-full" style="color:var(--amber);border-color:rgba(245,166,35,0.3)" onclick="pasarTurno()">
+    ⏭️ Pasar (shot escalonado)
+  </button>`;
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function resolverTexto(texto) {
+  const p = juegoState.participantes;
+  const esposa = p.find(x=>x.vinculo==='esposa')?.nombre || 'Esposa';
+  const esposo = p.find(x=>x.vinculo==='esposo')?.nombre || 'Esposo';
+  const amigo = p.find(x=>x.vinculo==='amigo')?.nombre || 'Amigo/a';
+  return texto.replace(/\${esposa}/g,esposa).replace(/\${esposo}/g,esposo).replace(/\${amigo}/g,amigo);
+}
+
+function getCartaAleatoria(tipo) {
+  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const nivel = juegoState.nivel;
+  const cards = juegoState.cards[nivel]?.[tipo] || [];
+  const vinculo = participante.vinculo;
+
+  // Filtrar por rol del participante y no usadas
+  const disponibles = cards.filter(c =>
+    (c.para === vinculo || c.para === 'todos') &&
+    !juegoState.usadas.has(c.id)
+  );
+  if (disponibles.length === 0) return null;
+  return disponibles[Math.floor(Math.random() * disponibles.length)];
+}
+
+function mostrarCarta(carta, tipo) {
+  if (!carta) {
+    showToast('No hay más cartas disponibles en este nivel');
+    renderJuegoPartida();
+    return;
+  }
+  juegoState.usadas.add(carta.id);
+  const esPrenda = carta.label === 'prenda';
+  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+
+  const nivelColors = { suave:'var(--teal)', medio:'var(--amber)', candela:'var(--rose)' };
+  const color = nivelColors[juegoState.nivel];
+
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:calc(100vh - 120px);display:flex;flex-direction:column;padding-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-size:13px;color:var(--text2)">${participante.nombre}</div>
+        <div style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;background:${color}22;color:${color}">${tipo==='verdades'?'💬 Verdad':'⚡ Reto'}${esPrenda?' · 👗 PRENDA':''}</div>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center">
+        <div style="background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid ${color}44;border-radius:20px;padding:28px 22px;text-align:center">
+          <div style="font-size:36px;margin-bottom:16px">${tipo==='verdades'?'💬':'⚡'}</div>
+          <div style="font-size:16px;font-weight:500;line-height:1.7;color:var(--text)">${resolverTexto(carta.texto)}</div>
+          ${esPrenda?'<div style="margin-top:14px;font-size:12px;font-weight:600;color:var(--rose);background:rgba(232,96,138,0.1);padding:8px 14px;border-radius:20px;display:inline-block">👗 Esta carta es permanente (prenda)</div>':''}
+        </div>
+      </div>
+      <div style="margin-top:20px">
+        ${esPrenda?`<button class="btn btn-danger btn-full" style="margin-bottom:8px" onclick="registrarPrenda('${carta.texto.substring(0,50)}...')">✓ Prenda aceptada</button>`:''}
+        <button class="btn btn-primary btn-full" onclick="siguienteTurno()">Siguiente turno →</button>
+      </div>
+    </div>`;
+}
+
+function jugarVerdad() {
+  const carta = getCartaAleatoria('verdades');
+  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  juegoState.verdadUsadaEn[participante.nombre] = juegoState.turnoIdx + 1; // bloquea el siguiente turno
+  mostrarCarta(carta, 'verdades');
+}
+
+function jugarReto() {
+  const carta = getCartaAleatoria('retos');
+  mostrarCarta(carta, 'retos');
+}
+
+function registrarPrenda(texto) {
+  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  juegoState.prendas.push(participante.nombre + ': ' + texto);
+  showToast('👗 Prenda registrada');
+  siguienteTurno();
+}
+
+function pasarTurno() {
+  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const nombre = participante.nombre;
+  if (!juegoState.shots[nombre]) juegoState.shots[nombre] = 0;
+  const shotNum = juegoState.shots[nombre] + 1;
+  juegoState.shots[nombre] = shotNum;
+
+  document.getElementById('content').innerHTML = `
+    <div style="text-align:center;padding:60px 24px">
+      <div style="font-size:64px;margin-bottom:16px">🥃</div>
+      <div style="font-family:var(--font-display);font-size:24px;font-weight:500;margin-bottom:8px">${nombre} pasa</div>
+      <div style="font-size:36px;font-weight:700;color:var(--amber);margin-bottom:8px">${shotNum} shot${shotNum>1?'s':''}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:32px">(1 + ${shotNum-1} acumulado${shotNum-1!==1?'s':''})</div>
+      <button class="btn btn-primary btn-full" onclick="siguienteTurno()">Siguiente turno →</button>
+    </div>`;
+}
+
+function siguienteTurno() {
+  juegoState.turnoIdx++;
+  // Subir nivel automáticamente cada 2 vueltas completas
+  const vuelta = Math.floor(juegoState.turnoIdx / juegoState.participantes.length);
+  if (vuelta === 2 && juegoState.nivel === 'suave') {
+    juegoState.nivel = 'medio';
+    showToast('🟡 Subiendo a nivel Medio');
+  } else if (vuelta === 4 && juegoState.nivel === 'medio') {
+    juegoState.nivel = 'candela';
+    showToast('🔴 ¡Llegamos a Candela!');
+  }
+  renderJuegoPartida();
+}
+
+function cambiarNivelDirector() {
+  const niveles = ['suave','medio','candela'];
+  const labels = ['🟢 Suave','🟡 Medio','🔴 Candela'];
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:16px;text-align:center">🎬 Modo Director</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;text-align:center">Cambia el nivel de temperatura manualmente</div>
+      ${niveles.map((n,i)=>`<button class="btn ${juegoState.nivel===n?'btn-primary':'btn-outline'} btn-full" style="margin-bottom:8px;font-size:14px" onclick="setNivelDirector('${n}')">${labels[i]}</button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function setNivelDirector(nivel) {
+  juegoState.nivel = nivel;
+  closeModalDirect();
+  renderJuegoPartida();
+  showToast('Nivel cambiado a ' + nivel);
+}
+
+// Mantenedor de cartas
+async function renderJuegoMant() {
+  const gid = currentUserData?.groupId;
+  document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || IGNITE_CARDS_DEFAULT;
+    juegoState.cards = cards;
+
+    const nivelLabels = { suave:'🟢 Suave', medio:'🟡 Medio', candela:'🔴 Candela' };
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('config')">← Volver</button>
+      <div style="font-size:16px;font-weight:500">Cartas del juego</div>
+    </div>`;
+
+    ['suave','medio','candela'].forEach(nivel => {
+      const allCards = [...(cards[nivel]?.verdades||[]), ...(cards[nivel]?.retos||[])];
+      html += `<div class="action-cat-header" onclick="toggleActionCat('mant-${nivel}')">
+        <span style="font-size:13px;font-weight:600">${nivelLabels[nivel]}</span>
+        <span style="font-size:11px;color:var(--text3)">${allCards.length} cartas</span>
+        <span id="mant-${nivel}-arrow" style="margin-left:auto;color:var(--text3)">›</span>
+      </div>
+      <div id="mant-${nivel}" class="action-cat-panel" style="display:none">`;
+
+      ['verdades','retos'].forEach(tipo => {
+        const tipoCards = cards[nivel]?.[tipo] || [];
+        html += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 4px">${tipo==='verdades'?'💬 Verdades':'⚡ Retos'}</div>`;
+        tipoCards.forEach((c,i) => {
+          html += `<div class="card" style="margin-bottom:6px;padding:10px">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+              <div style="flex:1">
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${c.para}${c.label?' · 👗 prenda':''}</div>
+                <div style="font-size:12px;color:var(--text2);line-height:1.5">${c.texto.substring(0,100)}${c.texto.length>100?'...':''}</div>
+              </div>
+              <button onclick="eliminarCartaJuego('${nivel}','${tipo}','${c.id}')" style="background:none;border:none;color:var(--rose);cursor:pointer;font-size:16px;flex-shrink:0">🗑️</button>
+            </div>
+          </div>`;
+        });
+      });
+      html += `<button class="btn btn-outline btn-full btn-sm" style="margin:4px 0 8px" onclick="agregarCartaJuego('${nivel}')">+ Agregar carta a ${nivelLabels[nivel]}</button>`;
+      html += `</div>`;
+    });
+
+    html += `<div style="margin-top:12px">
+      <button class="btn btn-outline btn-full btn-sm" style="color:var(--rose)" onclick="resetearCartasJuego()">🔄 Restaurar cartas originales</button>
+    </div>`;
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';
+  }
+}
+
+async function eliminarCartaJuego(nivel, tipo, id) {
+  if (!confirm('¿Eliminar esta carta?')) return;
+  const gid = currentUserData?.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || JSON.parse(JSON.stringify(IGNITE_CARDS_DEFAULT));
+    cards[nivel][tipo] = cards[nivel][tipo].filter(c => c.id !== id);
+    await db.collection('groups').doc(gid).update({ juegoCards: cards });
+    juegoState.cards = cards;
+    showToast('✓ Carta eliminada');
+    renderJuegoMant();
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+function agregarCartaJuego(nivel) {
+  const nivelLabels = { suave:'🟢 Suave', medio:'🟡 Medio', candela:'🔴 Candela' };
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="font-size:15px;font-weight:500;margin-bottom:16px">Nueva carta · ${nivelLabels[nivel]}</div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select class="form-control" id="nc-tipo">
+          <option value="verdades">💬 Verdad</option>
+          <option value="retos">⚡ Reto</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dirigida a</label>
+        <select class="form-control" id="nc-para">
+          <option value="esposa">Esposa</option>
+          <option value="esposo">Esposo</option>
+          <option value="amigo">Amigo/a</option>
+          <option value="todos">Todos</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Texto <span style="font-size:11px;color:var(--text3)">(usa \${esposa}, \${esposo}, \${amigo})</span></label>
+        <textarea class="form-control" id="nc-texto" rows="4" placeholder="Texto de la carta..."></textarea>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="nc-prenda" style="accent-color:var(--rose)">
+          <span style="font-size:13px">👗 Es prenda permanente</span>
+        </label>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="confirmarCartaJuego('${nivel}')">Agregar carta</button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+async function confirmarCartaJuego(nivel) {
+  const tipo = document.getElementById('nc-tipo')?.value;
+  const para = document.getElementById('nc-para')?.value;
+  const texto = document.getElementById('nc-texto')?.value?.trim();
+  const esPrenda = document.getElementById('nc-prenda')?.checked;
+  if (!texto) { showToast('Escribe el texto de la carta'); return; }
+  const gid = currentUserData?.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || JSON.parse(JSON.stringify(IGNITE_CARDS_DEFAULT));
+    const newCard = { id: 'c_'+Date.now(), para, texto };
+    if (esPrenda) newCard.label = 'prenda';
+    if (!cards[nivel][tipo]) cards[nivel][tipo] = [];
+    cards[nivel][tipo].push(newCard);
+    await db.collection('groups').doc(gid).update({ juegoCards: cards });
+    juegoState.cards = cards;
+    closeModalDirect();
+    showToast('✓ Carta agregada');
+    renderJuegoMant();
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+async function resetearCartasJuego() {
+  if (!confirm('¿Restaurar las cartas originales? Se perderán las personalizadas.')) return;
+  const gid = currentUserData?.groupId;
+  try {
+    await db.collection('groups').doc(gid).update({ juegoCards: IGNITE_CARDS_DEFAULT });
+    juegoState.cards = IGNITE_CARDS_DEFAULT;
+    showToast('✓ Cartas restauradas');
+    renderJuegoMant();
+  } catch(e) { showToast('Error: ' + e.message); }
 }
 
 function renderMinutas(){
@@ -3667,21 +4148,7 @@ async function resetCatalog() {
       }
     };
 
-    // Verificar undefined antes de escribir
-    const findUndefined = (obj, path='') => {
-      if (obj === undefined) return [path];
-      if (obj === null) return [];
-      if (Array.isArray(obj)) return obj.flatMap((v,i) => findUndefined(v, path+'['+i+']'));
-      if (typeof obj === 'object') return Object.entries(obj).flatMap(([k,v]) => findUndefined(v, path+'.'+k));
-      return [];
-    };
-    const undefinedPaths = findUndefined(dataToWrite);
-    if (undefinedPaths.length > 0) {
-      showToast('Debug - undefined en: ' + undefinedPaths.slice(0,3).join(', '));
-      console.error('Undefined paths:', undefinedPaths);
-      return;
-    }
-
+    dataToWrite.specialDates = DEFAULT_SPECIAL_DATES;
     await db.collection('groups').doc(gid).update(dataToWrite);
 
     await notifyGroupMembers(gid, '🔄 Catálogo actualizado a la versión más reciente');
@@ -3690,6 +4157,80 @@ async function resetCatalog() {
   } catch(e) { showToast('Error: ' + e.message); }
 }
 
+
+// ===== JUEGO VERDAD O RETO =====
+const IGNITE_CARDS_DEFAULT = {
+  suave: {
+    verdades: [
+      { id:'sv1', para:'esposa', texto:'Con más de 20 años de casados, ¿cuál dirías que ha sido la clave para que tú y ${esposo} sigan manteniendo esa chispa y complicidad?' },
+      { id:'sv2', para:'esposa', texto:'Desde una perspectiva puramente estética, ¿qué halago elegante destacarías de cómo ${amigo} suele arreglarse?' },
+      { id:'sv3', para:'amigo', texto:'¿Qué es lo que más admiras de la seguridad y el carisma que proyecta ${esposa}?' },
+      { id:'sv4', para:'amigo', texto:'Siendo honestos, ¿qué detalle del relajo de ${esposo} te hace pensar que tienen una relación muy sólida?' },
+      { id:'sv5', para:'esposo', texto:'¿Qué parte de la personalidad libre y coqueta de ${esposa} disfrutas más ver cuando están de vacaciones?' },
+      { id:'sv6', para:'esposa', texto:'Si el juego dictaminara que ${amigo} debe quedarse en bóxers, ¿te daría morbo, risa, o te parecería divertido para el juego?' },
+      { id:'sv7', para:'amigo', texto:'Del 1 al 10, ¿qué tan deslumbrante te parece la seguridad y el porte que tiene ${esposa}?' },
+    ],
+    retos: [
+      { id:'sr1', para:'esposa', texto:'Baila de forma libre durante 1 minuto y 30 segundos, mostrando tu soltura y carisma.' },
+      { id:'sr2', para:'esposa', label:'prenda', texto:'Por estricta comodidad, quítate la prenda externa y quédate en bikini o top de manera definitiva.' },
+      { id:'sr3', para:'esposa', texto:'Brinda con picardía: tómate un shot de tequila entrelazando tu brazo con el de ${amigo}.' },
+      { id:'sr4', para:'amigo', texto:'Balíale a la mesa 15 segundos de la canción de fondo, imitando con humor los pasos de un modelo de pasarela.' },
+      { id:'sr5', para:'amigo', texto:'Párate detrás de ${esposa} y susúrrale al oído qué nota estética le pones a su look de hoy.' },
+    ]
+  },
+  medio: {
+    verdades: [
+      { id:'mv1', para:'esposa', texto:'¿Te sientes más atractiva luciendo un bikini cómodo bajo el sol o con un vestido de noche arreglada?' },
+      { id:'mv2', para:'esposa', texto:'Si ${amigo} debe quedarse en bóxers por castigo, ¿te daría risa, morbo, o preferirías mirar hacia otro lado?' },
+      { id:'mv3', para:'amigo', texto:'¿En qué momento de la tarde se te han ido los ojos inevitablemente hacia la silueta de ${esposa}?' },
+      { id:'mv4', para:'amigo', texto:'Si ${esposa} modelara de espaldas para fotos, ¿qué ángulo crees que sería su fuerte?' },
+      { id:'mv5', para:'esposo', texto:'¿Qué te genera más morbo: ver a tu esposa brillar siendo el centro de atención o verla reaccionar a los piropos de ${amigo}?' },
+    ],
+    retos: [
+      { id:'mr1', para:'esposa', label:'prenda', texto:'El calor aprieta. Para estar más fresca, quítate la prenda externa y quédate en bikini o top de manera definitiva.' },
+      { id:'mr2', para:'esposa', texto:'Baila durante 1 minuto y 30 segundos moviendo solo las caderas y los hombros.' },
+      { id:'mr3', para:'amigo', texto:'Toma un cubo de hielo y pásalo suavemente por el antebrazo o la nuca de ${esposa}.' },
+      { id:'mr4', para:'amigo', texto:'Susúrrale al oído a ${esposa} qué es lo que más te cautiva de su mirada.' },
+      { id:'mr5', para:'esposo', texto:'Desabrocha el primer botón de la blusa de ${esposa} con delicadeza.' },
+    ]
+  },
+  candela: {
+    verdades: [
+      { id:'cv1', para:'esposa', texto:'Si ${esposo} te pidiera actuar como pareja de catálogo con ${amigo} para una foto artística, ¿sacarías tu lado de modelo?' },
+      { id:'cv2', para:'esposa', texto:'¿Te excita o te hace sentir poderosa saber que ${esposo} disfruta verte ser el centro de deseo de otro hombre de su confianza?' },
+      { id:'cv3', para:'amigo', texto:'Si tuvieras que describir la fantasía visual de ver a ${esposa} en lencería definitiva, ¿cómo describirías la temperatura de tu mente?' },
+      { id:'cv4', para:'amigo', texto:'Si ${esposo} te autoriza a darle un masaje en los hombros a ${esposa} por 1 minuto, ¿en qué zona te concentrarías más?' },
+      { id:'cv5', para:'esposo', texto:'¿Qué tan excitante es para ti ver que tu gran amigo no puede apartar la mirada de tu hermosa esposa?' },
+    ],
+    retos: [
+      { id:'cr1', para:'esposa', label:'prenda', texto:'Quítate el sostén por debajo de la blusa de forma definitiva, dejando que el misterio y el morbo visual se queden en la mesa.' },
+      { id:'cr2', para:'esposa', texto:'Párate frente a ${amigo}, cuerpo a cuerpo, y dejen sus labios a 1 centímetro de distancia, sosteniendo la mirada por 15 segundos.' },
+      { id:'cr3', para:'esposa', texto:'Recreen cómo se bailaba el reguetón cuando tenían 20 años: bien pegados, cadera con cadera, durante 1 minuto y 30 segundos.' },
+      { id:'cr4', para:'amigo', texto:'Cuando suene la música, baila bien pegado a ${esposa}, cadera con cadera, sin dejar distancias por 1 minuto y 30 segundos.' },
+      { id:'cr5', para:'amigo', label:'prenda', texto:'Quítate el bañador detrás de una toalla y quédate únicamente en bóxers por el resto de la noche.' },
+      { id:'cr6', para:'amigo', texto:'La sal y el limón de tu shot debes recogerlos directamente de la piel del cuello o hombro de ${esposa}.' },
+      { id:'cr7', para:'esposo', texto:'Ordénale a ${amigo} dónde poner las manos sobre la cintura de ${esposa} para la foto de catálogo, dictando tú la escena.' },
+    ]
+  }
+};
+
+// Estado del juego
+let juegoState = {
+  activo: false,
+  participantes: [],
+  nivel: 'suave',
+  turnoIdx: 0,
+  cards: { suave:{verdades:[],retos:[]}, medio:{verdades:[],retos:[]}, candela:{verdades:[],retos:[]} },
+  usadas: new Set(),
+  prendas: [],
+  shots: {},
+  verdadUsadaEn: {},
+  modoDirector: false,
+};
+
+function getJuegoCards() {
+  return juegoState.cards;
+}
 
 // ===== NOTIFICACIONES PUSH =====
 // VAPID_KEY: Reemplazar con tu clave de Firebase Cloud Messaging
