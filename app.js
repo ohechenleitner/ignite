@@ -4064,12 +4064,20 @@ async function notifyGroupMembers(gid, text) {
     const uid = currentUser.uid;
     const membersSnap = await db.collection('users').where('groupId','==',gid).where('active','==',true).get();
     const others = membersSnap.docs.map(d=>d.data()).filter(m=>m.id!==uid);
+    
+    // Guardar en Firestore (notificaciones in-app)
     for (const m of others) {
       await db.collection('groups').doc(gid).collection('notifications').add({
         toUserId: m.id, text, read: false,
         date: new Date().toLocaleDateString('es'),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+    }
+    
+    // Enviar push notification a los otros miembros
+    const pushUserIds = others.filter(m => m.pushEnabled).map(m => m.id);
+    if (pushUserIds.length > 0) {
+      await sendPushNotification('🔥 Ignite', text, pushUserIds);
     }
   } catch(e) {}
 }
@@ -4242,6 +4250,20 @@ function getJuegoCards() {
 
 // ===== NOTIFICACIONES PUSH (OneSignal) =====
 const ONESIGNAL_APP_ID = '14d8dcf8-a7d6-4b8c-b033-3f3e81254e6e';
+
+// Enviar notificación push via función serverless de Vercel (seguro)
+async function sendPushNotification(title, message, toUserIds) {
+  if (!toUserIds || toUserIds.length === 0) return;
+  try {
+    await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, message, userIds: toUserIds }),
+    });
+  } catch(e) {
+    console.error('Error enviando notificación:', e);
+  }
+}
 
 async function initPushNotifications() {
   try {
