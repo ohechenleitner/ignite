@@ -2,7 +2,6 @@
 // La API key vive aquí en el servidor, nunca en el cliente
 
 export default async function handler(req, res) {
-  // Solo aceptar POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -28,6 +27,11 @@ export default async function handler(req, res) {
       headings: { en: title, es: title },
       contents: { en: message, es: message },
       url: url || 'https://ignite-gules-six.vercel.app',
+      // Ícono personalizado de Ignite
+      chrome_web_icon: 'https://ignite-gules-six.vercel.app/icon-192.png',
+      firefox_icon: 'https://ignite-gules-six.vercel.app/icon-192.png',
+      // Vibración en móvil
+      android_sound: 'notification',
     };
 
     const response = await fetch('https://api.onesignal.com/notifications', {

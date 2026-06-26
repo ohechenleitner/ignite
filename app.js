@@ -1619,6 +1619,7 @@ async function submitAction() {
       date: new Date().toLocaleDateString('es'),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    const pushIds = [];
     for (const tid of selUsers) {
       await db.collection('groups').doc(gid).collection('notifications').add({
         toUserId: tid,
@@ -1626,6 +1627,17 @@ async function submitAction() {
         read: false, date: new Date().toLocaleDateString('es'),
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      // Verificar si tiene push activo
+      const memberSnap = await db.collection('users').doc(tid).get();
+      if (memberSnap.data()?.pushEnabled) pushIds.push(tid);
+    }
+    // Enviar push personalizado
+    if (pushIds.length > 0) {
+      await sendPushNotification(
+        '⚡ Nueva acción para aprobar',
+        `${currentUserData.name} registró "${window._selectedActionName}" y espera tu aprobación (+${window._selectedActionPts} pts)`,
+        pushIds
+      );
     }
     selUsers=[]; pendingEvidenceBase64=null; window._selectedActionId=null;
     showToast('✓ Acción enviada. Esperando aprobación.');
@@ -2017,6 +2029,14 @@ async function requestFantasy(fid) {
         createdAt:firebase.firestore.FieldValue.serverTimestamp()
       });
     }
+    // Push al partner
+    if (partner?.pushEnabled) {
+      await sendPushNotification(
+        '🔥 Nuevo deseo por revisar',
+        currentUserData.name + ' quiere: "' + f.name + '" (' + f.pts + ' pts). ¡Dale un vistazo!',
+        [partner.id]
+      );
+    }
     closeModalDirect();
     showToast('✓ Deseo solicitado. Esperando respuesta.');
     showTab('deseos');
@@ -2084,9 +2104,18 @@ async function confirmarAprobacion(reqId) {
       read:false, date:new Date().toLocaleDateString('es'),
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
+    // Push al que hizo la solicitud
+    const reqSnap2 = await db.collection('users').doc(req.requestedBy).get();
+    if (reqSnap2.data()?.pushEnabled) {
+      const tipo = req.type === 'action' ? 'accion' : 'deseo';
+      const msg = req.type === 'action'
+        ? 'Tu accion "' + req.fantasyName + '" fue aprobada. +' + req.pts + ' pts ganados!'
+        : 'Tu deseo "' + req.fantasyName + '" fue aprobado. Empieza a planificarlo!';
+      await sendPushNotification('Aprobado!', msg, [req.requestedBy]);
+    }
     closeModalDirect();
     // Celebración visual
-    showCelebration(req.type === 'action' ? `+${req.pts} pts ⚡` : '🔥 Deseo aprobado');
+    showCelebration(req.type === 'action' ? '+' + req.pts + ' pts' : 'Deseo aprobado');
     setTimeout(() => showTab(currentTab), 1200);
   } catch(e) { showToast('Error: '+e.message); if (btn){btn.disabled=false;btn.textContent='Confirmar aprobación';} }
 }
@@ -2243,6 +2272,16 @@ async function confirmarRechazo(reqId) {
       read:false, date:new Date().toLocaleDateString('es'),
       createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
+    // Push al que hizo la solicitud
+    const requesterSnap = await db.collection('users').doc(req.requestedBy).get();
+    if (requesterSnap.data()?.pushEnabled) {
+      const tipo = req.type === 'action' ? 'accion' : 'deseo';
+      await sendPushNotification(
+        'Solicitud no aprobada',
+        'Tu ' + tipo + ' "' + req.fantasyName + '" no fue aprobada. Motivo: ' + reason,
+        [req.requestedBy]
+      );
+    }
     closeModalDirect();
     showToast('Rechazado');
     showTab(currentTab);
