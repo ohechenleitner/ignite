@@ -4077,14 +4077,16 @@ async function renderMantJuego(tipo) {
     const tipoLabel = esTipo ? '💬 Verdades' : '⚡ Retos';
     const tipoIcon = esTipo ? '💬' : '⚡';
     const tipoColor = esTipo ? 'var(--purple)' : 'var(--rose)';
-    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard' };
+    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'🎰 Retos Extremos (Recuperar prenda)' };
 
     let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="showTab('mantenedores')">← Volver</button>
       <div style="font-size:16px;font-weight:500">${tipoIcon} ${tipoLabel}</div>
     </div>`;
 
-    ['suave','medio','hard'].forEach(nivel => {
+    // Para Verdades: suave/medio/hard. Para Retos: suave/medio/hard + recuperacion
+    const nivelesAMostrar = tipo === 'verdades' ? ['suave','medio','hard'] : ['suave','medio','hard','recuperacion'];
+    nivelesAMostrar.forEach(nivel => {
       const lista = cards[nivel]?.[tipo] || [];
       html += `<div class="action-cat-header" onclick="toggleActionCat('mj-${nivel}-${tipo}')">
         <span style="font-size:13px;font-weight:600">${nivelData[nivel]}</span>
@@ -4110,7 +4112,7 @@ async function renderMantJuego(tipo) {
       });
 
       html += `<button class="btn btn-outline btn-full btn-sm" style="margin:4px 0 8px" 
-        onclick="agregarCartaJuegoTipo('${nivel}','${tipo}')">+ Agregar ${esTipo?'verdad':'reto'}</button>
+        onclick="agregarCartaJuegoTipo('${nivel}','${tipo}')">+ Agregar ${nivel==='recuperacion'?'reto extremo':esTipo?'verdad':'reto'}</button>
       </div>`;
     });
 
@@ -4210,12 +4212,13 @@ async function renderJuegoMant() {
     </div>`;
 
     // Cartas por nivel
-    ['suave','medio','hard'].forEach(nivel => {
-      const verdades = cards[nivel]?.verdades || [];
+    const nivelesConfig = ['suave','medio','hard','recuperacion'];
+    nivelesConfig.forEach(nivel => {
+      const verdades = nivel !== 'recuperacion' ? (cards[nivel]?.verdades || []) : [];
       const retos = cards[nivel]?.retos || [];
       const total = verdades.length + retos.length;
       html += `<div class="action-cat-header" onclick="toggleActionCat('mant-${nivel}')">
-        <span style="font-size:13px;font-weight:600">${nivelData[nivel]}</span>
+        <span style="font-size:13px;font-weight:600">${nivelData[nivel]||'🎰 Extremos'}</span>
         <span style="font-size:11px;color:var(--text3)">${total} cartas</span>
         <span id="mant-${nivel}-arrow" style="margin-left:auto;color:var(--text3)">›</span>
       </div>
