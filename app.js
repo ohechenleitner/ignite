@@ -2384,22 +2384,10 @@ async function renderPerfil() {
       <div class="menu-item-text">Historial completo</div>
       <div class="menu-item-arrow">›</div>
     </div>
-    <div class="menu-item" onclick="toggleMantPanel()">
+    <div class="menu-item" onclick="showTab('mantenedores')">
       <div class="menu-item-icon" style="background:var(--amber-glow)">🗂️</div>
       <div class="menu-item-text">Mantenedores</div>
-      <div class="menu-item-arrow" id="mant-arrow">›</div>
-    </div>
-    <div id="mant-panel" style="display:none;padding:0 0 8px 0">
-      <div onclick="showTab('mant-deseos')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border-radius:12px;cursor:pointer;margin-bottom:6px">
-        <span style="font-size:20px">🔥</span>
-        <div style="flex:1"><div style="font-size:13px;font-weight:500">Deseos</div><div style="font-size:11px;color:var(--text2)">Ver, agregar y editar</div></div>
-        <span style="color:var(--text3)">›</span>
-      </div>
-      <div onclick="showTab('mant-acciones')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border-radius:12px;cursor:pointer">
-        <span style="font-size:20px">⚡</span>
-        <div style="flex:1"><div style="font-size:13px;font-weight:500">Acciones</div><div style="font-size:11px;color:var(--text2)">Ver, agregar y editar</div></div>
-        <span style="color:var(--text3)">›</span>
-      </div>
+      <div class="menu-item-arrow">›</div>
     </div>
     <div class="menu-item" onclick="showTab('config')">
       <div class="menu-item-icon" style="background:var(--bg3)">⚙️</div>
