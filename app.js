@@ -4682,7 +4682,14 @@ function toggleMantPanel() {
 }
 function toggleMantenedores() { toggleMantPanel(); }
 
-function renderMantenedores() {
+async function renderMantenedores() {
+  // Siempre leer estado del juego desde Firestore (puede haber cambiado en esta sesión)
+  try {
+    if (currentUserData?.groupId) {
+      const g = await db.collection('groups').doc(currentUserData.groupId).get();
+      currentUserData.juegoActivo = g.data()?.juegoVerdadRetoActivo === true;
+    }
+  } catch(e) {}
   const juegoOn = currentUserData?.juegoActivo === true;
   document.getElementById('content').innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
