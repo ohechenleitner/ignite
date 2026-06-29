@@ -3212,7 +3212,10 @@ function mostrarReglasJuego() {
           <div>🎯 <strong>Turnos:</strong> Cada jugador elige Verdad o Reto en su turno</div>
           <div>🚫 <strong>Antiescondite:</strong> Si eliges Verdad, en tu siguiente turno está bloqueada</div>
           <div>⏱️ <strong>Timer:</strong> Verdad = ${timerV}s · Reto = ${timerR}s (puedes detenerlo al terminar)</div>
-          <div>🥃 <strong>Pasar:</strong> Puedes pasar y tomar shots escalonados (1 + acumulados)</div>
+          <div>🥃 <strong>Pasar:</strong> Si no quieres hacer la verdad o el reto, tienes dos opciones:<br>
+            &nbsp;&nbsp;• Tomar shots escalonados (1 + acumulados anteriores)<br>
+            &nbsp;&nbsp;• Quitarte una prenda permanente — <strong style="color:var(--rose)">esa prenda se queda así el resto de la noche sin excepción</strong>
+          </div>
           <div>👗 <strong>Prenda:</strong> Algunas cartas son prendas permanentes — quedan activas toda la noche</div>
           <div>⬆️ <strong>Nivel:</strong> Sube automáticamente al agotar las cartas. Puedes subirlo manualmente</div>
           <div>🤝 <strong>Consentimiento:</strong> Cualquier participante puede negarse a cualquier reto sin penalización adicional</div>
@@ -3420,10 +3423,19 @@ function renderJuegoPartida() {
         </button>
       </div>
 
-      <button onclick="pasarTurno()" 
+      <button onclick="mostrarOpcionesPasar()" 
         style="padding:14px;border-radius:12px;border:1px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:var(--amber);font-size:13px;font-weight:600;cursor:pointer">
-        🥃 Pasar (shots escalonados)
+        ⏭️ Pasar — elegir consecuencia
       </button>
+
+      ${juegoState.prendas.filter(pr=>pr.quien===p.nombre).length > 0 ? `
+      <button onclick="intentarRecuperarPrenda()"
+        style="padding:12px;border-radius:12px;border:1px solid rgba(155,127,232,0.3);
+        background:rgba(155,127,232,0.06);color:var(--purple);font-size:12px;font-weight:600;
+        cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        <span style="font-size:16px">🎰</span>
+        <span>Recuperar prenda — reto extremo</span>
+      </button>` : ''}
     </div>`;
 }
 
@@ -3570,25 +3582,31 @@ function mostrarCarta(carta, tipo, jugador, otro) {
         </button>` : ''}
       </div>
 
-      <!-- Botones de decisión -->
+      <!-- 3 botones de decisión simultáneos -->
       <div style="display:flex;flex-direction:column;gap:8px">
-        ${esPrenda ? `
-        <button class="btn btn-full" onclick="aceptarPrenda('${carta.id}','${jugador.nombre}','${textoResuelto.substring(0,60).replace(/'/g,"\'")}...')"
-          style="padding:16px;border-radius:14px;background:rgba(232,96,138,0.15);color:var(--rose);border:1px solid rgba(232,96,138,0.3);font-weight:600">
-          👗 Acepto la prenda
-        </button>` : ''}
-        <button class="btn btn-full" onclick="accionCompletada()"
-          style="padding:16px;border-radius:14px;background:rgba(78,203,160,0.12);color:var(--teal);border:1px solid rgba(78,203,160,0.3);font-weight:600">
-          ✅ ${esVerdad ? 'Lo dije' : 'Lo hice'} — Siguiente turno
+        <!-- Botón principal: Lo hice/dije -->
+        <button onclick="${esPrenda ? `aceptarPrenda('${carta.id}','${jugador.nombre}','${textoResuelto.substring(0,60).replace(/'/g,"\'")}...')` : 'accionCompletada()'}"
+          style="padding:18px;border-radius:14px;background:linear-gradient(135deg,rgba(78,203,160,0.15),rgba(78,203,160,0.08));
+          color:var(--teal);border:1px solid rgba(78,203,160,0.35);font-weight:700;font-size:15px;cursor:pointer;
+          display:flex;align-items:center;justify-content:center;gap:10px">
+          <span style="font-size:22px">✅</span>
+          <span>${esVerdad ? 'Lo dije' : 'Lo hice'}</span>
         </button>
+        <!-- Fila inferior: Shot y Prenda -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button onclick="elegirShots()"
-            style="padding:13px;border-radius:12px;border:1px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:var(--amber);font-size:13px;font-weight:600;cursor:pointer">
-            🥃 Mejor me tomo un shot
+            style="padding:16px;border-radius:14px;border:1px solid rgba(245,166,35,0.3);
+            background:rgba(245,166,35,0.08);color:var(--amber);font-size:13px;font-weight:600;
+            cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px">
+            <span style="font-size:26px">🥃</span>
+            <span>Tomar shot</span>
           </button>
           <button onclick="elegirPrendaVoluntaria()"
-            style="padding:13px;border-radius:12px;border:1px solid rgba(155,127,232,0.3);background:rgba(155,127,232,0.06);color:var(--purple);font-size:13px;font-weight:600;cursor:pointer">
-            👗 Me quito una prenda
+            style="padding:16px;border-radius:14px;border:1px solid rgba(232,96,138,0.3);
+            background:rgba(232,96,138,0.08);color:var(--rose);font-size:13px;font-weight:600;
+            cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px">
+            <span style="font-size:26px">👗</span>
+            <span>Prenda</span>
           </button>
         </div>
       </div>
@@ -3645,6 +3663,256 @@ function aceptarPrenda(cardId, quien, texto) {
   juegoState.prendas.push({ quien, texto });
   showToast('👗 Prenda registrada');
   if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+  siguienteTurno();
+}
+
+function mostrarOpcionesPasar() {
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const shotActual = (juegoState.shots[p.nombre] || 0) + 1;
+
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:36px;margin-bottom:8px">⏭️</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px">${p.nombre} pasa</div>
+        <div style="font-size:13px;color:var(--text2)">¿Cuál es la consecuencia?</div>
+      </div>
+
+      <button onclick="elegirShots()" 
+        style="width:100%;padding:18px;border-radius:14px;border:1px solid rgba(245,166,35,0.3);
+        background:rgba(245,166,35,0.08);color:var(--amber);font-size:14px;font-weight:600;
+        cursor:pointer;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <span style="font-size:28px">🥃</span>
+        <span>Tomar ${shotActual} shot${shotActual>1?'s':''}</span>
+        <span style="font-size:11px;opacity:0.7">(1 + ${shotActual-1} acumulado${shotActual-1!==1?'s':''})</span>
+      </button>
+
+      <button onclick="closeModalDirect();elegirPrendaVoluntaria()"
+        style="width:100%;padding:18px;border-radius:14px;border:1px solid rgba(232,96,138,0.3);
+        background:rgba(232,96,138,0.08);color:var(--rose);font-size:14px;font-weight:600;
+        cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <span style="font-size:28px">👗</span>
+        <span>Quitarse una prenda</span>
+        <span style="font-size:11px;opacity:0.7">Se queda así el resto de la noche</span>
+      </button>
+
+      <button onclick="closeModalDirect()" 
+        style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);
+        background:none;color:var(--text3);font-size:13px;cursor:pointer;margin-top:8px">
+        Cancelar
+      </button>
+    </div>
+  </div>`;
+}
+
+// ===== RECUPERACIÓN DE PRENDA =====
+function intentarRecuperarPrenda() {
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const misPrendas = juegoState.prendas.filter(pr => pr.quien === p.nombre);
+
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:40px;margin-bottom:8px">🎰</div>
+        <div style="font-size:16px;font-weight:700;color:var(--purple);margin-bottom:6px">Recuperar prenda</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">
+          Se generará un <strong style="color:var(--rose)">reto extremo</strong>.<br>
+          Si lo completas, recuperas una prenda.<br>
+          Si no lo haces, <strong style="color:var(--rose)">pierdes otra prenda más.</strong><br>
+          No hay shots — el riesgo es real.
+        </div>
+      </div>
+      <button onclick="closeModalDirect();lanzarRetoRecuperacion()" 
+        style="width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,rgba(155,127,232,0.2),rgba(232,96,138,0.1));
+        color:var(--text);border:1px solid rgba(155,127,232,0.4);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">
+        🎰 Acepto el reto — ¡a recuperar!
+      </button>
+      <button onclick="closeModalDirect()"
+        style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);
+        background:none;color:var(--text3);font-size:13px;cursor:pointer">
+        Cancelar
+      </button>
+    </div>
+  </div>`;
+}
+
+function lanzarRetoRecuperacion() {
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const cards = juegoState.cards?.recuperacion?.retos || IGNITE_CARDS_DEFAULT.recuperacion.retos;
+
+  // Filtrar por género y por interacciones válidas
+  const misInteracciones = juegoState.interacciones[p.id] || [];
+  const disponibles = cards.filter(c => {
+    if (c.quien_genero !== 'todos' && c.quien_genero !== p.genero) return false;
+    if (c.para_genero !== 'todos') {
+      const hayDestino = misInteracciones.some(oid => {
+        const otro = juegoState.participantes.find(x => x.id === oid);
+        return otro && (otro.genero === c.para_genero);
+      });
+      if (!hayDestino) return false;
+    }
+    return true;
+  });
+
+  const carta = disponibles.length > 0
+    ? disponibles[Math.floor(Math.random() * disponibles.length)]
+    : cards[Math.floor(Math.random() * cards.length)];
+
+  // Encontrar otro participante válido
+  const otro = getOtroParticipante(carta) || juegoState.participantes.find(x => x.id !== p.id);
+
+  // Pantalla ruleta especial
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+      <div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;
+        text-transform:uppercase;letter-spacing:2px">🎰 RETO EXTREMO</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:40px">${p.nombre} intenta recuperar su prenda</div>
+      <div style="position:relative;width:200px;height:200px;margin-bottom:40px">
+        <div style="position:absolute;inset:0;border-radius:50%;border:3px solid var(--purple);
+          background:radial-gradient(circle,rgba(155,127,232,0.15),transparent)"></div>
+        <div style="position:absolute;inset:10px;border-radius:50%;border:2px dashed rgba(155,127,232,0.4);
+          display:flex;align-items:center;justify-content:center;font-size:72px;
+          animation:spin 0.3s linear infinite">🔥</div>
+        <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:24px">▼</div>
+      </div>
+      <div style="font-size:14px;color:var(--text2)">Generando reto extremo...</div>
+    </div>
+    <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>`;
+
+  setTimeout(() => mostrarCartaRecuperacion(carta, p, otro), 1800);
+}
+
+function mostrarCartaRecuperacion(carta, jugador, otro) {
+  const textoResuelto = resolverTexto(carta.texto, jugador, otro);
+
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
+      padding:20px;display:flex;flex-direction:column">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-size:13px;color:var(--text2)">${jugador.nombre}</div>
+        <div style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;
+          background:rgba(155,127,232,0.15);color:var(--purple);text-transform:uppercase;letter-spacing:1px">
+          🎰 RETO EXTREMO
+        </div>
+      </div>
+
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-bottom:24px">
+        <div style="animation:flipIn 0.5s ease forwards;width:100%;max-width:340px">
+          <div style="background:linear-gradient(135deg,#1A0830,#2D0D40);
+            border:1px solid rgba(155,127,232,0.5);border-radius:24px;padding:28px 22px;
+            position:relative;overflow:hidden">
+            <div style="position:absolute;top:14px;right:16px;font-size:16px;opacity:0.3">🔥</div>
+            <div style="position:absolute;top:14px;right:35px;font-size:9px;opacity:0.25;
+              color:white;font-weight:700;letter-spacing:1px">IGNITE</div>
+            <div style="display:inline-block;background:rgba(155,127,232,0.15);border:1px solid rgba(155,127,232,0.4);
+              border-radius:20px;padding:3px 12px;font-size:10px;font-weight:700;color:var(--purple);margin-bottom:20px;
+              text-transform:uppercase;letter-spacing:1px">🎰 EXTREMO — Recuperar prenda</div>
+            <div style="text-align:center;margin-bottom:18px">
+              <div style="font-size:52px;filter:drop-shadow(0 0 20px var(--purple))">🔥</div>
+            </div>
+            <div style="font-size:15px;font-weight:500;line-height:1.7;color:var(--text);text-align:center">
+              ${textoResuelto}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:rgba(155,127,232,0.08);border:1px solid rgba(155,127,232,0.2);
+        border-radius:12px;padding:12px;margin-bottom:16px;text-align:center">
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">
+          ✅ Si lo haces → recuperas una prenda<br>
+          ❌ Si no lo haces → pierdes <strong style="color:var(--rose)">otra prenda más</strong>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button onclick="recuperacionExitosa('${jugador.nombre}')"
+          style="padding:18px;border-radius:14px;background:rgba(78,203,160,0.12);
+          color:var(--teal);border:1px solid rgba(78,203,160,0.35);font-weight:700;
+          font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+          <span style="font-size:22px">✅</span><span>Lo hice — recupero prenda</span>
+        </button>
+        <button onclick="recuperacionFallida('${jugador.nombre}')"
+          style="padding:18px;border-radius:14px;background:rgba(232,96,138,0.08);
+          color:var(--rose);border:1px solid rgba(232,96,138,0.3);font-weight:700;
+          font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+          <span style="font-size:22px">❌</span><span>No lo hice — pierdo otra prenda</span>
+        </button>
+      </div>
+    </div>
+    <style>
+      @keyframes flipIn{0%{transform:perspective(800px) rotateY(-90deg);opacity:0}
+        100%{transform:perspective(800px) rotateY(0deg);opacity:1}}
+    </style>`;
+}
+
+function recuperacionExitosa(nombre) {
+  const misPrendas = juegoState.prendas.filter(p => p.quien === nombre);
+  if (misPrendas.length === 1) {
+    // Solo una prenda — se recupera automáticamente
+    juegoState.prendas = juegoState.prendas.filter(p => !(p.quien === nombre));
+    showToast('🎉 ¡Prenda recuperada! Bien hecho.');
+    siguienteTurno();
+    return;
+  }
+  // Varias prendas — elegir cuál recuperar
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:14px;text-align:center">
+        🎉 ¡Lo lograste!<br>
+        <span style="font-size:13px;font-weight:400;color:var(--text2)">¿Cuál prenda recuperas?</span>
+      </div>
+      ${misPrendas.map((pr, i) => `
+        <button onclick="confirmarRecuperacion(${i + juegoState.prendas.indexOf(misPrendas[0])})"
+          style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(78,203,160,0.3);
+          background:rgba(78,203,160,0.08);color:var(--teal);font-size:13px;
+          cursor:pointer;margin-bottom:8px;text-align:left">
+          👗 ${pr.texto}
+        </button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function confirmarRecuperacion(idx) {
+  juegoState.prendas.splice(idx, 1);
+  closeModalDirect();
+  showToast('🎉 ¡Prenda recuperada!');
+  siguienteTurno();
+}
+
+function recuperacionFallida(nombre) {
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:40px;margin-bottom:8px">😬</div>
+        <div style="font-size:16px;font-weight:700;color:var(--rose);margin-bottom:6px">Prenda perdida</div>
+        <div style="font-size:13px;color:var(--text2)">
+          ${nombre} no completó el reto.<br>Debe quitarse una prenda adicional.
+        </div>
+      </div>
+      <input type="text" class="form-control" id="nueva-prenda-rec" 
+        placeholder="¿Qué prenda se quita?" style="margin-bottom:12px">
+      <button onclick="confirmarPerdidaAdicional('${nombre}')"
+        style="width:100%;padding:14px;border-radius:12px;background:rgba(232,96,138,0.12);
+        color:var(--rose);border:1px solid rgba(232,96,138,0.3);font-size:14px;font-weight:600;cursor:pointer">
+        👗 Confirmar prenda adicional
+      </button>
+    </div>
+  </div>`;
+}
+
+function confirmarPerdidaAdicional(nombre) {
+  const desc = document.getElementById('nueva-prenda-rec')?.value?.trim();
+  if (!desc) { showToast('Indica qué prenda se quita'); return; }
+  juegoState.prendas.push({ quien: nombre, texto: desc });
+  closeModalDirect();
+  showToast('👗 Prenda adicional registrada');
   siguienteTurno();
 }
 
@@ -5035,6 +5303,30 @@ const IGNITE_CARDS_DEFAULT = {
         texto:'Baila bien pegado a ${otro} durante 1 minuto al ritmo que suene.' },
       { id:'mr6', tipo:'reto', categoria:'medio', quien_genero:'todos', para_genero:'todos',
         texto:'Dale a ${otro} el piropo más atrevido y específico que se te ocurra.' },
+    ]
+  },
+  recuperacion: {
+    retos: [
+      { id:'rec1', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
+        texto:'Baila pegado/a a ${otro} al ritmo de la música más intensa que suene, sin dejar espacio entre los dos, durante 2 minutos completos.' },
+      { id:'rec2', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
+        texto:'Susúrrale a ${otro} al oído, con lujo de detalles, la fantasía más hot que tengas en mente ahora mismo. Nada de censura.' },
+      { id:'rec3', tipo:'reto', categoria:'recuperacion', quien_genero:'mujer', para_genero:'hombre',
+        texto:'Siéntate en las piernas de ${otro}, míralo fijamente a los ojos y dile exactamente qué harías si estuvieran solos esta noche. Todo.' },
+      { id:'rec4', tipo:'reto', categoria:'recuperacion', quien_genero:'hombre', para_genero:'mujer',
+        texto:'Toma a ${otro} de la mano, llévatela al corazón y dile — mirándola a los ojos sin parpadear — qué es lo que más te despierta de ella.' },
+      { id:'rec5', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
+        texto:'Recrea con ${otro} el beso más cinematográfico que seas capaz de imaginar. Tú diriges la escena.' },
+      { id:'rec6', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
+        texto:'Dale a ${otro} un masaje de 3 minutos en la zona que ella/él elija, sin preguntar dos veces.' },
+      { id:'rec7', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
+        texto:'Tómate un shot de ${otro} de la forma más creativa y atrevida que se te ocurra. El grupo decide si fue suficientemente hot.' },
+      { id:'rec8', tipo:'reto', categoria:'recuperacion', quien_genero:'mujer', para_genero:'hombre',
+        texto:'Pon tu canción más seductora y baila un minuto y medio solo para ${otro}, como si no hubiera nadie más en la sala.' },
+      { id:'rec9', tipo:'reto', categoria:'recuperacion', quien_genero:'hombre', para_genero:'mujer',
+        texto:'Desabróchale lentamente un botón o accesorio a ${otro} con una sola mano, manteniendo contacto visual todo el tiempo.' },
+      { id:'rec10', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
+        texto:'Acércate a ${otro} hasta que sus labios estén a 1 centímetro de distancia. Mantén esa posición 20 segundos sin moverse ni reír.' },
     ]
   },
   hard: {
