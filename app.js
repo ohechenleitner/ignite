@@ -909,15 +909,15 @@ async function showApp() {
   if (splash) splash.style.display = 'none';
   if (authScreen) { authScreen.style.display = 'none'; authScreen.classList.remove('active'); }
   if (appScreen) { appScreen.style.display = 'flex'; appScreen.classList.add('active'); }
-  updateHeader();
-  showTab('inicio');
-  // Cargar estado del juego
+  // Cargar estado del juego ANTES de updateHeader para que la pestaña aparezca de entrada
   try {
     if (currentUserData?.groupId) {
       const g = await db.collection('groups').doc(currentUserData.groupId).get();
       currentUserData.juegoActivo = g.data()?.juegoVerdadRetoActivo === true;
     }
   } catch(e) {}
+  updateHeader();
+  showTab('inicio');
   // Identificar usuario en OneSignal si ya tiene notificaciones activas
   if (currentUserData?.pushEnabled && window.OneSignal) {
     try { OneSignal.login(currentUser.uid); } catch(e) {}
@@ -2412,11 +2412,7 @@ async function renderPerfil() {
       <div class="menu-item-text">${currentUserData?.pushEnabled?'Notificaciones activadas':'Activar notificaciones'}</div>
       <div class="menu-item-arrow">${currentUserData?.pushEnabled?'✓':'›'}</div>
     </div>
-    ${currentUserData?.juegoActivo ? `<div class="menu-item" onclick="showTab('juego')">
-      <div class="menu-item-icon" style="background:rgba(155,127,232,0.15)">🎭</div>
-      <div class="menu-item-text">Verdad o Reto</div>
-      <div class="menu-item-arrow">›</div>
-    </div>` : ''}
+
     <div class="menu-item" onclick="showTutorial()">
       <div class="menu-item-icon" style="background:var(--bg3)">🎓</div>
       <div class="menu-item-text">Ver tutorial</div>
