@@ -303,8 +303,8 @@
 
   <div class="content" id="content"></div>
 
-  <!-- BOTTOM NAV — 4 pestañas máximo -->
-  <div class="bottom-nav">
+  <!-- BOTTOM NAV — 5 pestañas (juego oculto por defecto) -->
+  <div class="bottom-nav" id="bottom-nav">
     <div class="nav-item active" id="nav-inicio" onclick="showTab('inicio')">
       <div class="nav-icon">🏠</div>
       <div class="nav-label">Inicio</div>
@@ -318,6 +318,10 @@
       <div class="nav-icon">🔥</div>
       <div class="nav-label">Deseos</div>
       <div class="nav-badge" id="badge-deseos" style="display:none">!</div>
+    </div>
+    <div class="nav-item" id="nav-juego" onclick="showTab('juego')" style="display:none">
+      <div class="nav-icon">🎭</div>
+      <div class="nav-label">Juego</div>
     </div>
     <div class="nav-item" id="nav-perfil" onclick="showTab('perfil')">
       <div class="nav-icon">👤</div>

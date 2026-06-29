@@ -1032,6 +1032,9 @@ function showShareCard(fantasyName) {
 
 // ===== HEADER =====
 function updateHeader() {
+  // Mostrar/ocultar pestaña del juego según si está activo
+  const navJuego = document.getElementById('nav-juego');
+  if (navJuego) navJuego.style.display = currentUserData?.juegoActivo ? 'flex' : 'none';
   if (!currentUserData) return;
   const av = document.getElementById('header-avatar');
   if (av) { av.textContent = currentUserData.initials; av.style.background = currentUserData.color+'22'; av.style.color = currentUserData.color; }
@@ -1080,6 +1083,8 @@ function showTab(tab) {
   else if (tab === 'fechas') renderFechas();
   else if (tab === 'juego') renderJuego();
   else if (tab === 'juego-mant') renderJuegoMant();
+  else if (tab === 'mant-juego-verdad') renderMantJuego('verdades');
+  else if (tab === 'mant-juego-reto') renderMantJuego('retos');
   else if (tab === 'juego-partida') renderJuegoPartida();
   else if (tab === 'mantenedores') renderMantenedores();
   else if (tab === 'mant-deseos') renderMantDeseos();
@@ -3797,6 +3802,119 @@ function terminarPartida() {
 }
 
 // ===== MANTENEDOR DE CARTAS =====
+// Mantenedor separado de verdades o retos
+async function renderMantJuego(tipo) {
+  const gid = currentUserData?.groupId;
+  const esTipo = tipo === 'verdades';
+  document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || IGNITE_CARDS_DEFAULT;
+    const tipoLabel = esTipo ? '💬 Verdades' : '⚡ Retos';
+    const tipoIcon = esTipo ? '💬' : '⚡';
+    const tipoColor = esTipo ? 'var(--purple)' : 'var(--rose)';
+    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard' };
+
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" onclick="showTab('mantenedores')">← Volver</button>
+      <div style="font-size:16px;font-weight:500">${tipoIcon} ${tipoLabel}</div>
+    </div>`;
+
+    ['suave','medio','hard'].forEach(nivel => {
+      const lista = cards[nivel]?.[tipo] || [];
+      html += `<div class="action-cat-header" onclick="toggleActionCat('mj-${nivel}-${tipo}')">
+        <span style="font-size:13px;font-weight:600">${nivelData[nivel]}</span>
+        <span style="font-size:11px;color:var(--text3)">${lista.length} ${esTipo?'verdades':'retos'}</span>
+        <span id="mj-${nivel}-${tipo}-arrow" style="margin-left:auto;color:var(--text3)">›</span>
+      </div>
+      <div id="mj-${nivel}-${tipo}" class="action-cat-panel" style="display:none">`;
+
+      lista.forEach(c => {
+        html += `<div class="card" style="margin-bottom:6px;padding:10px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+            <div style="flex:1">
+              <div style="font-size:10px;color:var(--text3);margin-bottom:4px">
+                👤 ${c.quien_genero==='todos'?'Todos':c.quien_genero} → ${c.para_genero==='todos'?'Todos':c.para_genero}
+                ${c.label==='prenda'?' · 👗 prenda':''}
+              </div>
+              <div style="font-size:12px;color:var(--text2);line-height:1.5">${c.texto}</div>
+            </div>
+            <button onclick="eliminarCartaJuego('${nivel}','${tipo}','${c.id}');setTimeout(()=>renderMantJuego('${tipo}'),300)" 
+              style="background:none;border:none;color:var(--rose);cursor:pointer;font-size:16px;flex-shrink:0">🗑️</button>
+          </div>
+        </div>`;
+      });
+
+      html += `<button class="btn btn-outline btn-full btn-sm" style="margin:4px 0 8px" 
+        onclick="agregarCartaJuegoTipo('${nivel}','${tipo}')">+ Agregar ${esTipo?'verdad':'reto'}</button>
+      </div>`;
+    });
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';
+  }
+}
+
+function agregarCartaJuegoTipo(nivel, tipo) {
+  const nd = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard' };
+  const esTipo = tipo === 'verdades';
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" style="max-height:90vh;overflow-y:auto">
+      <div class="modal-handle"></div>
+      <div style="font-size:15px;font-weight:500;margin-bottom:16px">${esTipo?'💬 Nueva verdad':'⚡ Nuevo reto'} · ${nd[nivel]}</div>
+      <div class="form-group">
+        <label class="form-label">¿Quién lo hace?</label>
+        <select class="form-control" id="nc-quien">
+          <option value="todos">Todos</option>
+          <option value="hombre">Hombre</option>
+          <option value="mujer">Mujer</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">¿Para quién va?</label>
+        <select class="form-control" id="nc-para">
+          <option value="todos">Todos</option>
+          <option value="hombre">Hombre</option>
+          <option value="mujer">Mujer</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Texto <span style="font-size:10px;color:var(--text3)">usa \${jugador} y \${otro}</span></label>
+        <textarea class="form-control" id="nc-texto" rows="4" placeholder="${esTipo?'Ej: ¿Cuál es tu mayor fantasía con \${otro}?':'Ej: Dale un masaje de 30 segundos a \${otro}.'}"></textarea>
+      </div>
+      ${!esTipo ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px">
+        <input type="checkbox" id="nc-prenda" style="accent-color:var(--rose)">
+        <span style="font-size:13px">👗 Es prenda permanente</span>
+      </label>` : '<div id="nc-prenda-hidden"></div>'}
+      <button class="btn btn-primary btn-full" onclick="confirmarCartaJuegoTipo('${nivel}','${tipo}')">Agregar</button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+async function confirmarCartaJuegoTipo(nivel, tipo) {
+  const quien = document.getElementById('nc-quien')?.value;
+  const para = document.getElementById('nc-para')?.value;
+  const texto = document.getElementById('nc-texto')?.value?.trim();
+  const esPrenda = document.getElementById('nc-prenda')?.checked;
+  if (!texto) { showToast('Escribe el texto'); return; }
+  const gid = currentUserData?.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || JSON.parse(JSON.stringify(IGNITE_CARDS_DEFAULT));
+    const newCard = { id:'c_'+Date.now(), tipo: tipo==='verdades'?'verdad':'reto',
+      categoria: nivel, quien_genero: quien, para_genero: para, texto };
+    if (esPrenda) newCard.label = 'prenda';
+    if (!cards[nivel][tipo]) cards[nivel][tipo] = [];
+    cards[nivel][tipo].push(newCard);
+    await db.collection('groups').doc(gid).update({ juegoCards: cards });
+    closeModalDirect();
+    showToast('✅ Carta agregada');
+    renderMantJuego(tipo);
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
 async function renderJuegoMant() {
   const gid = currentUserData?.groupId;
   document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -4167,12 +4285,14 @@ function toggleMantPanel() {
 function toggleMantenedores() { toggleMantPanel(); }
 
 function renderMantenedores() {
+  const juegoOn = currentUserData?.juegoActivo === true;
   document.getElementById('content').innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
       <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
       <div style="font-size:16px;font-weight:500">🗂️ Mantenedores</div>
     </div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Gestiona el catálogo de tu grupo.</div>
+
     <div class="card" onclick="showTab('mant-deseos')" style="cursor:pointer;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
         <div style="width:48px;height:48px;border-radius:14px;background:var(--rose-glow);display:flex;align-items:center;justify-content:center;font-size:24px">🔥</div>
@@ -4183,7 +4303,8 @@ function renderMantenedores() {
         <div style="color:var(--text3);font-size:20px">›</div>
       </div>
     </div>
-    <div class="card" onclick="showTab('mant-acciones')" style="cursor:pointer">
+
+    <div class="card" onclick="showTab('mant-acciones')" style="cursor:pointer;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
         <div style="width:48px;height:48px;border-radius:14px;background:var(--teal-glow);display:flex;align-items:center;justify-content:center;font-size:24px">⚡</div>
         <div style="flex:1">
@@ -4192,7 +4313,30 @@ function renderMantenedores() {
         </div>
         <div style="color:var(--text3);font-size:20px">›</div>
       </div>
-    </div>`;
+    </div>
+
+    ${juegoOn ? `
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px;font-weight:600">🎭 Juego Verdad o Reto</div>
+    <div class="card" onclick="showTab('mant-juego-verdad')" style="cursor:pointer;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(155,127,232,0.15);display:flex;align-items:center;justify-content:center;font-size:24px">💬</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:500">1.1 Verdades</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">Gestionar preguntas por nivel</div>
+        </div>
+        <div style="color:var(--text3);font-size:20px">›</div>
+      </div>
+    </div>
+    <div class="card" onclick="showTab('mant-juego-reto')" style="cursor:pointer">
+      <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(232,96,138,0.15);display:flex;align-items:center;justify-content:center;font-size:24px">⚡</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:500">1.2 Retos</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">Gestionar retos por nivel</div>
+        </div>
+        <div style="color:var(--text3);font-size:20px">›</div>
+      </div>
+    </div>` : ''}`;
 }
 
 // ===== MANTENEDOR DESEOS =====
