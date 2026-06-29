@@ -4224,7 +4224,7 @@ async function editarCartaJuego(nivel, tipo, id) {
         </div>
         ${!esTipo ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px">
           <input type="checkbox" id="ed-prenda" ${carta.label==='prenda'?'checked':''} style="accent-color:var(--rose)">
-          <span style="font-size:13px">👗 Es prenda permanente</span>
+          <span style="font-size:13px">👗 Este reto involucra quitarse una prenda</span>
         </label>` : '<div></div>'}
         <button class="btn btn-primary btn-full" onclick="guardarEdicionCarta('${nivel}','${tipo}','${id}')">
           💾 Guardar cambios
@@ -4291,7 +4291,7 @@ function agregarCartaJuegoTipo(nivel, tipo) {
       </div>
       ${!esTipo ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px">
         <input type="checkbox" id="nc-prenda" style="accent-color:var(--rose)">
-        <span style="font-size:13px">👗 Es prenda permanente</span>
+        <span style="font-size:13px">👗 Este reto involucra quitarse una prenda</span>
       </label>` : '<div id="nc-prenda-hidden"></div>'}
       <button class="btn btn-primary btn-full" onclick="confirmarCartaJuegoTipo('${nivel}','${tipo}')">Agregar</button>
       <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
@@ -4374,7 +4374,7 @@ async function renderJuegoMant() {
               <div style="flex:1">
                 <div style="font-size:10px;color:var(--text3);margin-bottom:4px">
                   👤 ${c.quien_genero==='todos'?'Todos':c.quien_genero} → ${c.para_genero==='todos'?'Todos':c.para_genero}
-                  ${c.label==='prenda'?' · 👗 prenda':''}
+                  ${c.label==='prenda'?' · 👗 quita prenda':''}
                 </div>
                 <div style="font-size:12px;color:var(--text2);line-height:1.5">${c.texto.substring(0,100)}${c.texto.length>100?'...':''}</div>
               </div>
@@ -4446,7 +4446,7 @@ function agregarCartaJuego(nivel) {
       </div>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px">
         <input type="checkbox" id="nc-prenda" style="accent-color:var(--rose)">
-        <span style="font-size:13px">👗 Es prenda permanente</span>
+        <span style="font-size:13px">👗 Este reto involucra quitarse una prenda</span>
       </label>
       <button class="btn btn-primary btn-full" onclick="confirmarCartaJuego('${nivel}')">Agregar</button>
       <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
