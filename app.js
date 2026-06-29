@@ -4117,49 +4117,70 @@ async function renderMantJuego(tipo) {
     const cards = groupSnap.data().juegoCards || IGNITE_CARDS_DEFAULT;
     const tipoLabel = esTipo ? '💬 Verdades' : '⚡ Retos';
     const tipoIcon = esTipo ? '💬' : '⚡';
-    const tipoColor = esTipo ? 'var(--purple)' : 'var(--rose)';
-    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'🎰 Retos Extremos (Recuperar prenda)' };
+    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'🎰 Extremos' };
+    const nivelColors = { suave:'rgba(78,203,160,0.15)', medio:'rgba(245,166,35,0.15)', hard:'rgba(232,96,138,0.15)', recuperacion:'rgba(155,127,232,0.15)' };
+    const nivelTextColors = { suave:'var(--teal)', medio:'var(--amber)', hard:'var(--rose)', recuperacion:'var(--purple)' };
 
-    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
       <button class="btn btn-outline btn-sm" onclick="showTab('mantenedores')">← Volver</button>
       <div style="font-size:16px;font-weight:500">${tipoIcon} ${tipoLabel}</div>
     </div>`;
 
-    // Para Verdades: suave/medio/hard. Para Retos: suave/medio/hard + recuperacion
     const nivelesAMostrar = tipo === 'verdades' ? ['suave','medio','hard'] : ['suave','medio','hard','recuperacion'];
+
     nivelesAMostrar.forEach(nivel => {
       const lista = cards[nivel]?.[tipo] || [];
+      const nc = nivelColors[nivel];
+      const ntc = nivelTextColors[nivel];
+
       html += `<div class="action-cat-header" onclick="toggleActionCat('mj-${nivel}-${tipo}')">
         <span style="font-size:13px;font-weight:600">${nivelData[nivel]}</span>
-        <span style="font-size:11px;color:var(--text3)">${lista.length} ${esTipo?'verdades':'retos'}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:6px">${lista.length}</span>
         <span id="mj-${nivel}-${tipo}-arrow" style="margin-left:auto;color:var(--text3)">›</span>
       </div>
       <div id="mj-${nivel}-${tipo}" class="action-cat-panel" style="display:none">`;
 
       lista.forEach(c => {
-        html += `<div class="card" style="margin-bottom:6px;padding:10px">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-            <div style="flex:1">
-              <div style="font-size:10px;color:var(--text3);margin-bottom:4px">
-                👤 ${c.quien_genero==='todos'?'Todos':c.quien_genero} → ${c.para_genero==='todos'?'Todos':c.para_genero}
-                ${c.label==='prenda'?' · 👗 prenda':''}
-              </div>
-              <div style="font-size:12px;color:var(--text2);line-height:1.5">${c.texto}</div>
+        const safeId = c.id.replace(/'/g, "\'");
+        html += `<div class="card" style="margin-bottom:8px;padding:14px">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <!-- Icono nivel -->
+            <div style="width:42px;height:42px;border-radius:12px;background:${nc};display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
+              ${esTipo?'💬':'⚡'}
             </div>
-            <button onclick="eliminarCartaJuego('${nivel}','${tipo}','${c.id}');setTimeout(()=>renderMantJuego('${tipo}'),300)" 
-              style="background:none;border:none;color:var(--rose);cursor:pointer;font-size:16px;flex-shrink:0">🗑️</button>
+            <!-- Contenido -->
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+                <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:${nc};color:${ntc}">${nivelData[nivel]}</span>
+                <span style="font-size:10px;color:var(--text3)">👤 ${c.quien_genero==='todos'?'Todos':c.quien_genero} → ${c.para_genero==='todos'?'Todos':c.para_genero}</span>
+                ${c.label==='prenda'?'<span style="font-size:10px;color:var(--rose)">👗 prenda</span>':''}
+              </div>
+              <div style="font-size:13px;color:var(--text);line-height:1.5">${c.texto}</div>
+            </div>
+            <!-- Botones -->
+            <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+              <button onclick="editarCartaJuego('${nivel}','${tipo}','${safeId}')"
+                style="width:36px;height:36px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);color:var(--teal);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">
+                ✏️
+              </button>
+              <button onclick="eliminarCartaJuego('${nivel}','${tipo}','${safeId}');setTimeout(()=>renderMantJuego('${tipo}'),300)"
+                style="width:36px;height:36px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);color:var(--rose);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">
+                🗑️
+              </button>
+            </div>
           </div>
         </div>`;
       });
 
-      html += `<button class="btn btn-outline btn-full btn-sm" style="margin:4px 0 8px" 
-        onclick="agregarCartaJuegoTipo('${nivel}','${tipo}')">+ Agregar ${nivel==='recuperacion'?'reto extremo':esTipo?'verdad':'reto'}</button>
-      </div>`;
+      html += `<button class="btn btn-outline btn-full btn-sm" style="margin:4px 0 12px"
+        onclick="agregarCartaJuegoTipo('${nivel}','${tipo}')">
+        + Agregar ${nivel==='recuperacion'?'reto extremo':esTipo?'verdad':'reto'}
+      </button></div>`;
     });
 
     document.getElementById('content').innerHTML = html;
   } catch(e) {
-    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';
+    document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error cargando</div></div>';
   }
 }
 
