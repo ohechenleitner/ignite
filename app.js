@@ -902,7 +902,7 @@ async function updateStreak() {
   } catch(e) {}
 }
 
-function showApp() {
+async function showApp() {
   const authScreen = document.getElementById('auth-screen');
   const appScreen = document.getElementById('app-screen');
   const splash = document.getElementById('splash-screen');
@@ -911,6 +911,13 @@ function showApp() {
   if (appScreen) { appScreen.style.display = 'flex'; appScreen.classList.add('active'); }
   updateHeader();
   showTab('inicio');
+  // Cargar estado del juego
+  try {
+    if (currentUserData?.groupId) {
+      const g = await db.collection('groups').doc(currentUserData.groupId).get();
+      currentUserData.juegoActivo = g.data()?.juegoVerdadRetoActivo === true;
+    }
+  } catch(e) {}
   // Identificar usuario en OneSignal si ya tiene notificaciones activas
   if (currentUserData?.pushEnabled && window.OneSignal) {
     try { OneSignal.login(currentUser.uid); } catch(e) {}
@@ -2810,11 +2817,28 @@ async function renderConfig(){
       <button class="btn btn-primary btn-full" onclick="adjustPts()">Aplicar</button>
     </div>`;
 
+    const juegoActivo = group.juegoVerdadRetoActivo === true;
     html+=`<div class="section-hd" style="margin-top:16px"><div class="section-title">Catálogo</div></div>
     <div class="card" style="margin-bottom:8px">
       <div style="font-size:13px;font-weight:500;margin-bottom:4px">Actualizar catálogo oficial</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">Sincroniza los deseos y acciones con la versión más reciente. Tus deseos personalizados se conservan.</div>
       <button class="btn btn-primary btn-full" onclick="resetCatalog()">🔄 Actualizar catálogo oficial</button>
+    </div>
+    <div class="section-hd" style="margin-top:8px"><div class="section-title">🎭 Juego Verdad o Reto</div></div>
+    <div class="card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:500">Verdad o Reto</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${juegoActivo?'✓ Activo — visible en el menú':'Inactivo — oculto'}</div>
+        </div>
+        <button class="btn btn-sm" onclick="toggleJuego()"
+          style="min-width:60px;background:${juegoActivo?'rgba(78,203,160,0.15)':'var(--bg4)'};
+          color:${juegoActivo?'var(--teal)':'var(--text2)'};
+          border:1px solid ${juegoActivo?'var(--teal)':'var(--border)'}">
+          ${juegoActivo?'✓ ON':'OFF'}
+        </button>
+      </div>
+      ${juegoActivo?`<button class="btn btn-outline btn-full btn-sm" style="margin-top:10px" onclick="showTab('juego-mant')">⚙️ Gestionar cartas y timer</button>`:''}
     </div>
     <div class="section-hd" style="margin-top:8px"><div class="section-title">Interno</div></div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="showTab('minutas')">📝 Minutas de desarrollo</button>`;
