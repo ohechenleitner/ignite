@@ -1069,6 +1069,11 @@ async function checkPendingBadges() {
 
 // ===== TABS =====
 function showTab(tab) {
+  // Limpiar timer si existe y navegamos fuera del juego
+  if (!['juego','juego-partida'].includes(tab) && juegoState.timerInterval) {
+    clearInterval(juegoState.timerInterval);
+    juegoState.timerRunning = false;
+  }
   currentTab = tab;
   updateHeader();
   document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
@@ -2839,7 +2844,7 @@ async function renderConfig(){
           ${juegoActivo?'✓ ON':'OFF'}
         </button>
       </div>
-      ${juegoActivo?`<button class="btn btn-outline btn-full btn-sm" style="margin-top:10px" onclick="showTab('juego-mant')">⚙️ Gestionar cartas y timer</button>`:''}
+
     </div>
     <div class="section-hd" style="margin-top:8px"><div class="section-title">Interno</div></div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="showTab('minutas')">📝 Minutas de desarrollo</button>`;
@@ -3307,14 +3312,16 @@ function getCartasDisponibles(tipo) {
     if (juegoState.usadas.has(c.id)) return false;
     // Verificar quien_genero
     if (c.quien_genero !== 'todos' && c.quien_genero !== p.genero) return false;
-    // Verificar para_genero — debe haber al menos un interactuante válido
-    if (c.para_genero !== 'todos') {
-      const hayDestino = misInteracciones.some(otherId => {
-        const otro = juegoState.participantes.find(x => x.id === otherId);
-        return otro && (otro.genero === c.para_genero);
-      });
-      if (!hayDestino) return false;
-    }
+    // Verificar para_genero — SIEMPRE debe haber al menos un interactuante válido
+    // Si para_genero es 'todos', igual verifica que haya alguien en la matriz de interacciones
+    if (misInteracciones.length === 0) return false;
+    const hayDestino = misInteracciones.some(otherId => {
+      const otro = juegoState.participantes.find(x => x.id === otherId);
+      if (!otro) return false;
+      if (c.para_genero === 'todos') return true; // cualquier interactuante sirve
+      return otro.genero === c.para_genero;
+    });
+    if (!hayDestino) return false;
     return true;
   });
 }
@@ -3961,21 +3968,19 @@ function siguienteTurno() {
   juegoState.timerRunning = false;
   juegoState.turnoIdx++;
 
-  // Verificar si se agotaron las cartas del nivel
+  // Verificar si se agotaron las cartas del nivel — NO terminar automáticamente
   const totalDisp = getCartasDisponibles('verdad').length + getCartasDisponibles('reto').length;
   if (totalDisp === 0) {
-    // Auto subir nivel si hay siguiente
     const niveles = ['suave', 'medio', 'hard'];
     const idx = niveles.indexOf(juegoState.nivel);
     if (idx < niveles.length - 1) {
+      // Hay siguiente nivel — sugerir pero no forzar
       juegoState.nivel = niveles[idx + 1];
-      const msgs = { medio:'🌶️ Subiendo a nivel Medio', hard:'🔥 ¡Llegamos a Hard!' };
+      const msgs = { medio:'🌶️ ¡Subiendo a nivel Medio!', hard:'🔥 ¡Llegamos a Hard!' };
       showToast(msgs[juegoState.nivel]);
-    } else {
-      // Se acabaron todas las cartas
-      terminarPartida();
-      return;
     }
+    // Si ya estamos en hard y se agotaron, simplemente muestra el turno sin cartas
+    // El jugador puede terminar manualmente
   }
   renderJuegoPartida();
 }
@@ -4007,16 +4012,49 @@ function mostrarOpcionesNivel() {
 }
 
 function subirNivel(nivel) {
+  const anterior = juegoState.nivel;
   juegoState.nivel = nivel || (() => {
     const niveles = ['suave','medio','hard'];
     const idx = niveles.indexOf(juegoState.nivel);
     return niveles[Math.min(idx+1, niveles.length-1)];
   })();
   closeModalDirect();
+  const labels = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard' };
+  if (anterior !== juegoState.nivel) {
+    showToast('⬆️ Nivel: ' + labels[juegoState.nivel]);
+  }
   renderJuegoPartida();
 }
 
 // ===== TERMINAR PARTIDA =====
+function confirmarTerminarPartida() {
+  const totalCartas = juegoState.historial.length;
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:40px;margin-bottom:8px">🏁</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px">¿Terminar la partida?</div>
+        <div style="font-size:13px;color:var(--text2)">
+          Se han jugado <strong>${totalCartas}</strong> cartas esta noche.<br>
+          Se mostrará el resumen de la sesión.
+        </div>
+      </div>
+      <button onclick="closeModalDirect();terminarPartida()"
+        style="width:100%;padding:16px;border-radius:14px;background:rgba(232,96,138,0.12);
+        color:var(--rose);border:1px solid rgba(232,96,138,0.3);font-size:14px;
+        font-weight:600;cursor:pointer;margin-bottom:8px">
+        🏁 Sí, terminar y ver resumen
+      </button>
+      <button onclick="closeModalDirect()"
+        style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);
+        background:none;color:var(--text3);font-size:13px;cursor:pointer">
+        Seguir jugando
+      </button>
+    </div>
+  </div>`;
+}
+
 function terminarPartida() {
   if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
 
@@ -4058,11 +4096,26 @@ function terminarPartida() {
     </div>`;
   }
 
-  html += `<button class="btn btn-primary btn-full" style="margin-top:8px" onclick="renderJuego()">🎭 Nueva partida</button>
-    <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="showTab('perfil')">Volver al perfil</button>
+  html += `<button class="btn btn-primary btn-full" style="margin-top:8px" onclick="nuevaPartida()">🎭 Nueva partida</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="showTab('inicio')">Volver al inicio</button>
   </div>`;
 
   document.getElementById('content').innerHTML = html;
+}
+
+function nuevaPartida() {
+  // Limpiar estado del juego pero conservar participantes e interacciones
+  juegoState.nivel = 'suave';
+  juegoState.turnoIdx = 0;
+  juegoState.usadas = new Set();
+  juegoState.prendas = [];
+  juegoState.shots = {};
+  juegoState.verdadBloqueadaEn = {};
+  juegoState.historial = [];
+  juegoState.timerInterval = null;
+  juegoState.timerRunning = false;
+  // Ir a configurar nuevamente (participantes se conservan)
+  renderJuego();
 }
 
 // ===== MANTENEDOR DE CARTAS =====
@@ -4120,6 +4173,84 @@ async function renderMantJuego(tipo) {
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';
   }
+}
+
+async function editarCartaJuego(nivel, tipo, id) {
+  const gid = currentUserData?.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || IGNITE_CARDS_DEFAULT;
+    const lista = cards[nivel]?.[tipo] || [];
+    const carta = lista.find(c => c.id === id);
+    if (!carta) { showToast('Carta no encontrada'); return; }
+
+    const nd = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'🎰 Extremo' };
+    const esTipo = tipo === 'verdades';
+
+    document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal" style="max-height:90vh;overflow-y:auto">
+        <div class="modal-handle"></div>
+        <div style="font-size:15px;font-weight:500;margin-bottom:16px">
+          ✏️ Editar ${esTipo?'verdad':'reto'} · ${nd[nivel]||nivel}
+        </div>
+        <div class="form-group">
+          <label class="form-label">¿Quién lo hace?</label>
+          <select class="form-control" id="ed-quien">
+            <option value="todos" ${carta.quien_genero==='todos'?'selected':''}>Todos</option>
+            <option value="hombre" ${carta.quien_genero==='hombre'?'selected':''}>Hombre</option>
+            <option value="mujer" ${carta.quien_genero==='mujer'?'selected':''}>Mujer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">¿Para quién va?</label>
+          <select class="form-control" id="ed-para">
+            <option value="todos" ${carta.para_genero==='todos'?'selected':''}>Todos</option>
+            <option value="hombre" ${carta.para_genero==='hombre'?'selected':''}>Hombre</option>
+            <option value="mujer" ${carta.para_genero==='mujer'?'selected':''}>Mujer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Texto <span style="font-size:10px;color:var(--text3)">usa \${jugador} y \${otro}</span></label>
+          <textarea class="form-control" id="ed-texto" rows="5">${carta.texto}</textarea>
+        </div>
+        ${!esTipo ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px">
+          <input type="checkbox" id="ed-prenda" ${carta.label==='prenda'?'checked':''} style="accent-color:var(--rose)">
+          <span style="font-size:13px">👗 Es prenda permanente</span>
+        </label>` : '<div></div>'}
+        <button class="btn btn-primary btn-full" onclick="guardarEdicionCarta('${nivel}','${tipo}','${id}')">
+          💾 Guardar cambios
+        </button>
+        <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
+      </div>
+    </div>`;
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+async function guardarEdicionCarta(nivel, tipo, id) {
+  const quien = document.getElementById('ed-quien')?.value;
+  const para = document.getElementById('ed-para')?.value;
+  const texto = document.getElementById('ed-texto')?.value?.trim();
+  const esPrenda = document.getElementById('ed-prenda')?.checked;
+  if (!texto) { showToast('El texto no puede estar vacío'); return; }
+
+  const gid = currentUserData?.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || JSON.parse(JSON.stringify(IGNITE_CARDS_DEFAULT));
+    const lista = cards[nivel]?.[tipo] || [];
+    const idx = lista.findIndex(c => c.id === id);
+    if (idx === -1) { showToast('Carta no encontrada'); return; }
+    lista[idx] = { ...lista[idx], quien_genero: quien, para_genero: para, texto };
+    if (tipo !== 'verdades') {
+      if (esPrenda) lista[idx].label = 'prenda';
+      else delete lista[idx].label;
+    }
+    cards[nivel][tipo] = lista;
+    await db.collection('groups').doc(gid).update({ juegoCards: cards });
+    closeModalDirect();
+    showToast('✅ Carta actualizada');
+    renderMantJuego(tipo);
+  } catch(e) { showToast('Error: ' + e.message); }
 }
 
 function agregarCartaJuegoTipo(nivel, tipo) {
