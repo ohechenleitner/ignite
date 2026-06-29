@@ -2300,16 +2300,25 @@ async function renderPerfil() {
 
   // Stats
   const gid2 = currentUserData.groupId;
-  let totalPts = 0, totalFulfilled = 0, totalActions = 0;
+  let totalPts = 0, totalFulfilled = 0, totalActions = 0, availablePts = 0;
   try {
-    const [histSnap, fulfilledSnap, actionsSnap] = await Promise.all([
+    const [histSnap, fulfilledSnap, actionsSnap, groupPtsSnap, membersSnap] = await Promise.all([
       db.collection('groups').doc(gid2).collection('history').where('fromUser','==',currentUser.uid).get(),
       db.collection('groups').doc(gid2).collection('requests').where('requestedBy','==',currentUser.uid).where('status','==','fulfilled').get(),
       db.collection('groups').doc(gid2).collection('requests').where('requestedBy','==',currentUser.uid).where('type','==','action').where('status','==','approved').get(),
+      db.collection('groups').doc(gid2).get(),
+      db.collection('users').where('groupId','==',gid2).where('active','==',true).get(),
     ]);
     histSnap.docs.forEach(d => { totalPts += (d.data().pts||0); });
     totalFulfilled = fulfilledSnap.size;
     totalActions = actionsSnap.size;
+    // Calcular puntos disponibles para gastar
+    const pairPoints = groupPtsSnap.data()?.pairPoints || {};
+    const others = membersSnap.docs.map(d=>d.data()).filter(m=>m.id!==currentUser.uid);
+    if (others[0]) {
+      const pk = [currentUser.uid, others[0].id].sort().join('_');
+      availablePts = pairPoints[pk]?.[currentUser.uid] || 0;
+    }
   } catch(e) {}
 
 
@@ -2325,9 +2334,18 @@ async function renderPerfil() {
     </div>
   </div>
 
+  <div style="background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-size:12px;color:var(--text2)">Disponibles para gastar</div>
+      <div style="font-size:11px;color:var(--text3)">en deseos</div>
+    </div>
+    <div style="font-family:var(--font-display);font-size:38px;font-weight:500;color:var(--teal);margin-bottom:2px">${availablePts}</div>
+    <div style="font-size:11px;color:var(--text3)">pts · ganados por acciones aprobadas y bonos</div>
+  </div>
+
   <div class="stat-grid">
-    <div class="stat-card"><div class="stat-num">${totalPts}</div><div class="stat-label">Puntos ganados</div></div>
-    <div class="stat-card"><div class="stat-num">${totalActions}</div><div class="stat-label">Acciones completadas</div></div>
+    <div class="stat-card"><div class="stat-num">${totalPts}</div><div class="stat-label">Pts por acciones</div></div>
+    <div class="stat-card"><div class="stat-num">${totalActions}</div><div class="stat-label">Acciones aprobadas</div></div>
     <div class="stat-card"><div class="stat-num">${totalFulfilled}</div><div class="stat-label">Deseos cumplidos</div></div>
     <div class="stat-card"><div class="stat-num">${u.streak||0}</div><div class="stat-label">Racha de días</div></div>
   </div>
@@ -2940,61 +2958,101 @@ async function toggleJuego() {
     const groupSnap = await db.collection('groups').doc(gid).get();
     const actual = groupSnap.data().juegoVerdadRetoActivo === true;
     await db.collection('groups').doc(gid).update({ juegoVerdadRetoActivo: !actual });
-    // Actualizar estado local del usuario
     currentUserData.juegoActivo = !actual;
     showToast(actual ? '🎭 Juego desactivado' : '🎭 Juego activado');
     showTab('config');
   } catch(e) { showToast('Error: ' + e.message); }
 }
 
-// Pantalla de inicio del juego
+// ===== PASO 1: PANTALLA INICIO DEL JUEGO =====
 async function renderJuego() {
   const gid = currentUserData?.groupId;
   document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
     const groupSnap = await db.collection('groups').doc(gid).get();
     const group = groupSnap.data();
-    // Cargar cartas del grupo o usar defaults
-    const cards = group.juegoCards || IGNITE_CARDS_DEFAULT;
-    juegoState.cards = cards;
-
-    let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
-      <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
-      <div style="font-size:16px;font-weight:500">🎭 Verdad o Reto</div>
-    </div>
-    <div style="text-align:center;padding:20px 0 24px">
-      <div style="font-size:52px;margin-bottom:12px">🔥</div>
-      <div style="font-family:var(--font-display);font-size:26px;font-weight:500;margin-bottom:8px">Ignite</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.6;max-width:280px;margin:0 auto">Verdad o Reto para adultos.<br>Progresivo, elegante y sin culpas.</div>
-    </div>
-    <div class="card" style="margin-bottom:12px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:14px">👥 Participantes</div>
-      <div id="juego-participantes">`;
-
-    // Mostrar participantes ya agregados
-    juegoState.participantes.forEach((p, i) => {
-      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div><div style="font-size:13px;font-weight:500">${p.nombre}</div>
-        <div style="font-size:11px;color:var(--text2)">${p.vinculo} · ${p.genero}</div></div>
-        <button onclick="quitarParticipante(${i})" style="background:none;border:none;color:var(--rose);font-size:18px;cursor:pointer">✕</button>
-      </div>`;
-    });
-    html += `</div>
-      <button class="btn btn-outline btn-full btn-sm" style="margin-top:10px" onclick="agregarParticipante()">+ Agregar participante</button>
-    </div>`;
-
-    if (juegoState.participantes.length >= 2) {
-      html += `<button class="btn btn-primary btn-full" style="padding:16px;font-size:15px" onclick="iniciarPartida()">🎭 Iniciar partida</button>`;
-    } else {
-      html += `<div style="text-align:center;font-size:12px;color:var(--text3);padding:10px">Agrega al menos 2 participantes para comenzar</div>`;
+    juegoState.cards = group.juegoCards || IGNITE_CARDS_DEFAULT;
+    // Cargar config guardada
+    if (group.juegoConfig) {
+      juegoState.config = { ...juegoState.config, ...group.juegoConfig };
     }
 
+    let html = `<div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F 0%,#1A0520 50%,#0A0A0F 100%);padding:20px">
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
+        <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:500;color:var(--text)">🔥 Verdad o Reto</div>
+      </div>
+
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:64px;margin-bottom:8px">🎭</div>
+        <div style="font-family:var(--font-display);font-size:18px;color:var(--text2)">Para adultos · Mayores de 18</div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">👥 Participantes (${juegoState.participantes.length})</div>`;
+
+    if (juegoState.participantes.length > 0) {
+      juegoState.participantes.forEach((p, i) => {
+        const generoIcon = p.genero === 'hombre' ? '👨' : p.genero === 'mujer' ? '👩' : '🧑';
+        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:20px">${generoIcon}</span>
+            <div>
+              <div style="font-size:13px;font-weight:500">${p.nombre}</div>
+              <div style="font-size:11px;color:var(--text3)">${p.edad} años · ${p.orientacion}</div>
+            </div>
+          </div>
+          <button onclick="quitarParticipante(${i})" style="background:none;border:none;color:var(--rose);font-size:16px;cursor:pointer;padding:4px">✕</button>
+        </div>`;
+      });
+    } else {
+      html += `<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">Agrega al menos 2 participantes</div>`;
+    }
+
+    html += `<button class="btn btn-outline btn-full btn-sm" style="margin-top:12px" onclick="agregarParticipante()">
+      + Agregar participante
+    </button></div>`;
+
+    if (juegoState.participantes.length >= 2) {
+      // Mostrar resumen de interacciones configuradas
+      const totalInteracciones = Object.values(juegoState.interacciones).reduce((s, arr) => s + arr.length, 0);
+      html += `<div class="card" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600">🔗 Interacciones</div>
+          <button class="btn btn-sm btn-outline" onclick="configurarInteracciones()">Configurar</button>
+        </div>`;
+
+      if (totalInteracciones > 0) {
+        juegoState.participantes.forEach(p => {
+          const con = (juegoState.interacciones[p.id] || []).map(id => juegoState.participantes.find(x=>x.id===id)?.nombre).filter(Boolean);
+          if (con.length > 0) {
+            html += `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">
+              <strong style="color:var(--text)">${p.nombre}</strong> ↔ ${con.join(', ')}
+            </div>`;
+          }
+        });
+      } else {
+        html += `<div style="font-size:12px;color:var(--rose)">⚠️ Debes configurar las interacciones</div>`;
+      }
+      html += `</div>`;
+
+      // Botón iniciar solo si hay interacciones
+      if (totalInteracciones > 0) {
+        html += `<button class="btn btn-primary btn-full" style="padding:18px;font-size:16px;font-weight:600;background:linear-gradient(135deg,var(--rose),#C41A5E)" onclick="mostrarReglasJuego()">
+          🎭 Continuar a reglas y firma
+        </button>`;
+      }
+    }
+
+    html += `</div>`;
     document.getElementById('content').innerHTML = html;
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-title">Error</div></div>';
   }
 }
 
+// ===== AGREGAR PARTICIPANTE =====
 function agregarParticipante() {
   document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
     <div class="modal">
@@ -3005,18 +3063,25 @@ function agregarParticipante() {
         <input type="text" class="form-control" id="jp-nombre" placeholder="Nombre">
       </div>
       <div class="form-group">
+        <label class="form-label">Edad</label>
+        <input type="number" class="form-control" id="jp-edad" placeholder="Ej: 30" min="18" max="99">
+      </div>
+      <div class="form-group">
         <label class="form-label">Género</label>
         <select class="form-control" id="jp-genero">
           <option value="hombre">Hombre</option>
           <option value="mujer">Mujer</option>
+          <option value="no_binario">No binario</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Vínculo</label>
-        <select class="form-control" id="jp-vinculo">
-          <option value="esposo">Esposo</option>
-          <option value="esposa">Esposa</option>
-          <option value="amigo">Amigo/a (tercero)</option>
+        <label class="form-label">Orientación sexual</label>
+        <select class="form-control" id="jp-orientacion">
+          <option value="heterosexual">Heterosexual</option>
+          <option value="homosexual">Homosexual / Gay / Lesbiana</option>
+          <option value="bisexual">Bisexual</option>
+          <option value="curioso">Curioso/a</option>
+          <option value="prefiero_no_decir">Prefiero no decir</option>
         </select>
       </div>
       <button class="btn btn-primary btn-full" onclick="confirmarParticipante()">Agregar</button>
@@ -3027,233 +3092,741 @@ function agregarParticipante() {
 
 function confirmarParticipante() {
   const nombre = document.getElementById('jp-nombre')?.value?.trim();
+  const edad = parseInt(document.getElementById('jp-edad')?.value || '0');
   const genero = document.getElementById('jp-genero')?.value;
-  const vinculo = document.getElementById('jp-vinculo')?.value;
+  const orientacion = document.getElementById('jp-orientacion')?.value;
   if (!nombre) { showToast('Ingresa un nombre'); return; }
-  juegoState.participantes.push({ nombre, genero, vinculo });
+  if (edad < 18) { showToast('El participante debe ser mayor de 18 años'); return; }
+  const id = 'p_' + Date.now();
+  juegoState.participantes.push({ id, nombre, edad, genero, orientacion });
   closeModalDirect();
   renderJuego();
 }
 
 function quitarParticipante(idx) {
+  const p = juegoState.participantes[idx];
+  // Limpiar interacciones
+  delete juegoState.interacciones[p.id];
+  Object.keys(juegoState.interacciones).forEach(k => {
+    juegoState.interacciones[k] = juegoState.interacciones[k].filter(id => id !== p.id);
+  });
+  delete juegoState.firmas[p.id];
   juegoState.participantes.splice(idx, 1);
   renderJuego();
 }
 
+// ===== PASO 2: CONFIGURAR INTERACCIONES =====
+function configurarInteracciones() {
+  const ps = juegoState.participantes;
+  let html = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" style="max-height:85vh;overflow-y:auto">
+      <div class="modal-handle"></div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">🔗 Interacciones</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.5">
+        Para cada persona, selecciona con quién puede interactuar en el juego.
+      </div>`;
+
+  ps.forEach(p => {
+    const actuales = juegoState.interacciones[p.id] || [];
+    html += `<div style="margin-bottom:16px;background:var(--bg3);border-radius:12px;padding:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)">
+        ${p.genero==='mujer'?'👩':'👨'} ${p.nombre} interactúa con:
+      </div>`;
+    ps.filter(o => o.id !== p.id).forEach(otro => {
+      const checked = actuales.includes(otro.id);
+      html += `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" ${checked?'checked':''} 
+          onchange="toggleInteraccion('${p.id}','${otro.id}',this.checked)"
+          style="width:18px;height:18px;accent-color:var(--rose)">
+        <span style="font-size:13px">${otro.genero==='mujer'?'👩':'👨'} ${otro.nombre}</span>
+      </label>`;
+    });
+    html += `</div>`;
+  });
+
+  html += `<button class="btn btn-primary btn-full" onclick="closeModalDirect();renderJuego()">✓ Guardar interacciones</button>
+    </div>
+  </div>`;
+  document.getElementById('modal-container').innerHTML = html;
+}
+
+function toggleInteraccion(idA, idB, activo) {
+  if (!juegoState.interacciones[idA]) juegoState.interacciones[idA] = [];
+  if (activo) {
+    if (!juegoState.interacciones[idA].includes(idB)) juegoState.interacciones[idA].push(idB);
+  } else {
+    juegoState.interacciones[idA] = juegoState.interacciones[idA].filter(id => id !== idB);
+  }
+}
+
+// ===== PASO 3: REGLAS Y FIRMA DIGITAL =====
+function mostrarReglasJuego() {
+  juegoState.firmas = {};
+  const timerV = juegoState.config.timerVerdad;
+  const timerR = juegoState.config.timerReto;
+
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <button class="btn btn-outline btn-sm" onclick="renderJuego()">← Volver</button>
+        <div style="font-size:16px;font-weight:500">📋 Reglas del juego</div>
+      </div>
+
+      <div style="background:rgba(232,96,138,0.08);border:1px solid rgba(232,96,138,0.25);border-radius:16px;padding:18px;margin-bottom:16px">
+        <div style="font-size:14px;font-weight:700;color:var(--rose);margin-bottom:12px;text-align:center">
+          🔞 SOLO PARA MAYORES DE 18 AÑOS
+        </div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.8">
+          Este juego contiene contenido de naturaleza íntima y adulta. La participación es completamente voluntaria y basada en el consentimiento explícito de todos los jugadores.
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">📌 Reglas</div>
+        <div style="font-size:12px;color:var(--text2);line-height:2">
+          <div>🎯 <strong>Turnos:</strong> Cada jugador elige Verdad o Reto en su turno</div>
+          <div>🚫 <strong>Antiescondite:</strong> Si eliges Verdad, en tu siguiente turno está bloqueada</div>
+          <div>⏱️ <strong>Timer:</strong> Verdad = ${timerV}s · Reto = ${timerR}s (puedes detenerlo al terminar)</div>
+          <div>🥃 <strong>Pasar:</strong> Puedes pasar y tomar shots escalonados (1 + acumulados)</div>
+          <div>👗 <strong>Prenda:</strong> Algunas cartas son prendas permanentes — quedan activas toda la noche</div>
+          <div>⬆️ <strong>Nivel:</strong> Sube automáticamente al agotar las cartas. Puedes subirlo manualmente</div>
+          <div>🤝 <strong>Consentimiento:</strong> Cualquier participante puede negarse a cualquier reto sin penalización adicional</div>
+          <div>🔒 <strong>Lo que pasa aquí, queda aquí</strong></div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:20px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px">✍️ Firma de consentimiento</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+          Cada participante confirma que: <strong style="color:var(--text)">leyó las reglas, tiene 18+ años y consiente participar voluntariamente.</strong>
+        </div>
+        <div id="firmas-container">
+          ${juegoState.participantes.map(p => `
+            <div id="firma-${p.id}" onclick="firmarConsentimiento('${p.id}')" 
+              style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border-radius:10px;margin-bottom:8px;cursor:pointer;border:1px solid var(--border);transition:all 0.2s">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:20px">${p.genero==='mujer'?'👩':'👨'}</span>
+                <span style="font-size:13px;font-weight:500">${p.nombre}</span>
+              </div>
+              <div style="font-size:12px;color:var(--text3)">Toca para firmar</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <button id="btn-iniciar" class="btn btn-full" disabled
+        style="padding:18px;font-size:16px;font-weight:600;background:var(--bg3);color:var(--text3);border-radius:14px;border:none;cursor:not-allowed">
+        Esperando firmas... (0/${juegoState.participantes.length})
+      </button>
+    </div>`;
+}
+
+function firmarConsentimiento(participanteId) {
+  if (juegoState.firmas[participanteId]) return; // ya firmó
+  juegoState.firmas[participanteId] = Date.now();
+
+  // Actualizar UI de la firma
+  const el = document.getElementById('firma-' + participanteId);
+  if (el) {
+    el.style.background = 'rgba(78,203,160,0.1)';
+    el.style.borderColor = 'var(--teal)';
+    el.innerHTML = el.innerHTML.replace('Toca para firmar', '✅ Firmado');
+    el.style.cursor = 'default';
+    el.onclick = null;
+  }
+
+  // Verificar si todos firmaron
+  const totalFirmas = Object.keys(juegoState.firmas).length;
+  const total = juegoState.participantes.length;
+  const btn = document.getElementById('btn-iniciar');
+  if (btn) {
+    btn.textContent = totalFirmas === total
+      ? '🎭 ¡Todos firmaron! Iniciar partida'
+      : `Esperando firmas... (${totalFirmas}/${total})`;
+    if (totalFirmas === total) {
+      btn.disabled = false;
+      btn.style.background = 'linear-gradient(135deg,var(--rose),#C41A5E)';
+      btn.style.color = 'white';
+      btn.style.cursor = 'pointer';
+      btn.onclick = iniciarPartida;
+    }
+  }
+}
+
+// ===== MOTOR DEL JUEGO =====
 function iniciarPartida() {
-  if (juegoState.participantes.length < 2) { showToast('Agrega al menos 2 participantes'); return; }
   juegoState.nivel = 'suave';
   juegoState.turnoIdx = 0;
   juegoState.usadas = new Set();
   juegoState.prendas = [];
   juegoState.shots = {};
-  juegoState.verdadUsadaEn = {};
-  showTab('juego-partida');
-}
-
-// Pantalla de partida
-function renderJuegoPartida() {
-  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
-  const nivelLabels = { suave:'🟢 Suave', medio:'🟡 Medio', candela:'🔴 Candela' };
-  const nivelColors = { suave:'var(--teal)', medio:'var(--amber)', candela:'var(--rose)' };
-  const verdadBloqueada = juegoState.verdadUsadaEn[participante.nombre] === juegoState.turnoIdx;
-
-  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-    <button class="btn btn-outline btn-sm" onclick="if(confirm('¿Terminar la partida?'))showTab('juego')">✕ Salir</button>
-    <div style="font-size:12px;font-weight:600;color:${nivelColors[juegoState.nivel]}">${nivelLabels[juegoState.nivel]}</div>
-    <button class="btn btn-sm" style="font-size:11px;background:var(--bg4);color:var(--text2)" onclick="cambiarNivelDirector()">🎬 Director</button>
-  </div>
-
-  <div style="text-align:center;margin-bottom:24px">
-    <div style="font-size:13px;color:var(--text2);margin-bottom:4px">Turno de</div>
-    <div style="font-family:var(--font-display);font-size:28px;font-weight:500;color:var(--text)">${participante.nombre}</div>
-    <div style="font-size:11px;color:var(--text3)">${participante.vinculo}</div>
-  </div>`;
-
-  // Prendas activas
-  if (juegoState.prendas.length > 0) {
-    html += `<div style="background:rgba(232,96,138,0.1);border:1px solid rgba(232,96,138,0.2);border-radius:12px;padding:10px;margin-bottom:12px">
-      <div style="font-size:11px;color:var(--rose);font-weight:600;margin-bottom:4px">👗 Prendas activas</div>
-      ${juegoState.prendas.map(p=>`<div style="font-size:12px;color:var(--text2)">• ${p}</div>`).join('')}
-    </div>`;
-  }
-
-  html += `<div style="display:flex;gap:10px;margin-bottom:12px">
-    <button class="btn btn-primary" style="flex:1;padding:18px;font-size:15px;font-weight:600;flex-direction:column;gap:4px;${verdadBloqueada?'opacity:0.4;pointer-events:none':''}" onclick="jugarVerdad()">
-      <span style="font-size:22px">💬</span>
-      <span>Verdad</span>
-      ${verdadBloqueada?'<span style="font-size:10px;opacity:0.7">Bloqueada</span>':''}
-    </button>
-    <button class="btn btn-danger" style="flex:1;padding:18px;font-size:15px;font-weight:600;flex-direction:column;gap:4px" onclick="jugarReto()">
-      <span style="font-size:22px">⚡</span>
-      <span>Reto</span>
-    </button>
-  </div>
-  <button class="btn btn-outline btn-full" style="color:var(--amber);border-color:rgba(245,166,35,0.3)" onclick="pasarTurno()">
-    ⏭️ Pasar (shot escalonado)
-  </button>`;
-
-  document.getElementById('content').innerHTML = html;
-}
-
-function resolverTexto(texto) {
-  const p = juegoState.participantes;
-  const esposa = p.find(x=>x.vinculo==='esposa')?.nombre || 'Esposa';
-  const esposo = p.find(x=>x.vinculo==='esposo')?.nombre || 'Esposo';
-  const amigo = p.find(x=>x.vinculo==='amigo')?.nombre || 'Amigo/a';
-  return texto.replace(/\${esposa}/g,esposa).replace(/\${esposo}/g,esposo).replace(/\${amigo}/g,amigo);
-}
-
-function getCartaAleatoria(tipo) {
-  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
-  const nivel = juegoState.nivel;
-  const cards = juegoState.cards[nivel]?.[tipo] || [];
-  const vinculo = participante.vinculo;
-
-  // Filtrar por rol del participante y no usadas
-  const disponibles = cards.filter(c =>
-    (c.para === vinculo || c.para === 'todos') &&
-    !juegoState.usadas.has(c.id)
-  );
-  if (disponibles.length === 0) return null;
-  return disponibles[Math.floor(Math.random() * disponibles.length)];
-}
-
-function mostrarCarta(carta, tipo) {
-  if (!carta) {
-    showToast('No hay más cartas disponibles en este nivel');
-    renderJuegoPartida();
-    return;
-  }
-  juegoState.usadas.add(carta.id);
-  const esPrenda = carta.label === 'prenda';
-  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
-
-  const nivelColors = { suave:'var(--teal)', medio:'var(--amber)', candela:'var(--rose)' };
-  const color = nivelColors[juegoState.nivel];
-
-  document.getElementById('content').innerHTML = `
-    <div style="min-height:calc(100vh - 120px);display:flex;flex-direction:column;padding-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <div style="font-size:13px;color:var(--text2)">${participante.nombre}</div>
-        <div style="font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;background:${color}22;color:${color}">${tipo==='verdades'?'💬 Verdad':'⚡ Reto'}${esPrenda?' · 👗 PRENDA':''}</div>
-      </div>
-      <div style="flex:1;display:flex;align-items:center;justify-content:center">
-        <div style="background:linear-gradient(135deg,var(--bg2),var(--bg3));border:1px solid ${color}44;border-radius:20px;padding:28px 22px;text-align:center">
-          <div style="font-size:36px;margin-bottom:16px">${tipo==='verdades'?'💬':'⚡'}</div>
-          <div style="font-size:16px;font-weight:500;line-height:1.7;color:var(--text)">${resolverTexto(carta.texto)}</div>
-          ${esPrenda?'<div style="margin-top:14px;font-size:12px;font-weight:600;color:var(--rose);background:rgba(232,96,138,0.1);padding:8px 14px;border-radius:20px;display:inline-block">👗 Esta carta es permanente (prenda)</div>':''}
-        </div>
-      </div>
-      <div style="margin-top:20px">
-        ${esPrenda?`<button class="btn btn-danger btn-full" style="margin-bottom:8px" onclick="registrarPrenda('${carta.texto.substring(0,50)}...')">✓ Prenda aceptada</button>`:''}
-        <button class="btn btn-primary btn-full" onclick="siguienteTurno()">Siguiente turno →</button>
-      </div>
-    </div>`;
-}
-
-function jugarVerdad() {
-  const carta = getCartaAleatoria('verdades');
-  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
-  juegoState.verdadUsadaEn[participante.nombre] = juegoState.turnoIdx + 1; // bloquea el siguiente turno
-  mostrarCarta(carta, 'verdades');
-}
-
-function jugarReto() {
-  const carta = getCartaAleatoria('retos');
-  mostrarCarta(carta, 'retos');
-}
-
-function registrarPrenda(texto) {
-  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
-  juegoState.prendas.push(participante.nombre + ': ' + texto);
-  showToast('👗 Prenda registrada');
-  siguienteTurno();
-}
-
-function pasarTurno() {
-  const participante = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
-  const nombre = participante.nombre;
-  if (!juegoState.shots[nombre]) juegoState.shots[nombre] = 0;
-  const shotNum = juegoState.shots[nombre] + 1;
-  juegoState.shots[nombre] = shotNum;
-
-  document.getElementById('content').innerHTML = `
-    <div style="text-align:center;padding:60px 24px">
-      <div style="font-size:64px;margin-bottom:16px">🥃</div>
-      <div style="font-family:var(--font-display);font-size:24px;font-weight:500;margin-bottom:8px">${nombre} pasa</div>
-      <div style="font-size:36px;font-weight:700;color:var(--amber);margin-bottom:8px">${shotNum} shot${shotNum>1?'s':''}</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:32px">(1 + ${shotNum-1} acumulado${shotNum-1!==1?'s':''})</div>
-      <button class="btn btn-primary btn-full" onclick="siguienteTurno()">Siguiente turno →</button>
-    </div>`;
-}
-
-function siguienteTurno() {
-  juegoState.turnoIdx++;
-  // Subir nivel automáticamente cada 2 vueltas completas
-  const vuelta = Math.floor(juegoState.turnoIdx / juegoState.participantes.length);
-  if (vuelta === 2 && juegoState.nivel === 'suave') {
-    juegoState.nivel = 'medio';
-    showToast('🟡 Subiendo a nivel Medio');
-  } else if (vuelta === 4 && juegoState.nivel === 'medio') {
-    juegoState.nivel = 'candela';
-    showToast('🔴 ¡Llegamos a Candela!');
-  }
+  juegoState.verdadBloqueadaEn = {};
+  juegoState.historial = [];
+  juegoState.timerInterval = null;
+  juegoState.timerRunning = false;
   renderJuegoPartida();
 }
 
-function cambiarNivelDirector() {
-  const niveles = ['suave','medio','candela'];
-  const labels = ['🟢 Suave','🟡 Medio','🔴 Candela'];
+function getCartasDisponibles(tipo) {
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const nivel = juegoState.nivel;
+  const todas = juegoState.cards?.[nivel]?.[tipo === 'verdad' ? 'verdades' : 'retos'] || [];
+
+  // Obtener interacciones válidas de este participante
+  const misInteracciones = juegoState.interacciones[p.id] || [];
+
+  // Filtrar cartas válidas
+  return todas.filter(c => {
+    if (juegoState.usadas.has(c.id)) return false;
+    // Verificar quien_genero
+    if (c.quien_genero !== 'todos' && c.quien_genero !== p.genero) return false;
+    // Verificar para_genero — debe haber al menos un interactuante válido
+    if (c.para_genero !== 'todos') {
+      const hayDestino = misInteracciones.some(otherId => {
+        const otro = juegoState.participantes.find(x => x.id === otherId);
+        return otro && (otro.genero === c.para_genero);
+      });
+      if (!hayDestino) return false;
+    }
+    return true;
+  });
+}
+
+function getOtroParticipante(carta) {
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const misInteracciones = juegoState.interacciones[p.id] || [];
+  // Filtrar por para_genero de la carta
+  const candidatos = misInteracciones
+    .map(id => juegoState.participantes.find(x => x.id === id))
+    .filter(Boolean)
+    .filter(o => carta.para_genero === 'todos' || o.genero === carta.para_genero);
+  if (candidatos.length === 0) return null;
+  return candidatos[Math.floor(Math.random() * candidatos.length)];
+}
+
+function resolverTexto(texto, jugador, otro) {
+  return texto
+    .replace(/\${jugador}/g, jugador?.nombre || 'tú')
+    .replace(/\${otro}/g, otro?.nombre || 'el otro')
+    .replace(/\${esposa}/g, otro?.nombre || 'ella')
+    .replace(/\${esposo}/g, otro?.nombre || 'él')
+    .replace(/\${amigo}/g, otro?.nombre || 'amigo/a');
+}
+
+// ===== PANTALLA DE TURNO =====
+function renderJuegoPartida() {
+  if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+  juegoState.timerRunning = false;
+
+  const pIdx = juegoState.turnoIdx % juegoState.participantes.length;
+  const p = juegoState.participantes[pIdx];
+
+  const nivelData = {
+    suave: { icon:'🟢', color:'var(--teal)', label:'Soft' },
+    medio: { icon:'🌶️', color:'var(--amber)', label:'Medio' },
+    hard:  { icon:'🔥', color:'var(--rose)',  label:'Hard' },
+  };
+  const nd = nivelData[juegoState.nivel];
+  const verdadBloqueada = juegoState.verdadBloqueadaEn[p.id] === juegoState.turnoIdx;
+
+  // Verificar cartas disponibles
+  const verdadesDisp = getCartasDisponibles('verdad').length;
+  const retosDisp = getCartasDisponibles('reto').length;
+
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);padding:20px;display:flex;flex-direction:column">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <button class="btn btn-outline btn-sm" onclick="if(confirm('¿Terminar la partida?')){terminarPartida()}" style="font-size:11px">✕ Salir</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:22px">${nd.icon}</div>
+          <div style="font-size:11px;font-weight:600;color:${nd.color};text-transform:uppercase;letter-spacing:1px">${nd.label}</div>
+        </div>
+        <button class="btn btn-sm" onclick="mostrarOpcionesNivel()" 
+          style="font-size:11px;background:rgba(255,255,255,0.05);color:var(--text2);border:1px solid var(--border)">
+          ⬆️ Nivel
+        </button>
+      </div>
+
+      <!-- Prendas activas -->
+      ${juegoState.prendas.length > 0 ? `
+      <div style="background:rgba(232,96,138,0.08);border:1px solid rgba(232,96,138,0.2);border-radius:12px;padding:10px;margin-bottom:14px">
+        <div style="font-size:10px;color:var(--rose);font-weight:600;text-transform:uppercase;margin-bottom:6px">👗 Prendas activas</div>
+        ${juegoState.prendas.map(pr=>`<div style="font-size:11px;color:var(--text2)">• ${pr.quien}: ${pr.texto}</div>`).join('')}
+      </div>` : ''}
+
+      <!-- Nombre del jugador -->
+      <div style="text-align:center;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 0">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Turno de</div>
+        <div style="font-family:var(--font-display);font-size:42px;font-weight:500;color:var(--text);margin-bottom:6px">${p.nombre}</div>
+        <div style="font-size:12px;color:var(--text3)">${p.genero} · ${p.orientacion}</div>
+
+        ${verdadesDisp === 0 && retosDisp === 0 ? `
+        <div style="margin-top:20px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:12px;text-align:center">
+          <div style="font-size:13px;color:var(--amber)">⚠️ Se agotaron las cartas de este nivel</div>
+          <button class="btn btn-sm" style="margin-top:8px;background:var(--amber);color:#000" onclick="subirNivel()">⬆️ Subir nivel</button>
+        </div>` : ''}
+      </div>
+
+      <!-- Botones Verdad / Reto -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <button onclick="seleccionarTipo('verdad')" 
+          ${verdadBloqueada || verdadesDisp===0 ? 'disabled' : ''}
+          style="padding:22px 10px;border-radius:18px;border:none;cursor:${verdadBloqueada||verdadesDisp===0?'not-allowed':'pointer'};
+          background:${verdadBloqueada||verdadesDisp===0?'var(--bg3)':'linear-gradient(135deg,#1A1230,#2A1A4A)'};
+          border:1px solid ${verdadBloqueada||verdadesDisp===0?'var(--border)':'rgba(155,127,232,0.4)'};
+          opacity:${verdadBloqueada||verdadesDisp===0?'0.4':'1'};
+          display:flex;flex-direction:column;align-items:center;gap:8px">
+          <span style="font-size:36px">💬</span>
+          <span style="font-size:16px;font-weight:700;color:${verdadBloqueada?'var(--text3)':'var(--purple)'}">VERDAD</span>
+          ${verdadBloqueada ? '<span style="font-size:10px;color:var(--text3)">Bloqueada</span>' : `<span style="font-size:10px;color:rgba(155,127,232,0.6)">${verdadesDisp} disponibles</span>`}
+        </button>
+
+        <button onclick="seleccionarTipo('reto')"
+          ${retosDisp===0 ? 'disabled' : ''}
+          style="padding:22px 10px;border-radius:18px;border:none;cursor:${retosDisp===0?'not-allowed':'pointer'};
+          background:${retosDisp===0?'var(--bg3)':'linear-gradient(135deg,#2A0A1A,#400A20)'};
+          border:1px solid ${retosDisp===0?'var(--border)':'rgba(232,96,138,0.4)'};
+          opacity:${retosDisp===0?'0.4':'1'};
+          display:flex;flex-direction:column;align-items:center;gap:8px">
+          <span style="font-size:36px">⚡</span>
+          <span style="font-size:16px;font-weight:700;color:${retosDisp===0?'var(--text3)':'var(--rose)'}">RETO</span>
+          ${retosDisp===0 ? '<span style="font-size:10px;color:var(--text3)">Sin cartas</span>' : `<span style="font-size:10px;color:rgba(232,96,138,0.6)">${retosDisp} disponibles</span>`}
+        </button>
+      </div>
+
+      <button onclick="pasarTurno()" 
+        style="padding:14px;border-radius:12px;border:1px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:var(--amber);font-size:13px;font-weight:600;cursor:pointer">
+        🥃 Pasar (shots escalonados)
+      </button>
+    </div>`;
+}
+
+// ===== RULETA Y REVELACIÓN DE CARTA =====
+function seleccionarTipo(tipo) {
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  const cartas = getCartasDisponibles(tipo);
+  if (cartas.length === 0) { showToast('No hay cartas disponibles'); return; }
+
+  // Bloquear verdad si se eligió
+  if (tipo === 'verdad') {
+    juegoState.verdadBloqueadaEn[p.id] = juegoState.turnoIdx + 1;
+  }
+
+  // Pantalla de ruleta
+  const nd = { suave:{icon:'🟢',color:'var(--teal)'}, medio:{icon:'🌶️',color:'var(--amber)'}, hard:{icon:'🔥',color:'var(--rose)'} };
+  const c = nd[juegoState.nivel];
+  const tipoIcon = tipo === 'verdad' ? '💬' : '⚡';
+  const tipoColor = tipo === 'verdad' ? 'var(--purple)' : 'var(--rose)';
+  const tipoLabel = tipo === 'verdad' ? 'VERDAD' : 'RETO';
+
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+      <div style="font-size:16px;font-weight:600;color:${tipoColor};margin-bottom:8px;text-transform:uppercase;letter-spacing:2px">${tipoLabel}</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:40px">${p.nombre} · ${c.icon} ${juegoState.nivel}</div>
+
+      <!-- Ruleta -->
+      <div id="ruleta" style="position:relative;width:200px;height:200px;margin-bottom:40px">
+        <div style="position:absolute;inset:0;border-radius:50%;border:3px solid ${tipoColor};background:radial-gradient(circle,${tipoColor}22,transparent)"></div>
+        <div id="ruleta-spinner" style="position:absolute;inset:10px;border-radius:50%;border:2px dashed ${tipoColor}44;display:flex;align-items:center;justify-content:center;font-size:72px;animation:spin 0.3s linear infinite">
+          ${tipoIcon}
+        </div>
+        <!-- Marcador -->
+        <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:24px;z-index:10">▼</div>
+      </div>
+
+      <div id="ruleta-msg" style="font-size:14px;color:var(--text2)">Generando carta...</div>
+    </div>
+
+    <style>
+      @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      @keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(1080deg)} }
+      @keyframes flipIn {
+        0% { transform: perspective(600px) rotateY(-90deg); opacity:0; }
+        100% { transform: perspective(600px) rotateY(0deg); opacity:1; }
+      }
+    </style>`;
+
+  // Seleccionar carta aleatoria
+  const carta = cartas[Math.floor(Math.random() * cartas.length)];
+  const otro = getOtroParticipante(carta);
+
+  // Animar ruleta y revelar carta después
+  setTimeout(() => {
+    const spinner = document.getElementById('ruleta-spinner');
+    const msg = document.getElementById('ruleta-msg');
+    if (spinner) spinner.style.animation = 'spinSlow 1.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards';
+    if (msg) msg.textContent = '🎲 Seleccionando...';
+    setTimeout(() => mostrarCarta(carta, tipo, p, otro), 1800);
+  }, 200);
+}
+
+// ===== MOSTRAR CARTA =====
+function mostrarCarta(carta, tipo, jugador, otro) {
+  if (!carta) { showToast('No hay cartas disponibles'); renderJuegoPartida(); return; }
+
+  juegoState.usadas.add(carta.id);
+  juegoState.historial.push({ carta, jugador: jugador.nombre, otro: otro?.nombre, tipo });
+
+  const esPrenda = carta.label === 'prenda';
+  const timerSeg = tipo === 'verdad' ? juegoState.config.timerVerdad : juegoState.config.timerReto;
+
+  const nd = { suave:{color:'#4ECBA0',bg:'rgba(78,203,160,0.08)',border:'rgba(78,203,160,0.3)'},
+               medio:{color:'#F5A623',bg:'rgba(245,166,35,0.08)',border:'rgba(245,166,35,0.3)'},
+               hard: {color:'#E8608A',bg:'rgba(232,96,138,0.08)',border:'rgba(232,96,138,0.3)'} };
+  const nv = nd[juegoState.nivel];
+
+  const textoResuelto = resolverTexto(carta.texto, jugador, otro);
+
+  const esVerdad = tipo === 'verdad';
+  const cardBg = esVerdad
+    ? 'linear-gradient(135deg,#120E2A,#1E1540)'
+    : 'linear-gradient(135deg,#2A0A14,#3D0E1E)';
+  const cardBorder = esVerdad ? 'rgba(155,127,232,0.4)' : 'rgba(232,96,138,0.4)';
+  const tipoIcon = esVerdad ? '💬' : '⚡';
+  const tipoColor = esVerdad ? 'var(--purple)' : 'var(--rose)';
+
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);padding:20px;display:flex;flex-direction:column">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-size:13px;color:var(--text2)">${jugador.nombre}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:18px">${tipoIcon}</span>
+          <span style="font-size:11px;font-weight:700;color:${tipoColor};text-transform:uppercase;letter-spacing:1px">${tipo}</span>
+          ${esPrenda ? '<span style="font-size:10px;background:rgba(232,96,138,0.2);color:var(--rose);padding:2px 8px;border-radius:10px;font-weight:600">👗 PRENDA</span>' : ''}
+        </div>
+      </div>
+
+      <!-- Carta principal con animación flip -->
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+        <div style="animation:flipIn 0.5s ease forwards;width:100%;max-width:340px">
+          <div style="background:${cardBg};border:1px solid ${cardBorder};border-radius:24px;padding:28px 22px;position:relative;overflow:hidden">
+            <!-- Logo Ignite marca de agua -->
+            <div style="position:absolute;top:14px;right:16px;font-size:16px;opacity:0.3">🔥</div>
+            <div style="position:absolute;top:14px;right:35px;font-size:9px;opacity:0.25;color:white;font-weight:700;letter-spacing:1px">IGNITE</div>
+
+            <!-- Nivel indicator -->
+            <div style="display:inline-block;background:${nv.bg};border:1px solid ${nv.border};border-radius:20px;padding:3px 12px;font-size:10px;font-weight:600;color:${nv.color};margin-bottom:20px">
+              ${juegoState.nivel === 'suave' ? '🟢 SOFT' : juegoState.nivel === 'medio' ? '🌶️ MEDIO' : '🔥 HARD'}
+            </div>
+
+            <!-- Icono grande -->
+            <div style="text-align:center;margin-bottom:18px">
+              <div style="font-size:52px;filter:drop-shadow(0 0 20px ${tipoColor})">${tipoIcon}</div>
+            </div>
+
+            <!-- Texto de la carta -->
+            <div style="font-size:15px;font-weight:500;line-height:1.7;color:var(--text);text-align:center;margin-bottom:${esPrenda?'16px':'0'}">
+              ${textoResuelto}
+            </div>
+
+            ${esPrenda ? `
+            <div style="text-align:center;margin-top:12px">
+              <span style="font-size:11px;font-weight:600;color:var(--rose);background:rgba(232,96,138,0.12);padding:6px 16px;border-radius:20px">
+                👗 Esta es una PRENDA — queda activa toda la noche
+              </span>
+            </div>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Timer -->
+      <div id="timer-section" style="text-align:center;margin-bottom:16px">
+        <div id="timer-display" style="font-family:var(--font-display);font-size:48px;font-weight:500;color:${tipoColor};line-height:1">
+          ${Math.floor(timerSeg/60)}:${String(timerSeg%60).padStart(2,'0')}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">${esVerdad ? 'para responder' : 'para el reto'}</div>
+        ${!esVerdad ? `
+        <button id="btn-start-timer" class="btn btn-sm" onclick="iniciarTimer(${timerSeg})"
+          style="margin-top:8px;background:${tipoColor}22;color:${tipoColor};border:1px solid ${tipoColor}44">
+          ▶️ Comenzar timer
+        </button>` : ''}
+      </div>
+
+      <!-- Botones de decisión -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${esPrenda ? `
+        <button class="btn btn-full" onclick="aceptarPrenda('${carta.id}','${jugador.nombre}','${textoResuelto.substring(0,60).replace(/'/g,"\'")}...')"
+          style="padding:16px;border-radius:14px;background:rgba(232,96,138,0.15);color:var(--rose);border:1px solid rgba(232,96,138,0.3);font-weight:600">
+          👗 Acepto la prenda
+        </button>` : ''}
+        <button class="btn btn-full" onclick="accionCompletada()"
+          style="padding:16px;border-radius:14px;background:rgba(78,203,160,0.12);color:var(--teal);border:1px solid rgba(78,203,160,0.3);font-weight:600">
+          ✅ ${esVerdad ? 'Lo dije' : 'Lo hice'} — Siguiente turno
+        </button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button onclick="elegirShots()"
+            style="padding:13px;border-radius:12px;border:1px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:var(--amber);font-size:13px;font-weight:600;cursor:pointer">
+            🥃 Mejor me tomo un shot
+          </button>
+          <button onclick="elegirPrendaVoluntaria()"
+            style="padding:13px;border-radius:12px;border:1px solid rgba(155,127,232,0.3);background:rgba(155,127,232,0.06);color:var(--purple);font-size:13px;font-weight:600;cursor:pointer">
+            👗 Me quito una prenda
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      @keyframes flipIn {
+        0% { transform: perspective(800px) rotateY(-90deg); opacity:0; }
+        100% { transform: perspective(800px) rotateY(0deg); opacity:1; }
+      }
+    </style>`;
+
+  // Iniciar timer automáticamente para Verdad
+  if (esVerdad) {
+    setTimeout(() => iniciarTimer(timerSeg, true), 500);
+  }
+}
+
+// ===== TIMER =====
+function iniciarTimer(segundos, auto = false) {
+  if (juegoState.timerRunning) return;
+  juegoState.timerRunning = true;
+  let restantes = segundos;
+
+  const btn = document.getElementById('btn-start-timer');
+  if (btn) btn.style.display = 'none';
+
+  const display = document.getElementById('timer-display');
+  juegoState.timerInterval = setInterval(() => {
+    restantes--;
+    if (display) {
+      const min = Math.floor(restantes/60);
+      const sec = restantes % 60;
+      display.textContent = min + ':' + String(sec).padStart(2,'0');
+      // Cambiar color en los últimos 10s
+      if (restantes <= 10) display.style.color = 'var(--rose)';
+      if (restantes <= 5) display.style.animation = 'pulse 0.5s infinite';
+    }
+    if (restantes <= 0) {
+      clearInterval(juegoState.timerInterval);
+      juegoState.timerRunning = false;
+      if (display) { display.textContent = '⏰ ¡Tiempo!'; display.style.fontSize = '28px'; }
+    }
+  }, 1000);
+}
+
+// ===== DECISIONES =====
+function accionCompletada() {
+  if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+  siguienteTurno();
+}
+
+function aceptarPrenda(cardId, quien, texto) {
+  juegoState.prendas.push({ quien, texto });
+  showToast('👗 Prenda registrada');
+  if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+  siguienteTurno();
+}
+
+function elegirShots() {
+  if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+  if (!juegoState.shots[p.nombre]) juegoState.shots[p.nombre] = 0;
+  juegoState.shots[p.nombre]++;
+  const total = juegoState.shots[p.nombre];
+
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center">
+      <div style="font-size:72px;margin-bottom:16px">🥃</div>
+      <div style="font-family:var(--font-display);font-size:28px;font-weight:500;margin-bottom:8px">${p.nombre} pasa</div>
+      <div style="font-size:52px;font-weight:700;color:var(--amber);margin:12px 0">${total} shot${total>1?'s':''}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:32px">Acumulado esta noche</div>
+      <button class="btn btn-primary btn-full" style="max-width:280px" onclick="siguienteTurno()">Siguiente turno →</button>
+    </div>`;
+}
+
+function elegirPrendaVoluntaria() {
+  if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+  const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+
   document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
     <div class="modal">
       <div class="modal-handle"></div>
-      <div style="font-size:15px;font-weight:600;margin-bottom:16px;text-align:center">🎬 Modo Director</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;text-align:center">Cambia el nivel de temperatura manualmente</div>
-      ${niveles.map((n,i)=>`<button class="btn ${juegoState.nivel===n?'btn-primary':'btn-outline'} btn-full" style="margin-bottom:8px;font-size:14px" onclick="setNivelDirector('${n}')">${labels[i]}</button>`).join('')}
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px">👗 Prenda voluntaria</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px">¿Qué prenda acepta ${p.nombre}?</div>
+      <input type="text" class="form-control" id="prenda-desc" placeholder="Ej: Se quita los zapatos...">
+      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="confirmarPrendaVoluntaria('${p.nombre}')">Confirmar</button>
     </div>
   </div>`;
 }
 
-function setNivelDirector(nivel) {
-  juegoState.nivel = nivel;
+function confirmarPrendaVoluntaria(nombre) {
+  const desc = document.getElementById('prenda-desc')?.value?.trim();
+  if (!desc) { showToast('Describe la prenda'); return; }
+  juegoState.prendas.push({ quien: nombre, texto: desc });
   closeModalDirect();
-  renderJuegoPartida();
-  showToast('Nivel cambiado a ' + nivel);
+  siguienteTurno();
 }
 
-// Mantenedor de cartas
+function siguienteTurno() {
+  if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+  juegoState.timerRunning = false;
+  juegoState.turnoIdx++;
+
+  // Verificar si se agotaron las cartas del nivel
+  const totalDisp = getCartasDisponibles('verdad').length + getCartasDisponibles('reto').length;
+  if (totalDisp === 0) {
+    // Auto subir nivel si hay siguiente
+    const niveles = ['suave', 'medio', 'hard'];
+    const idx = niveles.indexOf(juegoState.nivel);
+    if (idx < niveles.length - 1) {
+      juegoState.nivel = niveles[idx + 1];
+      const msgs = { medio:'🌶️ Subiendo a nivel Medio', hard:'🔥 ¡Llegamos a Hard!' };
+      showToast(msgs[juegoState.nivel]);
+    } else {
+      // Se acabaron todas las cartas
+      terminarPartida();
+      return;
+    }
+  }
+  renderJuegoPartida();
+}
+
+function mostrarOpcionesNivel() {
+  const niveles = [
+    { id:'suave', icon:'🟢', label:'Soft', desc:'Ambiente relajado' },
+    { id:'medio', icon:'🌶️', label:'Medio', desc:'Temperatura sube' },
+    { id:'hard',  icon:'🔥', label:'Hard', desc:'Sin filtros' },
+  ];
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px;text-align:center">🎬 Modo Director</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px;text-align:center">Cambia el nivel manualmente</div>
+      ${niveles.map(n=>`
+        <button class="btn btn-full" style="margin-bottom:8px;padding:14px;border-radius:12px;
+          background:${juegoState.nivel===n.id?'var(--rose-glow)':'var(--bg3)'};
+          border:1px solid ${juegoState.nivel===n.id?'var(--rose)':'var(--border)'};
+          display:flex;align-items:center;gap:12px;text-align:left"
+          onclick="subirNivel('${n.id}')">
+          <span style="font-size:28px">${n.icon}</span>
+          <div><div style="font-size:14px;font-weight:600;color:var(--text)">${n.label}</div>
+          <div style="font-size:11px;color:var(--text3)">${n.desc}</div></div>
+          ${juegoState.nivel===n.id?'<span style="margin-left:auto;color:var(--rose)">✓</span>':''}
+        </button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function subirNivel(nivel) {
+  juegoState.nivel = nivel || (() => {
+    const niveles = ['suave','medio','hard'];
+    const idx = niveles.indexOf(juegoState.nivel);
+    return niveles[Math.min(idx+1, niveles.length-1)];
+  })();
+  closeModalDirect();
+  renderJuegoPartida();
+}
+
+// ===== TERMINAR PARTIDA =====
+function terminarPartida() {
+  if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
+
+  const totalCartas = juegoState.historial.length;
+  const totalShots = Object.values(juegoState.shots).reduce((s,v)=>s+v, 0);
+
+  let html = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px">
+      <div style="text-align:center;padding:30px 0 24px">
+        <div style="font-size:56px;margin-bottom:12px">🏁</div>
+        <div style="font-family:var(--font-display);font-size:28px;font-weight:500;margin-bottom:6px">¡Partida terminada!</div>
+        <div style="font-size:13px;color:var(--text2)">Resumen de la noche</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <div class="stat-card"><div class="stat-num">${totalCartas}</div><div class="stat-label">Cartas jugadas</div></div>
+        <div class="stat-card"><div class="stat-num">${totalShots}</div><div class="stat-label">Shots totales</div></div>
+        <div class="stat-card"><div class="stat-num">${juegoState.prendas.length}</div><div class="stat-label">Prendas activas</div></div>
+        <div class="stat-card"><div class="stat-num">${juegoState.historial.filter(h=>h.tipo==='reto').length}</div><div class="stat-label">Retos completados</div></div>
+      </div>`;
+
+  if (juegoState.prendas.length > 0) {
+    html += `<div class="card" style="margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;color:var(--rose);margin-bottom:10px">👗 Prendas de la noche</div>
+      ${juegoState.prendas.map(p=>`<div style="font-size:12px;color:var(--text2);margin-bottom:6px;padding:8px;background:var(--bg3);border-radius:8px">
+        <strong>${p.quien}:</strong> ${p.texto}
+      </div>`).join('')}
+    </div>`;
+  }
+
+  if (Object.keys(juegoState.shots).length > 0) {
+    html += `<div class="card" style="margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:10px">🥃 Shots por persona</div>
+      ${Object.entries(juegoState.shots).map(([n,s])=>`
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px">${n}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--amber)">${s} shot${s>1?'s':''}</span>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  html += `<button class="btn btn-primary btn-full" style="margin-top:8px" onclick="renderJuego()">🎭 Nueva partida</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="showTab('perfil')">Volver al perfil</button>
+  </div>`;
+
+  document.getElementById('content').innerHTML = html;
+}
+
+// ===== MANTENEDOR DE CARTAS =====
 async function renderJuegoMant() {
   const gid = currentUserData?.groupId;
   document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
     const groupSnap = await db.collection('groups').doc(gid).get();
-    const cards = groupSnap.data().juegoCards || IGNITE_CARDS_DEFAULT;
+    const group = groupSnap.data();
+    const cards = group.juegoCards || IGNITE_CARDS_DEFAULT;
+    const config = group.juegoConfig || juegoState.config;
     juegoState.cards = cards;
 
-    const nivelLabels = { suave:'🟢 Suave', medio:'🟡 Medio', candela:'🔴 Candela' };
+    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard' };
     let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
       <button class="btn btn-outline btn-sm" onclick="showTab('config')">← Volver</button>
-      <div style="font-size:16px;font-weight:500">Cartas del juego</div>
+      <div style="font-size:16px;font-weight:500">Gestionar cartas</div>
+    </div>
+
+    <!-- Config del juego -->
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px">⚙️ Configuración</div>
+      <div class="form-group">
+        <label class="form-label">⏱️ Timer Verdad (segundos)</label>
+        <input type="number" class="form-control" id="cfg-timer-v" value="${config.timerVerdad||60}" min="15" max="300">
+      </div>
+      <div class="form-group">
+        <label class="form-label">⏱️ Timer Reto (segundos)</label>
+        <input type="number" class="form-control" id="cfg-timer-r" value="${config.timerReto||120}" min="30" max="300">
+      </div>
+      <button class="btn btn-primary btn-full btn-sm" onclick="guardarConfigJuego()">💾 Guardar configuración</button>
     </div>`;
 
-    ['suave','medio','candela'].forEach(nivel => {
-      const allCards = [...(cards[nivel]?.verdades||[]), ...(cards[nivel]?.retos||[])];
+    // Cartas por nivel
+    ['suave','medio','hard'].forEach(nivel => {
+      const verdades = cards[nivel]?.verdades || [];
+      const retos = cards[nivel]?.retos || [];
+      const total = verdades.length + retos.length;
       html += `<div class="action-cat-header" onclick="toggleActionCat('mant-${nivel}')">
-        <span style="font-size:13px;font-weight:600">${nivelLabels[nivel]}</span>
-        <span style="font-size:11px;color:var(--text3)">${allCards.length} cartas</span>
+        <span style="font-size:13px;font-weight:600">${nivelData[nivel]}</span>
+        <span style="font-size:11px;color:var(--text3)">${total} cartas</span>
         <span id="mant-${nivel}-arrow" style="margin-left:auto;color:var(--text3)">›</span>
       </div>
       <div id="mant-${nivel}" class="action-cat-panel" style="display:none">`;
 
       ['verdades','retos'].forEach(tipo => {
-        const tipoCards = cards[nivel]?.[tipo] || [];
-        html += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 4px">${tipo==='verdades'?'💬 Verdades':'⚡ Retos'}</div>`;
-        tipoCards.forEach((c,i) => {
+        const lista = cards[nivel]?.[tipo] || [];
+        const tipoLabel = tipo === 'verdades' ? '💬 Verdades' : '⚡ Retos';
+        html += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:8px 0 4px">${tipoLabel}</div>`;
+        lista.forEach(c => {
           html += `<div class="card" style="margin-bottom:6px;padding:10px">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
               <div style="flex:1">
-                <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${c.para}${c.label?' · 👗 prenda':''}</div>
+                <div style="font-size:10px;color:var(--text3);margin-bottom:4px">
+                  👤 ${c.quien_genero==='todos'?'Todos':c.quien_genero} → ${c.para_genero==='todos'?'Todos':c.para_genero}
+                  ${c.label==='prenda'?' · 👗 prenda':''}
+                </div>
                 <div style="font-size:12px;color:var(--text2);line-height:1.5">${c.texto.substring(0,100)}${c.texto.length>100?'...':''}</div>
               </div>
               <button onclick="eliminarCartaJuego('${nivel}','${tipo}','${c.id}')" style="background:none;border:none;color:var(--rose);cursor:pointer;font-size:16px;flex-shrink:0">🗑️</button>
@@ -3261,18 +3834,99 @@ async function renderJuegoMant() {
           </div>`;
         });
       });
-      html += `<button class="btn btn-outline btn-full btn-sm" style="margin:4px 0 8px" onclick="agregarCartaJuego('${nivel}')">+ Agregar carta a ${nivelLabels[nivel]}</button>`;
-      html += `</div>`;
+
+      html += `<button class="btn btn-outline btn-full btn-sm" style="margin:4px 0 8px" onclick="agregarCartaJuego('${nivel}')">+ Agregar carta</button>
+      </div>`;
     });
 
-    html += `<div style="margin-top:12px">
-      <button class="btn btn-outline btn-full btn-sm" style="color:var(--rose)" onclick="resetearCartasJuego()">🔄 Restaurar cartas originales</button>
-    </div>`;
+    html += `<button class="btn btn-outline btn-full btn-sm" style="margin-top:12px;color:var(--rose)" onclick="resetearCartasJuego()">🔄 Restaurar cartas originales</button>`;
 
     document.getElementById('content').innerHTML = html;
   } catch(e) {
     document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div></div>';
   }
+}
+
+async function guardarConfigJuego() {
+  const timerV = parseInt(document.getElementById('cfg-timer-v')?.value || '60');
+  const timerR = parseInt(document.getElementById('cfg-timer-r')?.value || '120');
+  const gid = currentUserData?.groupId;
+  try {
+    await db.collection('groups').doc(gid).update({
+      juegoConfig: { timerVerdad: timerV, timerReto: timerR, sonidoActivo: true }
+    });
+    juegoState.config = { timerVerdad: timerV, timerReto: timerR, sonidoActivo: true };
+    showToast('✅ Configuración guardada');
+  } catch(e) { showToast('Error: ' + e.message); }
+}
+
+function agregarCartaJuego(nivel) {
+  const nd = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard' };
+  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" style="max-height:90vh;overflow-y:auto">
+      <div class="modal-handle"></div>
+      <div style="font-size:15px;font-weight:500;margin-bottom:16px">Nueva carta · ${nd[nivel]}</div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select class="form-control" id="nc-tipo">
+          <option value="verdades">💬 Verdad</option>
+          <option value="retos">⚡ Reto</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">¿Quién lo hace?</label>
+        <select class="form-control" id="nc-quien">
+          <option value="todos">Todos</option>
+          <option value="hombre">Hombre</option>
+          <option value="mujer">Mujer</option>
+          <option value="no_binario">No binario</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">¿Para quién va dirigida?</label>
+        <select class="form-control" id="nc-para">
+          <option value="todos">Todos</option>
+          <option value="hombre">Hombre</option>
+          <option value="mujer">Mujer</option>
+          <option value="no_binario">No binario</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Texto <span style="font-size:10px;color:var(--text3)">usa \${jugador} y \${otro}</span></label>
+        <textarea class="form-control" id="nc-texto" rows="4" placeholder="Ej: Dile a \${otro} lo que más te atrae de él/ella..."></textarea>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:16px">
+        <input type="checkbox" id="nc-prenda" style="accent-color:var(--rose)">
+        <span style="font-size:13px">👗 Es prenda permanente</span>
+      </label>
+      <button class="btn btn-primary btn-full" onclick="confirmarCartaJuego('${nivel}')">Agregar</button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+async function confirmarCartaJuego(nivel) {
+  const tipo = document.getElementById('nc-tipo')?.value;
+  const quien = document.getElementById('nc-quien')?.value;
+  const para = document.getElementById('nc-para')?.value;
+  const texto = document.getElementById('nc-texto')?.value?.trim();
+  const esPrenda = document.getElementById('nc-prenda')?.checked;
+  if (!texto) { showToast('Escribe el texto'); return; }
+  const gid = currentUserData?.groupId;
+  try {
+    const groupSnap = await db.collection('groups').doc(gid).get();
+    const cards = groupSnap.data().juegoCards || JSON.parse(JSON.stringify(IGNITE_CARDS_DEFAULT));
+    const newCard = { id:'c_'+Date.now(), tipo: tipo==='verdades'?'verdad':'reto',
+      categoria: nivel, quien_genero: quien, para_genero: para, texto };
+    if (esPrenda) newCard.label = 'prenda';
+    if (!cards[nivel][tipo]) cards[nivel][tipo] = [];
+    cards[nivel][tipo].push(newCard);
+    await db.collection('groups').doc(gid).update({ juegoCards: cards });
+    juegoState.cards = cards;
+    closeModalDirect();
+    showToast('✅ Carta agregada');
+    renderJuegoMant();
+  } catch(e) { showToast('Error: ' + e.message); }
 }
 
 async function eliminarCartaJuego(nivel, tipo, id) {
@@ -3284,67 +3938,7 @@ async function eliminarCartaJuego(nivel, tipo, id) {
     cards[nivel][tipo] = cards[nivel][tipo].filter(c => c.id !== id);
     await db.collection('groups').doc(gid).update({ juegoCards: cards });
     juegoState.cards = cards;
-    showToast('✓ Carta eliminada');
-    renderJuegoMant();
-  } catch(e) { showToast('Error: ' + e.message); }
-}
-
-function agregarCartaJuego(nivel) {
-  const nivelLabels = { suave:'🟢 Suave', medio:'🟡 Medio', candela:'🔴 Candela' };
-  document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
-    <div class="modal">
-      <div class="modal-handle"></div>
-      <div style="font-size:15px;font-weight:500;margin-bottom:16px">Nueva carta · ${nivelLabels[nivel]}</div>
-      <div class="form-group">
-        <label class="form-label">Tipo</label>
-        <select class="form-control" id="nc-tipo">
-          <option value="verdades">💬 Verdad</option>
-          <option value="retos">⚡ Reto</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Dirigida a</label>
-        <select class="form-control" id="nc-para">
-          <option value="esposa">Esposa</option>
-          <option value="esposo">Esposo</option>
-          <option value="amigo">Amigo/a</option>
-          <option value="todos">Todos</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Texto <span style="font-size:11px;color:var(--text3)">(usa \${esposa}, \${esposo}, \${amigo})</span></label>
-        <textarea class="form-control" id="nc-texto" rows="4" placeholder="Texto de la carta..."></textarea>
-      </div>
-      <div class="form-group">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="nc-prenda" style="accent-color:var(--rose)">
-          <span style="font-size:13px">👗 Es prenda permanente</span>
-        </label>
-      </div>
-      <button class="btn btn-primary btn-full" onclick="confirmarCartaJuego('${nivel}')">Agregar carta</button>
-      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeModalDirect()">Cancelar</button>
-    </div>
-  </div>`;
-}
-
-async function confirmarCartaJuego(nivel) {
-  const tipo = document.getElementById('nc-tipo')?.value;
-  const para = document.getElementById('nc-para')?.value;
-  const texto = document.getElementById('nc-texto')?.value?.trim();
-  const esPrenda = document.getElementById('nc-prenda')?.checked;
-  if (!texto) { showToast('Escribe el texto de la carta'); return; }
-  const gid = currentUserData?.groupId;
-  try {
-    const groupSnap = await db.collection('groups').doc(gid).get();
-    const cards = groupSnap.data().juegoCards || JSON.parse(JSON.stringify(IGNITE_CARDS_DEFAULT));
-    const newCard = { id: 'c_'+Date.now(), para, texto };
-    if (esPrenda) newCard.label = 'prenda';
-    if (!cards[nivel][tipo]) cards[nivel][tipo] = [];
-    cards[nivel][tipo].push(newCard);
-    await db.collection('groups').doc(gid).update({ juegoCards: cards });
-    juegoState.cards = cards;
-    closeModalDirect();
-    showToast('✓ Carta agregada');
+    showToast('✅ Carta eliminada');
     renderJuegoMant();
   } catch(e) { showToast('Error: ' + e.message); }
 }
@@ -3355,7 +3949,7 @@ async function resetearCartasJuego() {
   try {
     await db.collection('groups').doc(gid).update({ juegoCards: IGNITE_CARDS_DEFAULT });
     juegoState.cards = IGNITE_CARDS_DEFAULT;
-    showToast('✓ Cartas restauradas');
+    showToast('✅ Cartas restauradas');
     renderJuegoMant();
   } catch(e) { showToast('Error: ' + e.message); }
 }
@@ -4214,83 +4808,123 @@ async function resetCatalog() {
 
 
 // ===== JUEGO VERDAD O RETO =====
+// quien_genero: quién realiza la acción | para_genero: a quién va dirigida
+// 'todos' = cualquier género aplica
 const IGNITE_CARDS_DEFAULT = {
   suave: {
     verdades: [
-      { id:'sv1', para:'esposa', texto:'Con más de 20 años de casados, ¿cuál dirías que ha sido la clave para que tú y ${esposo} sigan manteniendo esa chispa y complicidad?' },
-      { id:'sv2', para:'esposa', texto:'Desde una perspectiva puramente estética, ¿qué halago elegante destacarías de cómo ${amigo} suele arreglarse?' },
-      { id:'sv3', para:'amigo', texto:'¿Qué es lo que más admiras de la seguridad y el carisma que proyecta ${esposa}?' },
-      { id:'sv4', para:'amigo', texto:'Siendo honestos, ¿qué detalle del relajo de ${esposo} te hace pensar que tienen una relación muy sólida?' },
-      { id:'sv5', para:'esposo', texto:'¿Qué parte de la personalidad libre y coqueta de ${esposa} disfrutas más ver cuando están de vacaciones?' },
-      { id:'sv6', para:'esposa', texto:'Si el juego dictaminara que ${amigo} debe quedarse en bóxers, ¿te daría morbo, risa, o te parecería divertido para el juego?' },
-      { id:'sv7', para:'amigo', texto:'Del 1 al 10, ¿qué tan deslumbrante te parece la seguridad y el porte que tiene ${esposa}?' },
+      { id:'sv1', tipo:'verdad', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Cuál es el momento más atrevido que has tenido con ${otro}?' },
+      { id:'sv2', tipo:'verdad', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Qué es lo que más te atrae físicamente de ${otro}?' },
+      { id:'sv3', tipo:'verdad', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Cuál ha sido la noche más especial que recuerdas con alguien del grupo?' },
+      { id:'sv4', tipo:'verdad', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Qué fantasía te da vergüenza confesar pero hoy te atreverías?' },
+      { id:'sv5', tipo:'verdad', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'Del 1 al 10, ¿qué tan atractivo/a encuentras a ${otro} esta noche?' },
+      { id:'sv6', tipo:'verdad', categoria:'suave', quien_genero:'mujer', para_genero:'hombre',
+        texto:'¿Qué detalle físico de ${otro} notas primero cuando llega a un lugar?' },
+      { id:'sv7', tipo:'verdad', categoria:'suave', quien_genero:'hombre', para_genero:'mujer',
+        texto:'¿Qué es lo que más te gusta de la forma en que ${otro} se mueve?' },
     ],
     retos: [
-      { id:'sr1', para:'esposa', texto:'Baila de forma libre durante 1 minuto y 30 segundos, mostrando tu soltura y carisma.' },
-      { id:'sr2', para:'esposa', label:'prenda', texto:'Por estricta comodidad, quítate la prenda externa y quédate en bikini o top de manera definitiva.' },
-      { id:'sr3', para:'esposa', texto:'Brinda con picardía: tómate un shot de tequila entrelazando tu brazo con el de ${amigo}.' },
-      { id:'sr4', para:'amigo', texto:'Balíale a la mesa 15 segundos de la canción de fondo, imitando con humor los pasos de un modelo de pasarela.' },
-      { id:'sr5', para:'amigo', texto:'Párate detrás de ${esposa} y susúrrale al oído qué nota estética le pones a su look de hoy.' },
+      { id:'sr1', tipo:'reto', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'Dale un masaje de hombros de 30 segundos a ${otro}.' },
+      { id:'sr2', tipo:'reto', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'Baila durante 30 segundos de la forma más seductora que puedas.' },
+      { id:'sr3', tipo:'reto', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'Susúrrale al oído a ${otro} algo que nunca le has dicho en voz alta.' },
+      { id:'sr4', tipo:'reto', categoria:'suave', quien_genero:'todos', para_genero:'todos',
+        texto:'Tómate un shot entrelazando el brazo con ${otro}.' },
+      { id:'sr5', tipo:'reto', categoria:'suave', quien_genero:'mujer', para_genero:'hombre',
+        texto:'Hazle un piropo creativo y atrevido a ${otro} mirándole a los ojos.' },
+      { id:'sr6', tipo:'reto', categoria:'suave', quien_genero:'hombre', para_genero:'mujer',
+        texto:'Dile a ${otro} qué es lo que más te gusta de ella sin usar palabras — solo gestos.' },
     ]
   },
   medio: {
     verdades: [
-      { id:'mv1', para:'esposa', texto:'¿Te sientes más atractiva luciendo un bikini cómodo bajo el sol o con un vestido de noche arreglada?' },
-      { id:'mv2', para:'esposa', texto:'Si ${amigo} debe quedarse en bóxers por castigo, ¿te daría risa, morbo, o preferirías mirar hacia otro lado?' },
-      { id:'mv3', para:'amigo', texto:'¿En qué momento de la tarde se te han ido los ojos inevitablemente hacia la silueta de ${esposa}?' },
-      { id:'mv4', para:'amigo', texto:'Si ${esposa} modelara de espaldas para fotos, ¿qué ángulo crees que sería su fuerte?' },
-      { id:'mv5', para:'esposo', texto:'¿Qué te genera más morbo: ver a tu esposa brillar siendo el centro de atención o verla reaccionar a los piropos de ${amigo}?' },
+      { id:'mv1', tipo:'verdad', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Cuál es tu fantasía más recurrente que aún no has cumplido?' },
+      { id:'mv2', tipo:'verdad', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'¿En qué momento de la noche te ha costado más mantener la compostura con alguien del grupo?' },
+      { id:'mv3', tipo:'verdad', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Qué reto de esta noche estarías dispuesto/a a hacer con ${otro} si nadie mirara?' },
+      { id:'mv4', tipo:'verdad', categoria:'medio', quien_genero:'mujer', para_genero:'hombre',
+        texto:'Si pudieras cambiar una cosa de ${otro} para que fuera más atrevido, ¿qué sería?' },
+      { id:'mv5', tipo:'verdad', categoria:'medio', quien_genero:'hombre', para_genero:'mujer',
+        texto:'Describe en detalle qué te pasaría por la mente si ${otro} te mirara fijamente por 10 segundos ahora mismo.' },
+      { id:'mv6', tipo:'verdad', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Cuál ha sido tu momento más hot en los últimos 6 meses? Cuéntalo con detalles.' },
     ],
     retos: [
-      { id:'mr1', para:'esposa', label:'prenda', texto:'El calor aprieta. Para estar más fresca, quítate la prenda externa y quédate en bikini o top de manera definitiva.' },
-      { id:'mr2', para:'esposa', texto:'Baila durante 1 minuto y 30 segundos moviendo solo las caderas y los hombros.' },
-      { id:'mr3', para:'amigo', texto:'Toma un cubo de hielo y pásalo suavemente por el antebrazo o la nuca de ${esposa}.' },
-      { id:'mr4', para:'amigo', texto:'Susúrrale al oído a ${esposa} qué es lo que más te cautiva de su mirada.' },
-      { id:'mr5', para:'esposo', texto:'Desabrocha el primer botón de la blusa de ${esposa} con delicadeza.' },
+      { id:'mr1', tipo:'reto', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'Toma un cubo de hielo y pásalo lentamente por el cuello o brazo de ${otro}.' },
+      { id:'mr2', tipo:'reto', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'Imita a ${otro} de la forma más seductora posible durante 20 segundos.' },
+      { id:'mr3', tipo:'reto', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'Susúrrale a ${otro} qué harías si estuvieran solos esta noche.' },
+      { id:'mr4', tipo:'reto', categoria:'medio', quien_genero:'mujer', para_genero:'hombre',
+        texto:'Siéntate en las piernas de ${otro} durante 30 segundos manteniendo contacto visual.', label:'prenda' },
+      { id:'mr5', tipo:'reto', categoria:'medio', quien_genero:'hombre', para_genero:'mujer',
+        texto:'Baila bien pegado a ${otro} durante 1 minuto al ritmo que suene.' },
+      { id:'mr6', tipo:'reto', categoria:'medio', quien_genero:'todos', para_genero:'todos',
+        texto:'Dale a ${otro} el piropo más atrevido y específico que se te ocurra.' },
     ]
   },
-  candela: {
+  hard: {
     verdades: [
-      { id:'cv1', para:'esposa', texto:'Si ${esposo} te pidiera actuar como pareja de catálogo con ${amigo} para una foto artística, ¿sacarías tu lado de modelo?' },
-      { id:'cv2', para:'esposa', texto:'¿Te excita o te hace sentir poderosa saber que ${esposo} disfruta verte ser el centro de deseo de otro hombre de su confianza?' },
-      { id:'cv3', para:'amigo', texto:'Si tuvieras que describir la fantasía visual de ver a ${esposa} en lencería definitiva, ¿cómo describirías la temperatura de tu mente?' },
-      { id:'cv4', para:'amigo', texto:'Si ${esposo} te autoriza a darle un masaje en los hombros a ${esposa} por 1 minuto, ¿en qué zona te concentrarías más?' },
-      { id:'cv5', para:'esposo', texto:'¿Qué tan excitante es para ti ver que tu gran amigo no puede apartar la mirada de tu hermosa esposa?' },
+      { id:'hv1', tipo:'verdad', categoria:'hard', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Cuál es el límite que estarías dispuesto/a a cruzar esta noche con ${otro}?' },
+      { id:'hv2', tipo:'verdad', categoria:'hard', quien_genero:'todos', para_genero:'todos',
+        texto:'Describe en detalle la fantasía más intensa que has tenido y que involucra a alguien de este grupo.' },
+      { id:'hv3', tipo:'verdad', categoria:'hard', quien_genero:'mujer', para_genero:'hombre',
+        texto:'¿Qué le dirías a ${otro} si tuvieras permiso de decirle exactamente lo que piensas sin filtro?' },
+      { id:'hv4', tipo:'verdad', categoria:'hard', quien_genero:'hombre', para_genero:'mujer',
+        texto:'Si tuvieras que elegir un lugar de ${otro} para besar ahora mismo, ¿cuál sería y por qué?' },
+      { id:'hv5', tipo:'verdad', categoria:'hard', quien_genero:'todos', para_genero:'todos',
+        texto:'¿Qué tan lejos estarías dispuesto/a a llegar esta noche si todos están de acuerdo?' },
     ],
     retos: [
-      { id:'cr1', para:'esposa', label:'prenda', texto:'Quítate el sostén por debajo de la blusa de forma definitiva, dejando que el misterio y el morbo visual se queden en la mesa.' },
-      { id:'cr2', para:'esposa', texto:'Párate frente a ${amigo}, cuerpo a cuerpo, y dejen sus labios a 1 centímetro de distancia, sosteniendo la mirada por 15 segundos.' },
-      { id:'cr3', para:'esposa', texto:'Recreen cómo se bailaba el reguetón cuando tenían 20 años: bien pegados, cadera con cadera, durante 1 minuto y 30 segundos.' },
-      { id:'cr4', para:'amigo', texto:'Cuando suene la música, baila bien pegado a ${esposa}, cadera con cadera, sin dejar distancias por 1 minuto y 30 segundos.' },
-      { id:'cr5', para:'amigo', label:'prenda', texto:'Quítate el bañador detrás de una toalla y quédate únicamente en bóxers por el resto de la noche.' },
-      { id:'cr6', para:'amigo', texto:'La sal y el limón de tu shot debes recogerlos directamente de la piel del cuello o hombro de ${esposa}.' },
-      { id:'cr7', para:'esposo', texto:'Ordénale a ${amigo} dónde poner las manos sobre la cintura de ${esposa} para la foto de catálogo, dictando tú la escena.' },
+      { id:'hr1', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
+        texto:'Acércate a ${otro} hasta que sus labios estén a 2 cm de distancia y mantén esa posición por 15 segundos.', label:'prenda' },
+      { id:'hr2', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
+        texto:'Dale a ${otro} un masaje de 2 minutos en el área que elija.' },
+      { id:'hr3', tipo:'reto', categoria:'hard', quien_genero:'mujer', para_genero:'hombre',
+        texto:'Recrea con ${otro} la escena de baile más intensa y pegada que recuerdes, durante 2 minutos completos.' },
+      { id:'hr4', tipo:'reto', categoria:'hard', quien_genero:'hombre', para_genero:'mujer',
+        texto:'Dile a ${otro} exactamente qué le harías si estuvieran solos, mirándola a los ojos sin reír.', label:'prenda' },
+      { id:'hr5', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
+        texto:'La sal y el limón de tu siguiente shot los tomas del cuello o hombro de ${otro}.' },
     ]
   }
 };
 
-// Estado del juego
+// Estado del juego V2
 let juegoState = {
-  activo: false,
-  participantes: [],
+  participantes: [],         // [{id, nombre, edad, genero, orientacion}]
+  interacciones: {},         // {idA: [idB, idC], idB: [idA], ...}
+  firmas: {},                // {idParticipante: timestamp}
   nivel: 'suave',
   turnoIdx: 0,
-  cards: { suave:{verdades:[],retos:[]}, medio:{verdades:[],retos:[]}, candela:{verdades:[],retos:[]} },
+  cards: null,               // se carga desde Firestore o DEFAULT
   usadas: new Set(),
-  prendas: [],
-  shots: {},
-  verdadUsadaEn: {},
-  modoDirector: false,
+  prendas: [],               // [{quien, texto}]
+  shots: {},                 // {nombre: count}
+  verdadBloqueadaEn: {},     // {idParticipante: turnoIdx}
+  historial: [],             // cartas jugadas
+  config: {
+    timerVerdad: 60,         // segundos
+    timerReto: 120,
+    sonidoActivo: true,
+  },
+  timerInterval: null,
+  timerRunning: false,
 };
-
-function getJuegoCards() {
-  return juegoState.cards;
-}
-
 // ===== NOTIFICACIONES PUSH (OneSignal) =====
 const ONESIGNAL_APP_ID = '14d8dcf8-a7d6-4b8c-b033-3f3e81254e6e';
 
-// Enviar notificación push via función serverless de Vercel (seguro)
 async function sendPushNotification(title, message, toUserIds) {
   if (!toUserIds || toUserIds.length === 0) return;
   try {
@@ -4299,9 +4933,7 @@ async function sendPushNotification(title, message, toUserIds) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, message, userIds: toUserIds }),
     });
-  } catch(e) {
-    console.error('Error enviando notificación:', e);
-  }
+  } catch(e) { console.error('Error enviando notificación:', e); }
 }
 
 async function initPushNotifications() {
@@ -4309,16 +4941,11 @@ async function initPushNotifications() {
     if (!window.OneSignal) { showToast('Cargando sistema de notificaciones...'); return false; }
     const permission = await OneSignal.Notifications.requestPermission();
     if (!permission) { showToast('Permiso de notificaciones denegado'); return false; }
-    // Guardar el external user ID para identificar al usuario
     await OneSignal.login(currentUser.uid);
     await db.collection('users').doc(currentUser.uid).update({ pushEnabled: true });
     showToast('🔔 Notificaciones activadas');
     return true;
-  } catch(e) {
-    console.error('Error activando notificaciones:', e);
-    showToast('Error al activar notificaciones');
-    return false;
-  }
+  } catch(e) { showToast('Error al activar notificaciones'); return false; }
 }
 
 async function disablePushNotifications() {
