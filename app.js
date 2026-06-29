@@ -4683,21 +4683,22 @@ function toggleMantPanel() {
 function toggleMantenedores() { toggleMantPanel(); }
 
 async function renderMantenedores() {
-  // Siempre leer estado del juego desde Firestore (puede haber cambiado en esta sesión)
+  // Leer estado del juego directamente desde Firestore
+  let juegoOn = false;
   try {
     if (currentUserData?.groupId) {
       const g = await db.collection('groups').doc(currentUserData.groupId).get();
-      currentUserData.juegoActivo = g.data()?.juegoVerdadRetoActivo === true;
+      juegoOn = g.data()?.juegoVerdadRetoActivo === true;
+      currentUserData.juegoActivo = juegoOn;
     }
   } catch(e) {}
-  const juegoOn = currentUserData?.juegoActivo === true;
-  document.getElementById('content').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
+
+  // Construir HTML por partes para evitar problemas con template literals anidados
+  let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
       <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
       <div style="font-size:16px;font-weight:500">🗂️ Mantenedores</div>
     </div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Gestiona el catálogo de tu grupo.</div>
-
     <div class="card" onclick="showTab('mant-deseos')" style="cursor:pointer;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
         <div style="width:48px;height:48px;border-radius:14px;background:var(--rose-glow);display:flex;align-items:center;justify-content:center;font-size:24px">🔥</div>
@@ -4708,7 +4709,6 @@ async function renderMantenedores() {
         <div style="color:var(--text3);font-size:20px">›</div>
       </div>
     </div>
-
     <div class="card" onclick="showTab('mant-acciones')" style="cursor:pointer;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
         <div style="width:48px;height:48px;border-radius:14px;background:var(--teal-glow);display:flex;align-items:center;justify-content:center;font-size:24px">⚡</div>
@@ -4718,10 +4718,10 @@ async function renderMantenedores() {
         </div>
         <div style="color:var(--text3);font-size:20px">›</div>
       </div>
-    </div>
+    </div>`;
 
-    ${juegoOn ? `
-    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px;font-weight:600">🎭 Juego Verdad o Reto</div>
+  if (juegoOn) {
+    html += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px;font-weight:600">🎭 Juego Verdad o Reto</div>
     <div class="card" onclick="showTab('mant-juego-verdad')" style="cursor:pointer;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
         <div style="width:48px;height:48px;border-radius:14px;background:rgba(155,127,232,0.15);display:flex;align-items:center;justify-content:center;font-size:24px">💬</div>
@@ -4741,7 +4741,10 @@ async function renderMantenedores() {
         </div>
         <div style="color:var(--text3);font-size:20px">›</div>
       </div>
-    </div>` : ''}`;
+    </div>`;
+  }
+
+  document.getElementById('content').innerHTML = html;
 }
 
 // ===== MANTENEDOR DESEOS =====
