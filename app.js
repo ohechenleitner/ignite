@@ -3790,7 +3790,9 @@ function renderJuegoPartida() {
           cursor:${verdadBloqueada||verdadesDisp===0?'not-allowed':'pointer'};
           display:flex;flex-direction:column;align-items:center;gap:2px">
           ${verdadBloqueada||verdadesDisp===0 ? `
-            <span style="font-size:30px;opacity:0.5">💋</span>
+            <div style="width:100px;height:100px;display:flex;align-items:center;justify-content:center">
+              <span style="font-size:36px;opacity:0.4">💋</span>
+            </div>
           ` : `
           <div class="ign-stage">
             <div class="ign-aura verdad"></div>
@@ -3813,7 +3815,9 @@ function renderJuegoPartida() {
           cursor:${retosDisp===0?'not-allowed':'pointer'};
           display:flex;flex-direction:column;align-items:center;gap:2px">
           ${retosDisp===0 ? `
-            <span style="font-size:30px;opacity:0.5">💃</span>
+            <div style="width:100px;height:100px;display:flex;align-items:center;justify-content:center">
+              <span style="font-size:36px;opacity:0.4">💃</span>
+            </div>
           ` : `
           <div class="ign-stage">
             <div class="ign-aura reto"></div>
