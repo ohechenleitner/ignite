@@ -3355,75 +3355,98 @@ function renderJuegoPartida() {
   const verdadesDisp = getCartasDisponibles('verdad').length;
   const retosDisp = getCartasDisponibles('reto').length;
 
-  document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);padding:20px;display:flex;flex-direction:column">
+  const tieneRecuperar = juegoState.prendas.filter(pr=>pr.quien===p.nombre).length > 0;
+  const sinCartas = verdadesDisp === 0 && retosDisp === 0;
 
-      <!-- Header -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <button class="btn btn-outline btn-sm" onclick="if(confirm('¿Terminar la partida?')){terminarPartida()}" style="font-size:11px">✕ Salir</button>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="font-size:22px">${nd.icon}</div>
-          <div style="font-size:11px;font-weight:600;color:${nd.color};text-transform:uppercase;letter-spacing:1px">${nd.label}</div>
+  document.getElementById('content').innerHTML = `
+    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
+      padding:16px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box">
+
+      <!-- Header compacto -->
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <button onclick="confirmarTerminarPartida()"
+          style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);
+          background:rgba(255,255,255,0.04);color:var(--text2);font-size:12px;cursor:pointer">
+          ✕ Terminar
+        </button>
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.05);
+          padding:6px 14px;border-radius:20px;border:1px solid ${nd.color}33">
+          <span style="font-size:16px">${nd.icon}</span>
+          <span style="font-size:12px;font-weight:700;color:${nd.color};letter-spacing:1px">${nd.label}</span>
         </div>
-        <button class="btn btn-sm" onclick="mostrarOpcionesNivel()" 
-          style="font-size:11px;background:rgba(255,255,255,0.05);color:var(--text2);border:1px solid var(--border)">
+        <button onclick="mostrarOpcionesNivel()"
+          style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);
+          background:rgba(255,255,255,0.04);color:var(--text2);font-size:12px;cursor:pointer">
           ⬆️ Nivel
         </button>
       </div>
 
-      <!-- Prendas activas -->
+      <!-- Prendas activas (compacto) -->
       ${juegoState.prendas.length > 0 ? `
-      <div style="background:rgba(232,96,138,0.08);border:1px solid rgba(232,96,138,0.2);border-radius:12px;padding:10px;margin-bottom:14px">
-        <div style="font-size:10px;color:var(--rose);font-weight:600;text-transform:uppercase;margin-bottom:6px">👗 Prendas activas</div>
-        ${juegoState.prendas.map(pr=>`<div style="font-size:11px;color:var(--text2)">• ${pr.quien}: ${pr.texto}</div>`).join('')}
+      <div style="background:rgba(232,96,138,0.08);border:1px solid rgba(232,96,138,0.2);
+        border-radius:12px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px">
+        <span style="font-size:14px;flex-shrink:0">👗</span>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6">
+          ${juegoState.prendas.map(pr=>`<strong style="color:var(--rose)">${pr.quien}:</strong> ${pr.texto}`).join(' · ')}
+        </div>
       </div>` : ''}
 
-      <!-- Nombre del jugador -->
-      <div style="text-align:center;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 0">
-        <div style="font-size:13px;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Turno de</div>
-        <div style="font-family:var(--font-display);font-size:42px;font-weight:500;color:var(--text);margin-bottom:6px">${p.nombre}</div>
+      <!-- Card del jugador -->
+      <div style="background:linear-gradient(135deg,#120820,#0D1020);border:1px solid rgba(155,127,232,0.15);
+        border-radius:20px;padding:24px 20px;text-align:center">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Turno de</div>
+        <div style="font-family:var(--font-display);font-size:46px;font-weight:500;color:var(--text);
+          line-height:1;margin-bottom:8px">${p.nombre}</div>
         <div style="font-size:12px;color:var(--text3)">${p.genero} · ${p.orientacion}</div>
-
-        ${verdadesDisp === 0 && retosDisp === 0 ? `
-        <div style="margin-top:20px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);border-radius:12px;padding:12px;text-align:center">
-          <div style="font-size:13px;color:var(--amber)">⚠️ Se agotaron las cartas de este nivel</div>
-          <button class="btn btn-sm" style="margin-top:8px;background:var(--amber);color:#000" onclick="subirNivel()">⬆️ Subir nivel</button>
+        ${sinCartas ? `
+        <div style="margin-top:14px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);
+          border-radius:10px;padding:10px">
+          <div style="font-size:12px;color:var(--amber);margin-bottom:6px">⚠️ Se agotaron las cartas</div>
+          <button onclick="subirNivel()" style="padding:6px 16px;border-radius:20px;
+            background:var(--amber);color:#000;border:none;font-size:12px;font-weight:600;cursor:pointer">
+            ⬆️ Subir nivel
+          </button>
         </div>` : ''}
       </div>
 
       <!-- Botones Verdad / Reto -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <button onclick="seleccionarTipo('verdad')" 
-          ${verdadBloqueada || verdadesDisp===0 ? 'disabled' : ''}
-          style="padding:22px 10px;border-radius:18px;border:none;cursor:${verdadBloqueada||verdadesDisp===0?'not-allowed':'pointer'};
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button onclick="seleccionarTipo('verdad')"
+          ${verdadBloqueada||verdadesDisp===0?'disabled':''}
+          style="padding:20px 8px;border-radius:18px;border:1px solid ${verdadBloqueada||verdadesDisp===0?'var(--border)':'rgba(155,127,232,0.4)'};
           background:${verdadBloqueada||verdadesDisp===0?'var(--bg3)':'linear-gradient(135deg,#1A1230,#2A1A4A)'};
-          border:1px solid ${verdadBloqueada||verdadesDisp===0?'var(--border)':'rgba(155,127,232,0.4)'};
           opacity:${verdadBloqueada||verdadesDisp===0?'0.4':'1'};
-          display:flex;flex-direction:column;align-items:center;gap:8px">
-          <span style="font-size:36px">💬</span>
-          <span style="font-size:16px;font-weight:700;color:${verdadBloqueada?'var(--text3)':'var(--purple)'}">VERDAD</span>
-          ${verdadBloqueada ? '<span style="font-size:10px;color:var(--text3)">Bloqueada</span>' : `<span style="font-size:10px;color:rgba(155,127,232,0.6)">${verdadesDisp} disponibles</span>`}
+          cursor:${verdadBloqueada||verdadesDisp===0?'not-allowed':'pointer'};
+          display:flex;flex-direction:column;align-items:center;gap:6px">
+          <span style="font-size:32px">💬</span>
+          <span style="font-size:15px;font-weight:700;color:${verdadBloqueada?'var(--text3)':'var(--purple)'};letter-spacing:1px">VERDAD</span>
+          <span style="font-size:10px;color:${verdadBloqueada?'var(--text3)':'rgba(155,127,232,0.6)'}">
+            ${verdadBloqueada?'Bloqueada':verdadesDisp+' disponibles'}
+          </span>
         </button>
-
         <button onclick="seleccionarTipo('reto')"
-          ${retosDisp===0 ? 'disabled' : ''}
-          style="padding:22px 10px;border-radius:18px;border:none;cursor:${retosDisp===0?'not-allowed':'pointer'};
+          ${retosDisp===0?'disabled':''}
+          style="padding:20px 8px;border-radius:18px;border:1px solid ${retosDisp===0?'var(--border)':'rgba(232,96,138,0.4)'};
           background:${retosDisp===0?'var(--bg3)':'linear-gradient(135deg,#2A0A1A,#400A20)'};
-          border:1px solid ${retosDisp===0?'var(--border)':'rgba(232,96,138,0.4)'};
           opacity:${retosDisp===0?'0.4':'1'};
-          display:flex;flex-direction:column;align-items:center;gap:8px">
-          <span style="font-size:36px">⚡</span>
-          <span style="font-size:16px;font-weight:700;color:${retosDisp===0?'var(--text3)':'var(--rose)'}">RETO</span>
-          ${retosDisp===0 ? '<span style="font-size:10px;color:var(--text3)">Sin cartas</span>' : `<span style="font-size:10px;color:rgba(232,96,138,0.6)">${retosDisp} disponibles</span>`}
+          cursor:${retosDisp===0?'not-allowed':'pointer'};
+          display:flex;flex-direction:column;align-items:center;gap:6px">
+          <span style="font-size:32px">⚡</span>
+          <span style="font-size:15px;font-weight:700;color:${retosDisp===0?'var(--text3)':'var(--rose)'};letter-spacing:1px">RETO</span>
+          <span style="font-size:10px;color:${retosDisp===0?'var(--text3)':'rgba(232,96,138,0.6)'}">
+            ${retosDisp===0?'Sin cartas':retosDisp+' disponibles'}
+          </span>
         </button>
       </div>
 
-      <button onclick="mostrarOpcionesPasar()" 
-        style="padding:14px;border-radius:12px;border:1px solid rgba(245,166,35,0.3);background:rgba(245,166,35,0.06);color:var(--amber);font-size:13px;font-weight:600;cursor:pointer">
+      <!-- Pasar + Recuperar prenda -->
+      <button onclick="mostrarOpcionesPasar()"
+        style="padding:14px;border-radius:12px;border:1px solid rgba(245,166,35,0.3);
+        background:rgba(245,166,35,0.06);color:var(--amber);font-size:13px;font-weight:600;cursor:pointer">
         ⏭️ Pasar — elegir consecuencia
       </button>
 
-      ${juegoState.prendas.filter(pr=>pr.quien===p.nombre).length > 0 ? `
+      ${tieneRecuperar ? `
       <button onclick="intentarRecuperarPrenda()"
         style="padding:12px;border-radius:12px;border:1px solid rgba(155,127,232,0.3);
         background:rgba(155,127,232,0.06);color:var(--purple);font-size:12px;font-weight:600;
@@ -3431,6 +3454,7 @@ function renderJuegoPartida() {
         <span style="font-size:16px">🎰</span>
         <span>Recuperar prenda — reto extremo</span>
       </button>` : ''}
+
     </div>`;
 }
 
