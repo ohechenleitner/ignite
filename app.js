@@ -3345,7 +3345,8 @@ function guardarInteraccionesPct() {
 
 // ===== PASO 3: REGLAS Y FIRMA DIGITAL =====
 function mostrarReglasJuego() {
-  juegoState.firmas = {};
+  // No borrar firmas existentes — pueden venir restauradas desde Firestore
+  if (!juegoState.firmas) juegoState.firmas = {};
   const timerV = juegoState.config.timerVerdad;
   const timerR = juegoState.config.timerReto;
 
@@ -3388,23 +3389,60 @@ function mostrarReglasJuego() {
           Cada participante confirma que: <strong style="color:var(--text)">leyó las reglas, tiene 18+ años y consiente participar voluntariamente.</strong>
         </div>
         <div id="firmas-container">
-          ${juegoState.participantes.map(p => `
-            <div id="firma-${p.id}" onclick="firmarConsentimiento('${p.id}')" 
+          ${juegoState.participantes.map(p => {
+            const yaFirmo = !!juegoState.firmas[p.id];
+            if (yaFirmo) {
+              return `<div id="firma-${p.id}" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:rgba(78,203,160,0.1);border-radius:10px;margin-bottom:8px;border:1px solid rgba(78,203,160,0.4);cursor:default">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font-size:28px">✅</span>
+                  <div>
+                    <div style="font-size:13px;font-weight:600;color:var(--teal)">${p.nombre}</div>
+                    <div style="font-size:11px;color:var(--text2)">✍️ Firmado · 18+ confirmado</div>
+                  </div>
+                </div>
+                <span style="margin-left:auto;font-size:18px">✅</span>
+              </div>`;
+            }
+            return `<div id="firma-${p.id}" onclick="firmarConsentimiento('${p.id}')" 
               style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg3);border-radius:10px;margin-bottom:8px;cursor:pointer;border:1px solid var(--border);transition:all 0.2s">
               <div style="display:flex;align-items:center;gap:10px">
                 <span style="font-size:20px">${p.genero==='mujer'?'👩':'👨'}</span>
                 <span style="font-size:13px;font-weight:500">${p.nombre}</span>
               </div>
               <div style="font-size:12px;color:var(--text3)">Toca para firmar</div>
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>
       </div>
 
-      <button id="btn-iniciar" class="btn btn-full" disabled
-        style="padding:18px;font-size:16px;font-weight:600;background:var(--bg3);color:var(--text3);border-radius:14px;border:none;cursor:not-allowed">
-        Esperando firmas... (0/${juegoState.participantes.length})
+      <button id="btn-iniciar" class="btn btn-full"
+        style="padding:18px;font-size:16px;font-weight:600;border-radius:14px;border:none">
+        Esperando firmas...
       </button>
     </div>`;
+
+  // Calcular estado inicial del botón según firmas ya existentes
+  setTimeout(() => {
+    const totalFirmas = Object.keys(juegoState.firmas).length;
+    const total = juegoState.participantes.length;
+    const btn = document.getElementById('btn-iniciar');
+    if (btn) {
+      if (totalFirmas === total && total > 0) {
+        btn.disabled = false;
+        btn.textContent = '🎭 ¡Todos firmaron! Iniciar partida';
+        btn.style.background = 'linear-gradient(135deg,var(--rose),#C41A5E)';
+        btn.style.color = 'white';
+        btn.style.cursor = 'pointer';
+        btn.onclick = iniciarPartida;
+      } else {
+        btn.disabled = true;
+        btn.style.background = 'var(--bg3)';
+        btn.style.color = 'var(--text3)';
+        btn.style.cursor = 'not-allowed';
+        btn.textContent = `Esperando firmas... (${totalFirmas}/${total})`;
+      }
+    }
+  }, 0);
 }
 
 // ===== FIRMA DIGITAL + CONFIRMACIÓN DE EDAD =====
@@ -3818,9 +3856,9 @@ function seleccionarTipo(tipo) {
   const cartas = getCartasDisponibles(tipo);
   if (cartas.length === 0) { showToast('No hay cartas disponibles'); return; }
 
-  // Bloquear verdad si se eligió
+  // Bloquear verdad si se eligió — se bloquea en SU próximo turno real (turnoIdx + cantidad de jugadores)
   if (tipo === 'verdad') {
-    juegoState.verdadBloqueadaEn[p.id] = juegoState.turnoIdx + 1;
+    juegoState.verdadBloqueadaEn[p.id] = juegoState.turnoIdx + juegoState.participantes.length;
   }
 
   // Pantalla de ruleta con FX animado de marca
