@@ -2976,6 +2976,12 @@ async function guardarEstadoJuego() {
   try {
     const gid = currentUserData?.groupId;
     if (!gid) return;
+    // Guardar firmas solo como flags (timestamp) — las imágenes son muy grandes para Firestore
+    const firmasGuardadas = {};
+    Object.keys(juegoState.firmas).forEach(id => {
+      const f = juegoState.firmas[id];
+      firmasGuardadas[id] = typeof f === 'object' ? { timestamp: f.timestamp, firmado: true } : { timestamp: f, firmado: true };
+    });
     await db.collection('groups').doc(gid).update({
       juegoEstado: {
         participantes: juegoState.participantes,
@@ -2987,6 +2993,7 @@ async function guardarEstadoJuego() {
         verdadBloqueadaEn: juegoState.verdadBloqueadaEn,
         usadas: Array.from(juegoState.usadas),
         historial: juegoState.historial,
+        firmas: firmasGuardadas,
         activo: true,
         updatedAt: Date.now(),
       }
@@ -3010,6 +3017,7 @@ async function cargarEstadoJuego() {
     juegoState.verdadBloqueadaEn = est.verdadBloqueadaEn || {};
     juegoState.usadas = new Set(est.usadas || []);
     juegoState.historial = est.historial || [];
+    juegoState.firmas = est.firmas || {};
     return true;
   } catch(e) { return false; }
 }
@@ -3528,8 +3536,10 @@ function completarFirma(selfieImg) {
     timestamp: Date.now(),
     firma: juegoState._firmaTemp || null,
     selfie: selfieImg || null,
+    firmado: true,
   };
   delete juegoState._firmaTemp;
+  guardarEstadoJuego(); // Persistir firma en Firestore
   closeModalDirect();
 
   // Actualizar UI del botón de firma
@@ -3655,8 +3665,8 @@ function renderJuegoPartida() {
   const sinCartas = verdadesDisp === 0 && retosDisp === 0;
 
   document.getElementById('content').innerHTML = `
-    <div style="height:calc(100vh - 60px);background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
-      padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:hidden">
+    <div style="position:fixed;inset:0;z-index:50;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
+      padding:16px 16px 80px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:hidden">
 
       <!-- Header compacto -->
       <div style="display:flex;align-items:center;justify-content:space-between">
