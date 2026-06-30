@@ -3742,16 +3742,26 @@ function renderJuegoPartida() {
         </div>` : ''}
       </div>
 
-      <!-- Botones Verdad / Reto -->
+      <!-- Botones Verdad / Reto con FX animado -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <button onclick="seleccionarTipo('verdad')"
           ${verdadBloqueada||verdadesDisp===0?'disabled':''}
-          style="padding:20px 8px;border-radius:18px;border:1px solid ${verdadBloqueada||verdadesDisp===0?'var(--border)':'rgba(155,127,232,0.4)'};
+          style="padding:14px 8px 10px;border-radius:18px;border:1px solid ${verdadBloqueada||verdadesDisp===0?'var(--border)':'rgba(155,127,232,0.4)'};
           background:${verdadBloqueada||verdadesDisp===0?'var(--bg3)':'linear-gradient(135deg,#1A1230,#2A1A4A)'};
-          opacity:${verdadBloqueada||verdadesDisp===0?'0.4':'1'};
+          opacity:${verdadBloqueada||verdadesDisp===0?'0.45':'1'};
           cursor:${verdadBloqueada||verdadesDisp===0?'not-allowed':'pointer'};
-          display:flex;flex-direction:column;align-items:center;gap:6px">
-          <span style="font-size:32px">💬</span>
+          display:flex;flex-direction:column;align-items:center;gap:2px">
+          ${verdadBloqueada||verdadesDisp===0 ? `
+            <span style="font-size:30px;opacity:0.5">💋</span>
+          ` : `
+          <div class="ign-stage">
+            <div class="ign-aura verdad"></div>
+            <div class="ign-orbit verdad"></div>
+            <span class="ign-particle ign-mist"></span>
+            <span class="ign-particle ign-mist"></span>
+            <span class="ign-particle ign-mist"></span>
+            <div class="ign-emoji verdad" style="color:#9B7FE8">💋</div>
+          </div>`}
           <span style="font-size:15px;font-weight:700;color:${verdadBloqueada?'var(--text3)':'var(--purple)'};letter-spacing:1px">VERDAD</span>
           <span style="font-size:10px;color:${verdadBloqueada?'var(--text3)':'rgba(155,127,232,0.6)'}">
             ${verdadBloqueada?'Bloqueada':verdadesDisp+' disponibles'}
@@ -3759,12 +3769,23 @@ function renderJuegoPartida() {
         </button>
         <button onclick="seleccionarTipo('reto')"
           ${retosDisp===0?'disabled':''}
-          style="padding:20px 8px;border-radius:18px;border:1px solid ${retosDisp===0?'var(--border)':'rgba(232,96,138,0.4)'};
+          style="padding:14px 8px 10px;border-radius:18px;border:1px solid ${retosDisp===0?'var(--border)':'rgba(232,96,138,0.4)'};
           background:${retosDisp===0?'var(--bg3)':'linear-gradient(135deg,#2A0A1A,#400A20)'};
-          opacity:${retosDisp===0?'0.4':'1'};
+          opacity:${retosDisp===0?'0.45':'1'};
           cursor:${retosDisp===0?'not-allowed':'pointer'};
-          display:flex;flex-direction:column;align-items:center;gap:6px">
-          <span style="font-size:32px">⚡</span>
+          display:flex;flex-direction:column;align-items:center;gap:2px">
+          ${retosDisp===0 ? `
+            <span style="font-size:30px;opacity:0.5">💃</span>
+          ` : `
+          <div class="ign-stage">
+            <div class="ign-aura reto"></div>
+            <div class="ign-orbit reto"></div>
+            <span class="ign-particle ign-ember"></span>
+            <span class="ign-particle ign-ember"></span>
+            <span class="ign-particle ign-ember"></span>
+            <span class="ign-particle ign-ember"></span>
+            <div class="ign-emoji reto" style="color:#E8608A">💃</div>
+          </div>`}
           <span style="font-size:15px;font-weight:700;color:${retosDisp===0?'var(--text3)':'var(--rose)'};letter-spacing:1px">RETO</span>
           <span style="font-size:10px;color:${retosDisp===0?'var(--text3)':'rgba(232,96,138,0.6)'}">
             ${retosDisp===0?'Sin cartas':retosDisp+' disponibles'}
@@ -3802,23 +3823,33 @@ function seleccionarTipo(tipo) {
     juegoState.verdadBloqueadaEn[p.id] = juegoState.turnoIdx + 1;
   }
 
-  // Pantalla de ruleta
+  // Pantalla de ruleta con FX animado de marca
   const nd = { suave:{icon:'🟢',color:'var(--teal)'}, medio:{icon:'🌶️',color:'var(--amber)'}, hard:{icon:'🔥',color:'var(--rose)'} };
   const c = nd[juegoState.nivel];
-  const tipoIcon = tipo === 'verdad' ? '💬' : '⚡';
   const tipoColor = tipo === 'verdad' ? 'var(--purple)' : 'var(--rose)';
   const tipoLabel = tipo === 'verdad' ? 'VERDAD' : 'RETO';
+  const fxClass = tipo === 'verdad' ? 'verdad' : 'reto';
+  const fxEmoji = tipo === 'verdad' ? '💋' : '💃';
+  const fxColor = tipo === 'verdad' ? '#9B7FE8' : '#E8608A';
+  const particulas = tipo === 'verdad'
+    ? '<span class="ign-particle ign-mist"></span><span class="ign-particle ign-mist"></span><span class="ign-particle ign-mist"></span>'
+    : '<span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span>';
 
   document.getElementById('content').innerHTML = `
     <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px">
       <div style="font-size:16px;font-weight:600;color:${tipoColor};margin-bottom:8px;text-transform:uppercase;letter-spacing:2px">${tipoLabel}</div>
-      <div style="font-size:14px;color:var(--text2);margin-bottom:40px">${p.nombre} · ${c.icon} ${juegoState.nivel}</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:32px">${p.nombre} · ${c.icon} ${juegoState.nivel}</div>
 
-      <!-- Ruleta -->
-      <div id="ruleta" style="position:relative;width:200px;height:200px;margin-bottom:40px">
-        <div style="position:absolute;inset:0;border-radius:50%;border:3px solid ${tipoColor};background:radial-gradient(circle,${tipoColor}22,transparent)"></div>
-        <div id="ruleta-spinner" style="position:absolute;inset:10px;border-radius:50%;border:2px dashed ${tipoColor}44;display:flex;align-items:center;justify-content:center;font-size:72px;animation:spin 0.3s linear infinite">
-          ${tipoIcon}
+      <!-- Ruleta con FX -->
+      <div id="ruleta" style="position:relative;width:200px;height:200px;margin-bottom:32px">
+        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid ${tipoColor}33"></div>
+        <div id="ruleta-spinner" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;animation:ignWheelSpin 0.5s linear infinite">
+          <div class="ign-stage lg">
+            <div class="ign-aura ${fxClass}"></div>
+            <div class="ign-orbit ${fxClass}"></div>
+            ${particulas}
+            <div class="ign-emoji ${fxClass}" style="color:${fxColor}">${fxEmoji}</div>
+          </div>
         </div>
         <!-- Marcador -->
         <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:24px;z-index:10">▼</div>
@@ -3828,8 +3859,8 @@ function seleccionarTipo(tipo) {
     </div>
 
     <style>
-      @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-      @keyframes spinSlow { from{transform:rotate(0deg)} to{transform:rotate(1080deg)} }
+      @keyframes ignWheelSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      @keyframes ignWheelSpinSlow { from{transform:rotate(0deg)} to{transform:rotate(1080deg)} }
       @keyframes flipIn {
         0% { transform: perspective(600px) rotateY(-90deg); opacity:0; }
         100% { transform: perspective(600px) rotateY(0deg); opacity:1; }
@@ -3844,7 +3875,7 @@ function seleccionarTipo(tipo) {
   setTimeout(() => {
     const spinner = document.getElementById('ruleta-spinner');
     const msg = document.getElementById('ruleta-msg');
-    if (spinner) spinner.style.animation = 'spinSlow 1.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards';
+    if (spinner) spinner.style.animation = 'ignWheelSpinSlow 1.5s cubic-bezier(0.25,0.46,0.45,0.94) forwards';
     if (msg) msg.textContent = '🎲 Seleccionando...';
     setTimeout(() => mostrarCarta(carta, tipo, p, otro), 1800);
   }, 200);
@@ -3872,8 +3903,13 @@ function mostrarCarta(carta, tipo, jugador, otro) {
     ? 'linear-gradient(135deg,#120E2A,#1E1540)'
     : 'linear-gradient(135deg,#2A0A14,#3D0E1E)';
   const cardBorder = esVerdad ? 'rgba(155,127,232,0.4)' : 'rgba(232,96,138,0.4)';
-  const tipoIcon = esVerdad ? '💬' : '⚡';
+  const tipoIcon = esVerdad ? '💋' : '💃';
   const tipoColor = esVerdad ? 'var(--purple)' : 'var(--rose)';
+  const fxClassCarta = esVerdad ? 'verdad' : 'reto';
+  const fxColorCarta = esVerdad ? '#9B7FE8' : '#E8608A';
+  const particulasCarta = esVerdad
+    ? '<span class="ign-particle ign-mist"></span><span class="ign-particle ign-mist"></span><span class="ign-particle ign-mist"></span>'
+    : '<span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span>';
 
   document.getElementById('content').innerHTML = `
     <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);padding:20px 20px 90px 20px;display:flex;flex-direction:column">
@@ -3882,7 +3918,7 @@ function mostrarCarta(carta, tipo, jugador, otro) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div style="font-size:13px;color:var(--text2)">${jugador.nombre}</div>
         <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:18px">${tipoIcon}</span>
+          <span style="font-size:16px">${tipoIcon}</span>
           <span style="font-size:11px;font-weight:700;color:${tipoColor};text-transform:uppercase;letter-spacing:1px">${tipo}</span>
           ${esPrenda ? '<span style="font-size:10px;background:rgba(232,96,138,0.2);color:var(--rose);padding:2px 8px;border-radius:10px;font-weight:600">👗 PRENDA</span>' : ''}
         </div>
@@ -3901,9 +3937,14 @@ function mostrarCarta(carta, tipo, jugador, otro) {
               ${juegoState.nivel === 'suave' ? '🟢 SOFT' : juegoState.nivel === 'medio' ? '🌶️ MEDIO' : '🔥 HARD'}
             </div>
 
-            <!-- Icono grande -->
+            <!-- Icono grande animado -->
             <div style="text-align:center;margin-bottom:18px">
-              <div style="font-size:52px;filter:drop-shadow(0 0 20px ${tipoColor})">${tipoIcon}</div>
+              <div class="ign-stage">
+                <div class="ign-aura ${fxClassCarta}"></div>
+                <div class="ign-orbit ${fxClassCarta}"></div>
+                ${particulasCarta}
+                <div class="ign-emoji ${fxClassCarta}" style="color:${fxColorCarta}">${tipoIcon}</div>
+              </div>
             </div>
 
             <!-- Texto de la carta -->
