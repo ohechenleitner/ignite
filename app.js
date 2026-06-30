@@ -3058,7 +3058,7 @@ async function renderJuego() {
       await cargarEstadoJuego();
     }
 
-    let html = `<div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F 0%,#1A0520 50%,#0A0A0F 100%);padding:20px">
+    let html = `<div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F 0%,#1A0520 50%,#0A0A0F 100%);padding:20px 20px 90px 20px">
 
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
         <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
@@ -3097,7 +3097,7 @@ async function renderJuego() {
 
     if (juegoState.participantes.length >= 2) {
       // Mostrar resumen de interacciones configuradas
-      const totalInteracciones = Object.values(juegoState.interacciones).reduce((s, arr) => s + arr.length, 0);
+      const totalInteracciones = Object.values(juegoState.interacciones).reduce((s, obj) => s + Object.keys(obj).length, 0);
       html += `<div class="card" style="margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div style="font-size:13px;font-weight:600">🔗 Interacciones</div>
@@ -3106,10 +3106,14 @@ async function renderJuego() {
 
       if (totalInteracciones > 0) {
         juegoState.participantes.forEach(p => {
-          const con = (juegoState.interacciones[p.id] || []).map(id => juegoState.participantes.find(x=>x.id===id)?.nombre).filter(Boolean);
+          const interObj = juegoState.interacciones[p.id] || {};
+          const con = Object.entries(interObj).map(([id, pct]) => {
+            const nombre = juegoState.participantes.find(x=>x.id===id)?.nombre;
+            return nombre ? `${nombre} (${pct}%)` : null;
+          }).filter(Boolean);
           if (con.length > 0) {
             html += `<div style="font-size:12px;color:var(--text2);margin-bottom:4px">
-              <strong style="color:var(--text)">${p.nombre}</strong> ↔ ${con.join(', ')}
+              <strong style="color:var(--text)">${p.nombre}</strong> → ${con.join(', ')}
             </div>`;
           }
         });
@@ -3190,7 +3194,17 @@ function quitarParticipante(idx) {
   // Limpiar interacciones
   delete juegoState.interacciones[p.id];
   Object.keys(juegoState.interacciones).forEach(k => {
-    juegoState.interacciones[k] = juegoState.interacciones[k].filter(id => id !== p.id);
+    if (juegoState.interacciones[k][p.id] !== undefined) {
+      delete juegoState.interacciones[k][p.id];
+      // Redistribuir el 100% entre los que quedan
+      const restantes = Object.keys(juegoState.interacciones[k]);
+      if (restantes.length > 0) {
+        const pctIgual = Math.floor(100 / restantes.length);
+        restantes.forEach(id => { juegoState.interacciones[k][id] = pctIgual; });
+        const resto = 100 - (pctIgual * restantes.length);
+        juegoState.interacciones[k][restantes[0]] += resto;
+      }
+    }
   });
   delete juegoState.firmas[p.id];
   juegoState.participantes.splice(idx, 1);
@@ -3199,6 +3213,8 @@ function quitarParticipante(idx) {
 }
 
 // ===== PASO 2: CONFIGURAR INTERACCIONES =====
+// ===== INTERACCIONES CON PORCENTAJE (0-100, suman 100 siempre) =====
+// Estructura: juegoState.interacciones[idA] = { idB: 80, idC: 20 }
 function configurarInteracciones() {
   const ps = juegoState.participantes;
   let html = `<div class="modal-overlay" onclick="closeModal(event)">
@@ -3206,40 +3222,125 @@ function configurarInteracciones() {
       <div class="modal-handle"></div>
       <div style="font-size:15px;font-weight:600;margin-bottom:6px">🔗 Interacciones</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.5">
-        Para cada persona, selecciona con quién puede interactuar en el juego.
+        Activa con quién interactúa cada persona y define qué % de las cartas le tocan a cada interactuante.
       </div>`;
 
   ps.forEach(p => {
-    const actuales = juegoState.interacciones[p.id] || [];
-    html += `<div style="margin-bottom:16px;background:var(--bg3);border-radius:12px;padding:12px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)">
+    const actuales = juegoState.interacciones[p.id] || {};
+    html += `<div style="margin-bottom:16px;background:var(--bg3);border-radius:14px;padding:14px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text)">
         ${p.genero==='mujer'?'👩':'👨'} ${p.nombre} interactúa con:
       </div>`;
     ps.filter(o => o.id !== p.id).forEach(otro => {
-      const checked = actuales.includes(otro.id);
-      html += `<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px">
-        <input type="checkbox" ${checked?'checked':''} 
-          onchange="toggleInteraccion('${p.id}','${otro.id}',this.checked)"
-          style="width:18px;height:18px;accent-color:var(--rose)">
-        <span style="font-size:13px">${otro.genero==='mujer'?'👩':'👨'} ${otro.nombre}</span>
-      </label>`;
+      const activo = otro.id in actuales;
+      const pct = actuales[otro.id] || 0;
+      html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <input type="checkbox" ${activo?'checked':''}
+          onchange="toggleInteraccionPct('${p.id}','${otro.id}',this.checked)"
+          style="width:18px;height:18px;accent-color:var(--rose);flex-shrink:0">
+        <span style="font-size:13px;flex:1">${otro.genero==='mujer'?'👩':'👨'} ${otro.nombre}</span>
+        <div id="pct-wrap-${p.id}-${otro.id}" style="display:${activo?'flex':'none'};align-items:center;gap:6px">
+          <input type="range" min="0" max="100" value="${pct}"
+            id="pct-slider-${p.id}-${otro.id}"
+            oninput="ajustarPorcentaje('${p.id}','${otro.id}',parseInt(this.value))"
+            style="width:80px;accent-color:var(--rose)">
+          <span id="pct-val-${p.id}-${otro.id}" style="font-size:12px;font-weight:600;color:var(--rose);min-width:32px;text-align:right">${pct}%</span>
+        </div>
+      </div>`;
     });
     html += `</div>`;
   });
 
-  html += `<button class="btn btn-primary btn-full" onclick="closeModalDirect();guardarEstadoJuego();renderJuego()">✓ Guardar interacciones</button>
+  html += `<button class="btn btn-primary btn-full" onclick="guardarInteraccionesPct()">✓ Guardar interacciones</button>
     </div>
   </div>`;
   document.getElementById('modal-container').innerHTML = html;
 }
 
-function toggleInteraccion(idA, idB, activo) {
-  if (!juegoState.interacciones[idA]) juegoState.interacciones[idA] = [];
+function toggleInteraccionPct(idA, idB, activo) {
+  if (!juegoState.interacciones[idA]) juegoState.interacciones[idA] = {};
+  const inter = juegoState.interacciones[idA];
+  const wrap = document.getElementById(`pct-wrap-${idA}-${idB}`);
+
   if (activo) {
-    if (!juegoState.interacciones[idA].includes(idB)) juegoState.interacciones[idA].push(idB);
+    // Activar: repartir equitativamente entre todos los activos
+    const activos = Object.keys(inter);
+    const totalActivos = activos.length + 1;
+    const pctIgual = Math.floor(100 / totalActivos);
+    inter[idB] = pctIgual;
+    activos.forEach(id => { inter[id] = pctIgual; });
+    // Ajustar el primero para que sume exactamente 100
+    const resto = 100 - (pctIgual * totalActivos);
+    if (resto !== 0 && activos.length > 0) inter[activos[0]] += resto;
+    else if (resto !== 0) inter[idB] += resto;
+    if (wrap) wrap.style.display = 'flex';
   } else {
-    juegoState.interacciones[idA] = juegoState.interacciones[idA].filter(id => id !== idB);
+    delete inter[idB];
+    if (wrap) wrap.style.display = 'none';
+    // Redistribuir el 100% entre los que quedan activos
+    const restantes = Object.keys(inter);
+    if (restantes.length > 0) {
+      const pctIgual = Math.floor(100 / restantes.length);
+      restantes.forEach(id => { inter[id] = pctIgual; });
+      const resto = 100 - (pctIgual * restantes.length);
+      inter[restantes[0]] += resto;
+    }
   }
+  // Refrescar todos los sliders visibles para esta persona
+  refrescarSlidersPct(idA);
+}
+
+function ajustarPorcentaje(idA, idBCambiado, nuevoValor) {
+  const inter = juegoState.interacciones[idA];
+  if (!inter) return;
+  const ids = Object.keys(inter);
+  if (ids.length === 1) {
+    inter[idBCambiado] = 100; // único interactuante siempre 100%
+    refrescarSlidersPct(idA);
+    return;
+  }
+
+  nuevoValor = Math.max(0, Math.min(100, nuevoValor));
+  inter[idBCambiado] = nuevoValor;
+  const restante = 100 - nuevoValor;
+  const otrosIds = ids.filter(id => id !== idBCambiado);
+  const sumaOtros = otrosIds.reduce((s, id) => s + (inter[id] || 0), 0);
+
+  if (sumaOtros === 0) {
+    // Repartir equitativo entre los otros
+    const pctIgual = Math.floor(restante / otrosIds.length);
+    otrosIds.forEach((id, i) => { inter[id] = i === 0 ? restante - pctIgual * (otrosIds.length - 1) : pctIgual; });
+  } else {
+    // Repartir proporcionalmente a su peso actual
+    let acumulado = 0;
+    otrosIds.forEach((id, i) => {
+      if (i === otrosIds.length - 1) {
+        inter[id] = restante - acumulado; // el último ajusta el resto exacto
+      } else {
+        const proporcion = (inter[id] || 0) / sumaOtros;
+        const valor = Math.round(restante * proporcion);
+        inter[id] = valor;
+        acumulado += valor;
+      }
+    });
+  }
+  refrescarSlidersPct(idA);
+}
+
+function refrescarSlidersPct(idA) {
+  const inter = juegoState.interacciones[idA] || {};
+  Object.keys(inter).forEach(idB => {
+    const slider = document.getElementById(`pct-slider-${idA}-${idB}`);
+    const val = document.getElementById(`pct-val-${idA}-${idB}`);
+    if (slider) slider.value = inter[idB];
+    if (val) val.textContent = inter[idB] + '%';
+  });
+}
+
+function guardarInteraccionesPct() {
+  closeModalDirect();
+  guardarEstadoJuego();
+  renderJuego();
 }
 
 // ===== PASO 3: REGLAS Y FIRMA DIGITAL =====
@@ -3249,7 +3350,7 @@ function mostrarReglasJuego() {
   const timerR = juegoState.config.timerReto;
 
   document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px">
+    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px 20px 90px 20px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
         <button class="btn btn-outline btn-sm" onclick="renderJuego()">← Volver</button>
         <div style="font-size:16px;font-weight:500">📋 Reglas del juego</div>
@@ -3306,7 +3407,7 @@ function mostrarReglasJuego() {
     </div>`;
 }
 
-// ===== FIRMA DIGITAL + SELFIE =====
+// ===== FIRMA DIGITAL + CONFIRMACIÓN DE EDAD =====
 let _firmaParticipanteActual = null;
 let _firmaCanvas = null;
 let _firmaCtx = null;
@@ -3332,7 +3433,7 @@ function firmarConsentimiento(participanteId) {
       <!-- Instrucción -->
       <div style="padding:12px 20px;background:#f9f9f9;border-bottom:1px solid #eee">
         <div style="font-size:12px;color:#666;text-align:center">
-          ✍️ Firma con tu dedo en el espacio de abajo · Confirmo que leí las reglas y tengo 18+ años
+          ✍️ Firma con tu dedo en el espacio de abajo
         </div>
       </div>
 
@@ -3349,9 +3450,15 @@ function firmarConsentimiento(participanteId) {
         </div>
       </div>
 
-      <!-- Botón confirmar -->
+      <!-- Checkbox de edad + confirmar -->
       <div style="padding:16px 20px;background:#fff;border-top:1px solid #eee">
-        <button id="btn-confirmar-firma" onclick="confirmarFirmaYSelfie()"
+        <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;cursor:pointer">
+          <input type="checkbox" id="check-edad-firma" style="width:20px;height:20px;margin-top:1px;accent-color:#111;flex-shrink:0">
+          <span style="font-size:13px;color:#333;line-height:1.5">
+            Confirmo que <strong>soy mayor de 18 años</strong> y que leí y acepto las reglas del juego.
+          </span>
+        </label>
+        <button id="btn-confirmar-firma" onclick="confirmarFirma()"
           style="width:100%;padding:16px;border-radius:14px;background:#111;color:#fff;
           border:none;font-size:16px;font-weight:600;cursor:pointer">
           Confirmar firma →
@@ -3405,7 +3512,6 @@ function firmarConsentimiento(participanteId) {
 
     canvas.addEventListener('touchend', () => { _firmaDibujando = false; });
 
-    // Mouse (desktop)
     canvas.addEventListener('mousedown', (e) => {
       _firmaDibujando = true;
       const pos = getPos(e);
@@ -3432,115 +3538,25 @@ function limpiarFirma() {
   if (ph) ph.style.display = 'flex';
 }
 
-function confirmarFirmaYSelfie() {
+function confirmarFirma() {
   if (!_firmaCanvas || _firmaCtx?.firmaVacia) {
     alert('Por favor firma antes de continuar');
     return;
   }
-  // Guardar imagen de la firma
-  const firmaImg = _firmaCanvas.toDataURL('image/png');
-  juegoState._firmaTemp = firmaImg;
-
-  // Cerrar modal de firma y abrir cámara frontal para selfie
-  document.getElementById('modal-container').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column">
-      <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
-        <button onclick="closeModalDirect()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer">✕</button>
-        <div style="color:#fff;font-size:14px;font-weight:600">📸 Selfie de verificación</div>
-        <div style="width:40px"></div>
-      </div>
-      <div style="flex:1;position:relative">
-        <video id="selfie-video" autoplay playsinline
-          style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)"></video>
-        <div style="position:absolute;bottom:30px;left:0;right:0;text-align:center">
-          <div style="color:#fff;font-size:12px;opacity:0.7;margin-bottom:16px">
-            Mira a la cámara y toca el botón
-          </div>
-          <button onclick="tomarSelfie()"
-            style="width:72px;height:72px;border-radius:50%;border:4px solid #fff;
-            background:rgba(255,255,255,0.2);cursor:pointer;font-size:28px">
-            📸
-          </button>
-        </div>
-      </div>
-      <canvas id="selfie-canvas" style="display:none"></canvas>
-    </div>`;
-
-  // Iniciar cámara frontal
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-    .then(stream => {
-      const video = document.getElementById('selfie-video');
-      if (video) {
-        video.srcObject = stream;
-        window._selfieStream = stream;
-      }
-    })
-    .catch(() => {
-      // Sin cámara — saltar selfie y completar firma
-      completarFirma(null);
-    });
-}
-
-function tomarSelfie() {
-  const video = document.getElementById('selfie-video');
-  const canvas = document.getElementById('selfie-canvas');
-  if (!video || !canvas) return;
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.translate(canvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, 0, 0);
-
-  const selfieImg = canvas.toDataURL('image/jpeg', 0.7);
-
-  // Detener cámara
-  if (window._selfieStream) {
-    window._selfieStream.getTracks().forEach(t => t.stop());
-    window._selfieStream = null;
+  const checkEdad = document.getElementById('check-edad-firma')?.checked;
+  if (!checkEdad) {
+    alert('Debes confirmar que eres mayor de 18 años');
+    return;
   }
 
-  // Mostrar preview para confirmar
-  document.getElementById('modal-container').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column">
-      <div style="padding:16px 20px;color:#fff;font-size:14px;font-weight:600;text-align:center">
-        ¿Usar esta foto?
-      </div>
-      <div style="flex:1;position:relative">
-        <img src="${selfieImg}" style="width:100%;height:100%;object-fit:cover">
-      </div>
-      <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <button onclick="repetirSelfie()"
-          style="padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.3);
-          background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer">
-          🔄 Repetir
-        </button>
-        <button onclick="completarFirma('${selfieImg.replace(/'/g, "\'")}')"
-          style="padding:14px;border-radius:12px;border:none;
-          background:#fff;color:#000;font-size:14px;font-weight:600;cursor:pointer">
-          ✓ Usar esta
-        </button>
-      </div>
-    </div>`;
-}
-
-function repetirSelfie() {
-  confirmarFirmaYSelfie();
-}
-
-function completarFirma(selfieImg) {
   const participanteId = _firmaParticipanteActual;
-  // Guardar firma en el estado
   juegoState.firmas[participanteId] = {
     timestamp: Date.now(),
-    firma: juegoState._firmaTemp || null,
-    selfie: selfieImg || null,
     firmado: true,
+    confirmoEdad: true,
   };
-  delete juegoState._firmaTemp;
-  guardarEstadoJuego(); // Persistir firma en Firestore
   closeModalDirect();
+  guardarEstadoJuego();
 
   // Actualizar UI del botón de firma
   const el = document.getElementById('firma-' + participanteId);
@@ -3552,10 +3568,10 @@ function completarFirma(selfieImg) {
     el.onclick = null;
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px">
-        ${selfieImg ? `<img src="${selfieImg}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--teal)">` : '<span style="font-size:28px">✅</span>'}
+        <span style="font-size:28px">✅</span>
         <div>
           <div style="font-size:13px;font-weight:600;color:var(--teal)">${p?.nombre}</div>
-          <div style="font-size:11px;color:var(--text2)">✍️ Firmado · 📸 ${selfieImg?'Verificado':'Sin selfie'}</div>
+          <div style="font-size:11px;color:var(--text2)">✍️ Firmado · 18+ confirmado</div>
         </div>
         <span style="margin-left:auto;font-size:18px">✅</span>
       </div>`;
@@ -3579,6 +3595,7 @@ function completarFirma(selfieImg) {
   }
 }
 
+
 // ===== MOTOR DEL JUEGO =====
 function iniciarPartida() {
   juegoState.nivel = 'suave';
@@ -3598,8 +3615,9 @@ function getCartasDisponibles(tipo) {
   const nivel = juegoState.nivel;
   const todas = juegoState.cards?.[nivel]?.[tipo === 'verdad' ? 'verdades' : 'retos'] || [];
 
-  // Obtener interacciones válidas de este participante
-  const misInteracciones = juegoState.interacciones[p.id] || [];
+  // Obtener interacciones válidas de este participante (objeto {idB: pct})
+  const misInteracciones = juegoState.interacciones[p.id] || {};
+  const idsInteraccion = Object.keys(misInteracciones);
 
   // Filtrar cartas válidas
   return todas.filter(c => {
@@ -3607,12 +3625,11 @@ function getCartasDisponibles(tipo) {
     // Verificar quien_genero
     if (c.quien_genero !== 'todos' && c.quien_genero !== p.genero) return false;
     // Verificar para_genero — SIEMPRE debe haber al menos un interactuante válido
-    // Si para_genero es 'todos', igual verifica que haya alguien en la matriz de interacciones
-    if (misInteracciones.length === 0) return false;
-    const hayDestino = misInteracciones.some(otherId => {
+    if (idsInteraccion.length === 0) return false;
+    const hayDestino = idsInteraccion.some(otherId => {
       const otro = juegoState.participantes.find(x => x.id === otherId);
       if (!otro) return false;
-      if (c.para_genero === 'todos') return true; // cualquier interactuante sirve
+      if (c.para_genero === 'todos') return true;
       return otro.genero === c.para_genero;
     });
     if (!hayDestino) return false;
@@ -3622,14 +3639,24 @@ function getCartasDisponibles(tipo) {
 
 function getOtroParticipante(carta) {
   const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
-  const misInteracciones = juegoState.interacciones[p.id] || [];
-  // Filtrar por para_genero de la carta
-  const candidatos = misInteracciones
-    .map(id => juegoState.participantes.find(x => x.id === id))
-    .filter(Boolean)
-    .filter(o => carta.para_genero === 'todos' || o.genero === carta.para_genero);
+  const misInteracciones = juegoState.interacciones[p.id] || {};
+
+  // Candidatos válidos según género de la carta, con su peso (%)
+  const candidatos = Object.entries(misInteracciones)
+    .map(([id, pct]) => ({ persona: juegoState.participantes.find(x => x.id === id), pct }))
+    .filter(c => c.persona && (carta.para_genero === 'todos' || c.persona.genero === carta.para_genero));
+
   if (candidatos.length === 0) return null;
-  return candidatos[Math.floor(Math.random() * candidatos.length)];
+  if (candidatos.length === 1) return candidatos[0].persona;
+
+  // Selección ponderada por porcentaje (más % = más probabilidad de salir)
+  const totalPeso = candidatos.reduce((s, c) => s + c.pct, 0);
+  let rand = Math.random() * (totalPeso || 1);
+  for (const c of candidatos) {
+    rand -= c.pct;
+    if (rand <= 0) return c.persona;
+  }
+  return candidatos[candidatos.length - 1].persona; // fallback
 }
 
 function resolverTexto(texto, jugador, otro) {
@@ -3703,7 +3730,7 @@ function renderJuegoPartida() {
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Turno de</div>
         <div style="font-family:var(--font-display);font-size:46px;font-weight:500;color:var(--text);
           line-height:1;margin-bottom:8px">${p.nombre}</div>
-        <div style="font-size:12px;color:var(--text3)">${p.genero} · ${p.orientacion}</div>
+
         ${sinCartas ? `
         <div style="margin-top:14px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);
           border-radius:10px;padding:10px">
@@ -3757,7 +3784,7 @@ function renderJuegoPartida() {
         style="padding:12px;border-radius:12px;border:1px solid rgba(155,127,232,0.3);
         background:rgba(155,127,232,0.06);color:var(--purple);font-size:12px;font-weight:600;
         cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-        <span style="font-size:16px">🎰</span>
+        <span style="font-size:16px">💋</span>
         <span>Recuperar prenda — reto extremo</span>
       </button>` : ''}
 
@@ -3783,7 +3810,7 @@ function seleccionarTipo(tipo) {
   const tipoLabel = tipo === 'verdad' ? 'VERDAD' : 'RETO';
 
   document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px">
       <div style="font-size:16px;font-weight:600;color:${tipoColor};margin-bottom:8px;text-transform:uppercase;letter-spacing:2px">${tipoLabel}</div>
       <div style="font-size:14px;color:var(--text2);margin-bottom:40px">${p.nombre} · ${c.icon} ${juegoState.nivel}</div>
 
@@ -3849,7 +3876,7 @@ function mostrarCarta(carta, tipo, jugador, otro) {
   const tipoColor = esVerdad ? 'var(--purple)' : 'var(--rose)';
 
   document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);padding:20px;display:flex;flex-direction:column">
+    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);padding:20px 20px 90px 20px;display:flex;flex-direction:column">
 
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -4040,7 +4067,7 @@ function intentarRecuperarPrenda() {
     <div class="modal">
       <div class="modal-handle"></div>
       <div style="text-align:center;margin-bottom:20px">
-        <div style="font-size:40px;margin-bottom:8px">🎰</div>
+        <div style="font-size:40px;margin-bottom:8px">💋</div>
         <div style="font-size:16px;font-weight:700;color:var(--purple);margin-bottom:6px">Recuperar prenda</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.6">
           Se generará un <strong style="color:var(--rose)">reto extremo</strong>.<br>
@@ -4052,7 +4079,7 @@ function intentarRecuperarPrenda() {
       <button onclick="closeModalDirect();lanzarRetoRecuperacion()" 
         style="width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,rgba(155,127,232,0.2),rgba(232,96,138,0.1));
         color:var(--text);border:1px solid rgba(155,127,232,0.4);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">
-        🎰 Acepto el reto — ¡a recuperar!
+        💋 Acepto el reto — ¡a recuperar!
       </button>
       <button onclick="closeModalDirect()"
         style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);
@@ -4068,11 +4095,12 @@ function lanzarRetoRecuperacion() {
   const cards = juegoState.cards?.recuperacion?.retos || IGNITE_CARDS_DEFAULT.recuperacion.retos;
 
   // Filtrar por género y por interacciones válidas
-  const misInteracciones = juegoState.interacciones[p.id] || [];
+  const misInteracciones = juegoState.interacciones[p.id] || {};
+  const idsInteraccion = Object.keys(misInteracciones);
   const disponibles = cards.filter(c => {
     if (c.quien_genero !== 'todos' && c.quien_genero !== p.genero) return false;
     if (c.para_genero !== 'todos') {
-      const hayDestino = misInteracciones.some(oid => {
+      const hayDestino = idsInteraccion.some(oid => {
         const otro = juegoState.participantes.find(x => x.id === oid);
         return otro && (otro.genero === c.para_genero);
       });
@@ -4090,10 +4118,10 @@ function lanzarRetoRecuperacion() {
 
   // Pantalla ruleta especial
   document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
-      display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px">
       <div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;
-        text-transform:uppercase;letter-spacing:2px">🎰 RETO EXTREMO</div>
+        text-transform:uppercase;letter-spacing:2px">💋 RETO EXTREMO</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:40px">${p.nombre} intenta recuperar su prenda</div>
       <div style="position:relative;width:200px;height:200px;margin-bottom:40px">
         <div style="position:absolute;inset:0;border-radius:50%;border:3px solid var(--purple);
@@ -4114,14 +4142,14 @@ function mostrarCartaRecuperacion(carta, jugador, otro) {
   const textoResuelto = resolverTexto(carta.texto, jugador, otro);
 
   document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
-      padding:20px;display:flex;flex-direction:column">
+    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
+      padding:20px 20px 90px 20px;display:flex;flex-direction:column">
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div style="font-size:13px;color:var(--text2)">${jugador.nombre}</div>
         <div style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;
           background:rgba(155,127,232,0.15);color:var(--purple);text-transform:uppercase;letter-spacing:1px">
-          🎰 RETO EXTREMO
+          💋 RETO EXTREMO
         </div>
       </div>
 
@@ -4135,7 +4163,7 @@ function mostrarCartaRecuperacion(carta, jugador, otro) {
               color:white;font-weight:700;letter-spacing:1px">IGNITE</div>
             <div style="display:inline-block;background:rgba(155,127,232,0.15);border:1px solid rgba(155,127,232,0.4);
               border-radius:20px;padding:3px 12px;font-size:10px;font-weight:700;color:var(--purple);margin-bottom:20px;
-              text-transform:uppercase;letter-spacing:1px">🎰 EXTREMO — Recuperar prenda</div>
+              text-transform:uppercase;letter-spacing:1px">💋 EXTREMO — Recuperar prenda</div>
             <div style="text-align:center;margin-bottom:18px">
               <div style="font-size:52px;filter:drop-shadow(0 0 20px var(--purple))">🔥</div>
             </div>
@@ -4249,7 +4277,7 @@ function elegirShots() {
   const total = juegoState.shots[p.nombre];
 
   document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center">
+    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px;text-align:center">
       <div style="font-size:72px;margin-bottom:16px">🥃</div>
       <div style="font-family:var(--font-display);font-size:28px;font-weight:500;margin-bottom:8px">${p.nombre} pasa</div>
       <div style="font-size:52px;font-weight:700;color:var(--amber);margin:12px 0">${total} shot${total>1?'s':''}</div>
@@ -4381,7 +4409,7 @@ function terminarPartida() {
   const totalShots = Object.values(juegoState.shots).reduce((s,v)=>s+v, 0);
 
   let html = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px">
+    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px 20px 90px 20px">
       <div style="text-align:center;padding:30px 0 24px">
         <div style="font-size:56px;margin-bottom:12px">🏁</div>
         <div style="font-family:var(--font-display);font-size:28px;font-weight:500;margin-bottom:6px">¡Partida terminada!</div>
@@ -4448,7 +4476,7 @@ async function renderMantJuego(tipo) {
     const cards = groupSnap.data().juegoCards || IGNITE_CARDS_DEFAULT;
     const tipoLabel = esTipo ? '💬 Verdades' : '⚡ Retos';
     const tipoIcon = esTipo ? '💬' : '⚡';
-    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'🎰 Extremos' };
+    const nivelData = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'💋 Extremos' };
     const nivelColors = { suave:'rgba(78,203,160,0.15)', medio:'rgba(245,166,35,0.15)', hard:'rgba(232,96,138,0.15)', recuperacion:'rgba(155,127,232,0.15)' };
     const nivelTextColors = { suave:'var(--teal)', medio:'var(--amber)', hard:'var(--rose)', recuperacion:'var(--purple)' };
 
@@ -4524,7 +4552,7 @@ async function editarCartaJuego(nivel, tipo, id) {
     const carta = lista.find(c => c.id === id);
     if (!carta) { showToast('Carta no encontrada'); return; }
 
-    const nd = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'🎰 Extremo' };
+    const nd = { suave:'🟢 Soft', medio:'🌶️ Medio', hard:'🔥 Hard', recuperacion:'💋 Extremo' };
     const esTipo = tipo === 'verdades';
 
     document.getElementById('modal-container').innerHTML = `<div class="modal-overlay" onclick="closeModal(event)">
@@ -4689,7 +4717,7 @@ async function renderJuegoMant() {
       const retos = cards[nivel]?.retos || [];
       const total = verdades.length + retos.length;
       html += `<div class="action-cat-header" onclick="toggleActionCat('mant-${nivel}')">
-        <span style="font-size:13px;font-weight:600">${nivelData[nivel]||'🎰 Extremos'}</span>
+        <span style="font-size:13px;font-weight:600">${nivelData[nivel]||'💋 Extremos'}</span>
         <span style="font-size:11px;color:var(--text3)">${total} cartas</span>
         <span id="mant-${nivel}-arrow" style="margin-left:auto;color:var(--text3)">›</span>
       </div>
