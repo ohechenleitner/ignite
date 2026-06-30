@@ -3001,6 +3001,26 @@ async function guardarEstadoJuego() {
   } catch(e) {}
 }
 
+// Convierte formato antiguo de interacciones (array de ids) al nuevo formato con porcentaje
+function normalizarInteracciones(interacciones) {
+  const normalizado = {};
+  Object.keys(interacciones || {}).forEach(idA => {
+    const valor = interacciones[idA];
+    if (Array.isArray(valor)) {
+      // Formato viejo: ['idB', 'idC'] -> repartir 100% equitativo
+      const pctIgual = valor.length > 0 ? Math.floor(100 / valor.length) : 0;
+      const obj = {};
+      valor.forEach((idB, i) => {
+        obj[idB] = i === 0 ? 100 - pctIgual * (valor.length - 1) : pctIgual;
+      });
+      normalizado[idA] = obj;
+    } else if (valor && typeof valor === 'object') {
+      normalizado[idA] = valor; // ya está en formato nuevo
+    }
+  });
+  return normalizado;
+}
+
 async function cargarEstadoJuego() {
   try {
     const gid = currentUserData?.groupId;
@@ -3009,7 +3029,7 @@ async function cargarEstadoJuego() {
     const est = g.data()?.juegoEstado;
     if (!est || !est.activo) return false;
     juegoState.participantes = est.participantes || [];
-    juegoState.interacciones = est.interacciones || {};
+    juegoState.interacciones = normalizarInteracciones(est.interacciones || {});
     juegoState.nivel = est.nivel || 'suave';
     juegoState.turnoIdx = est.turnoIdx || 0;
     juegoState.prendas = est.prendas || [];
@@ -3337,9 +3357,9 @@ function refrescarSlidersPct(idA) {
   });
 }
 
-function guardarInteraccionesPct() {
+async function guardarInteraccionesPct() {
   closeModalDirect();
-  guardarEstadoJuego();
+  await guardarEstadoJuego();
   renderJuego();
 }
 
