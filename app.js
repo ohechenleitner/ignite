@@ -3677,22 +3677,29 @@ function getCartasDisponibles(tipo) {
   const misInteracciones = juegoState.interacciones[p.id] || {};
   const idsInteraccion = Object.keys(misInteracciones);
 
-  // Filtrar cartas válidas
-  return todas.filter(c => {
-    if (juegoState.usadas.has(c.id)) return false;
-    // Verificar quien_genero
+  // Validar género/interacción (sin filtrar por usadas todavía)
+  const valida = (c) => {
     if (c.quien_genero !== 'todos' && c.quien_genero !== p.genero) return false;
-    // Verificar para_genero — SIEMPRE debe haber al menos un interactuante válido
     if (idsInteraccion.length === 0) return false;
-    const hayDestino = idsInteraccion.some(otherId => {
+    return idsInteraccion.some(otherId => {
       const otro = juegoState.participantes.find(x => x.id === otherId);
       if (!otro) return false;
       if (c.para_genero === 'todos') return true;
       return otro.genero === c.para_genero;
     });
-    if (!hayDestino) return false;
-    return true;
-  });
+  };
+
+  const todasValidas = todas.filter(valida);
+  const disponiblesSinUsar = todasValidas.filter(c => !juegoState.usadas.has(c.id));
+
+  // RETO no tiene límite — si se agotan las cartas válidas, se reciclan automáticamente
+  if (tipo === 'reto' && disponiblesSinUsar.length === 0 && todasValidas.length > 0) {
+    todasValidas.forEach(c => juegoState.usadas.delete(c.id));
+    return todasValidas;
+  }
+
+  // VERDAD sí tiene límite real (antiescondite + cartas finitas por nivel)
+  return disponiblesSinUsar;
 }
 
 function getOtroParticipante(carta) {
@@ -3747,7 +3754,7 @@ function renderJuegoPartida() {
   const retosDisp = getCartasDisponibles('reto').length;
 
   const tieneRecuperar = juegoState.prendas.filter(pr=>pr.quien===p.nombre).length > 0;
-  const sinCartas = verdadesDisp === 0 && retosDisp === 0;
+  const sinCartas = verdadesDisp === 0; // Reto se recicla solo, nunca cuenta como agotado
 
   document.getElementById('content').innerHTML = `
     <div style="position:fixed;inset:0;z-index:50;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
@@ -3792,7 +3799,7 @@ function renderJuegoPartida() {
         ${sinCartas ? `
         <div style="margin-top:14px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);
           border-radius:10px;padding:10px">
-          <div style="font-size:12px;color:var(--amber);margin-bottom:6px">⚠️ Se agotaron las cartas</div>
+          <div style="font-size:12px;color:var(--amber);margin-bottom:6px">⚠️ Se agotaron las verdades de este nivel</div>
           <button onclick="subirNivel()" style="padding:6px 16px;border-radius:20px;
             background:var(--amber);color:#000;border:none;font-size:12px;font-weight:600;cursor:pointer">
             ⬆️ Subir nivel
@@ -4134,7 +4141,7 @@ function mostrarOpcionesPasar() {
         <div style="font-size:13px;color:var(--text2)">¿Cuál es la consecuencia?</div>
       </div>
 
-      <button onclick="elegirShots()" 
+      <button onclick="closeModalDirect();elegirShots()" 
         style="width:100%;padding:18px;border-radius:14px;border:1px solid rgba(245,166,35,0.3);
         background:rgba(245,166,35,0.08);color:var(--amber);font-size:14px;font-weight:600;
         cursor:pointer;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;gap:4px">
@@ -4418,9 +4425,9 @@ function siguienteTurno() {
   juegoState.turnoIdx++;
   guardarEstadoJuego();
 
-  // Verificar si se agotaron las cartas del nivel — NO terminar automáticamente
-  const totalDisp = getCartasDisponibles('verdad').length + getCartasDisponibles('reto').length;
-  if (totalDisp === 0) {
+  // Solo VERDAD se agota realmente (RETO se recicla solo, nunca bloquea)
+  const verdadesRestantes = getCartasDisponibles('verdad').length;
+  if (verdadesRestantes === 0) {
     const niveles = ['suave', 'medio', 'hard'];
     const idx = niveles.indexOf(juegoState.nivel);
     if (idx < niveles.length - 1) {
@@ -4429,8 +4436,7 @@ function siguienteTurno() {
       const msgs = { medio:'🌶️ ¡Subiendo a nivel Medio!', hard:'🔥 ¡Llegamos a Hard!' };
       showToast(msgs[juegoState.nivel]);
     }
-    // Si ya estamos en hard y se agotaron, simplemente muestra el turno sin cartas
-    // El jugador puede terminar manualmente
+    // Si ya estamos en hard y se agotaron las verdades, el jugador puede terminar manualmente
   }
   renderJuegoPartida();
 }
