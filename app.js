@@ -2970,6 +2970,57 @@ async function renderFechas() {
 
 // ===== FUNCIONES DEL JUEGO VERDAD O RETO =====
 
+
+// Guardar/cargar estado del juego en Firestore
+async function guardarEstadoJuego() {
+  try {
+    const gid = currentUserData?.groupId;
+    if (!gid) return;
+    await db.collection('groups').doc(gid).update({
+      juegoEstado: {
+        participantes: juegoState.participantes,
+        interacciones: juegoState.interacciones,
+        nivel: juegoState.nivel,
+        turnoIdx: juegoState.turnoIdx,
+        prendas: juegoState.prendas,
+        shots: juegoState.shots,
+        verdadBloqueadaEn: juegoState.verdadBloqueadaEn,
+        usadas: Array.from(juegoState.usadas),
+        historial: juegoState.historial,
+        activo: true,
+        updatedAt: Date.now(),
+      }
+    });
+  } catch(e) {}
+}
+
+async function cargarEstadoJuego() {
+  try {
+    const gid = currentUserData?.groupId;
+    if (!gid) return false;
+    const g = await db.collection('groups').doc(gid).get();
+    const est = g.data()?.juegoEstado;
+    if (!est || !est.activo) return false;
+    juegoState.participantes = est.participantes || [];
+    juegoState.interacciones = est.interacciones || {};
+    juegoState.nivel = est.nivel || 'suave';
+    juegoState.turnoIdx = est.turnoIdx || 0;
+    juegoState.prendas = est.prendas || [];
+    juegoState.shots = est.shots || {};
+    juegoState.verdadBloqueadaEn = est.verdadBloqueadaEn || {};
+    juegoState.usadas = new Set(est.usadas || []);
+    juegoState.historial = est.historial || [];
+    return true;
+  } catch(e) { return false; }
+}
+
+async function limpiarEstadoJuego() {
+  try {
+    const gid = currentUserData?.groupId;
+    if (!gid) return;
+    await db.collection('groups').doc(gid).update({ juegoEstado: { activo: false } });
+  } catch(e) {}
+}
 async function toggleJuego() {
   const gid = currentUserData?.groupId;
   try {
@@ -2993,6 +3044,10 @@ async function renderJuego() {
     // Cargar config guardada
     if (group.juegoConfig) {
       juegoState.config = { ...juegoState.config, ...group.juegoConfig };
+    }
+    // Cargar estado guardado si existe
+    if (group.juegoEstado?.activo && juegoState.participantes.length === 0) {
+      await cargarEstadoJuego();
     }
 
     let html = `<div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F 0%,#1A0520 50%,#0A0A0F 100%);padding:20px">
@@ -3118,6 +3173,7 @@ function confirmarParticipante() {
   const id = 'p_' + Date.now();
   juegoState.participantes.push({ id, nombre, edad, genero, orientacion });
   closeModalDirect();
+  guardarEstadoJuego();
   renderJuego();
 }
 
@@ -3130,6 +3186,7 @@ function quitarParticipante(idx) {
   });
   delete juegoState.firmas[p.id];
   juegoState.participantes.splice(idx, 1);
+  guardarEstadoJuego();
   renderJuego();
 }
 
@@ -3162,7 +3219,7 @@ function configurarInteracciones() {
     html += `</div>`;
   });
 
-  html += `<button class="btn btn-primary btn-full" onclick="closeModalDirect();renderJuego()">✓ Guardar interacciones</button>
+  html += `<button class="btn btn-primary btn-full" onclick="closeModalDirect();guardarEstadoJuego();renderJuego()">✓ Guardar interacciones</button>
     </div>
   </div>`;
   document.getElementById('modal-container').innerHTML = html;
@@ -3979,6 +4036,7 @@ function siguienteTurno() {
   if (juegoState.timerInterval) clearInterval(juegoState.timerInterval);
   juegoState.timerRunning = false;
   juegoState.turnoIdx++;
+  guardarEstadoJuego();
 
   // Verificar si se agotaron las cartas del nivel — NO terminar automáticamente
   const totalDisp = getCartasDisponibles('verdad').length + getCartasDisponibles('reto').length;
@@ -4116,7 +4174,7 @@ function terminarPartida() {
 }
 
 function nuevaPartida() {
-  // Limpiar estado del juego pero conservar participantes e interacciones
+  // Resetear ronda pero conservar participantes e interacciones
   juegoState.nivel = 'suave';
   juegoState.turnoIdx = 0;
   juegoState.usadas = new Set();
@@ -4126,7 +4184,7 @@ function nuevaPartida() {
   juegoState.historial = [];
   juegoState.timerInterval = null;
   juegoState.timerRunning = false;
-  // Ir a configurar nuevamente (participantes se conservan)
+  guardarEstadoJuego();
   renderJuego();
 }
 
