@@ -3655,8 +3655,8 @@ function renderJuegoPartida() {
   const sinCartas = verdadesDisp === 0 && retosDisp === 0;
 
   document.getElementById('content').innerHTML = `
-    <div style="min-height:100vh;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
-      padding:16px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box">
+    <div style="height:calc(100vh - 60px);background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
+      padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:hidden">
 
       <!-- Header compacto -->
       <div style="display:flex;align-items:center;justify-content:space-between">
@@ -3687,9 +3687,9 @@ function renderJuegoPartida() {
         </div>
       </div>` : ''}
 
-      <!-- Card del jugador -->
+      <!-- Card del jugador — flex:1 para llenar espacio disponible -->
       <div style="background:linear-gradient(135deg,#120820,#0D1020);border:1px solid rgba(155,127,232,0.15);
-        border-radius:20px;padding:24px 20px;text-align:center">
+        border-radius:20px;padding:20px;text-align:center;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Turno de</div>
         <div style="font-family:var(--font-display);font-size:46px;font-weight:500;color:var(--text);
           line-height:1;margin-bottom:8px">${p.nombre}</div>
