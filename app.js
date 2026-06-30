@@ -3298,18 +3298,257 @@ function mostrarReglasJuego() {
     </div>`;
 }
 
+// ===== FIRMA DIGITAL + SELFIE =====
+let _firmaParticipanteActual = null;
+let _firmaCanvas = null;
+let _firmaCtx = null;
+let _firmaDibujando = false;
+
 function firmarConsentimiento(participanteId) {
   if (juegoState.firmas[participanteId]) return; // ya firmó
-  juegoState.firmas[participanteId] = Date.now();
+  _firmaParticipanteActual = participanteId;
+  const p = juegoState.participantes.find(x => x.id === participanteId);
 
-  // Actualizar UI de la firma
+  document.getElementById('modal-container').innerHTML = `
+    <div style="position:fixed;inset:0;z-index:9999;background:#fff;display:flex;flex-direction:column">
+      <!-- Header -->
+      <div style="background:#fff;padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
+        <button onclick="closeModalDirect()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#333">✕</button>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px">Firma de consentimiento</div>
+          <div style="font-size:16px;font-weight:600;color:#111;margin-top:2px">${p?.nombre}</div>
+        </div>
+        <button onclick="limpiarFirma()" style="background:none;border:1px solid #ddd;border-radius:8px;padding:6px 12px;font-size:12px;color:#666;cursor:pointer">Limpiar</button>
+      </div>
+
+      <!-- Instrucción -->
+      <div style="padding:12px 20px;background:#f9f9f9;border-bottom:1px solid #eee">
+        <div style="font-size:12px;color:#666;text-align:center">
+          ✍️ Firma con tu dedo en el espacio de abajo · Confirmo que leí las reglas y tengo 18+ años
+        </div>
+      </div>
+
+      <!-- Canvas de firma -->
+      <div style="flex:1;position:relative;background:#fff">
+        <canvas id="firma-canvas"
+          style="width:100%;height:100%;touch-action:none;cursor:crosshair;display:block">
+        </canvas>
+        <div id="firma-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <div style="text-align:center;color:#ccc">
+            <div style="font-size:48px;margin-bottom:8px">✍️</div>
+            <div style="font-size:14px">Firma aquí</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón confirmar -->
+      <div style="padding:16px 20px;background:#fff;border-top:1px solid #eee">
+        <button id="btn-confirmar-firma" onclick="confirmarFirmaYSelfie()"
+          style="width:100%;padding:16px;border-radius:14px;background:#111;color:#fff;
+          border:none;font-size:16px;font-weight:600;cursor:pointer">
+          Confirmar firma →
+        </button>
+      </div>
+    </div>`;
+
+  // Inicializar canvas después de render
+  setTimeout(() => {
+    const canvas = document.getElementById('firma-canvas');
+    if (!canvas) return;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+
+    _firmaCanvas = canvas;
+    _firmaCtx = canvas.getContext('2d');
+    _firmaCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    _firmaCtx.strokeStyle = '#111';
+    _firmaCtx.lineWidth = 2.5;
+    _firmaCtx.lineCap = 'round';
+    _firmaCtx.lineJoin = 'round';
+    _firmaDibujando = false;
+    _firmaCtx.firmaVacia = true;
+
+    const getPos = (e) => {
+      const r = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    };
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      _firmaDibujando = true;
+      const pos = getPos(e);
+      _firmaCtx.beginPath();
+      _firmaCtx.moveTo(pos.x, pos.y);
+      document.getElementById('firma-placeholder').style.display = 'none';
+      _firmaCtx.firmaVacia = false;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!_firmaDibujando) return;
+      const pos = getPos(e);
+      _firmaCtx.lineTo(pos.x, pos.y);
+      _firmaCtx.stroke();
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => { _firmaDibujando = false; });
+
+    // Mouse (desktop)
+    canvas.addEventListener('mousedown', (e) => {
+      _firmaDibujando = true;
+      const pos = getPos(e);
+      _firmaCtx.beginPath();
+      _firmaCtx.moveTo(pos.x, pos.y);
+      document.getElementById('firma-placeholder').style.display = 'none';
+      _firmaCtx.firmaVacia = false;
+    });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!_firmaDibujando) return;
+      const pos = getPos(e);
+      _firmaCtx.lineTo(pos.x, pos.y);
+      _firmaCtx.stroke();
+    });
+    canvas.addEventListener('mouseup', () => { _firmaDibujando = false; });
+  }, 100);
+}
+
+function limpiarFirma() {
+  if (!_firmaCtx || !_firmaCanvas) return;
+  _firmaCtx.clearRect(0, 0, _firmaCanvas.width / window.devicePixelRatio, _firmaCanvas.height / window.devicePixelRatio);
+  _firmaCtx.firmaVacia = true;
+  const ph = document.getElementById('firma-placeholder');
+  if (ph) ph.style.display = 'flex';
+}
+
+function confirmarFirmaYSelfie() {
+  if (!_firmaCanvas || _firmaCtx?.firmaVacia) {
+    alert('Por favor firma antes de continuar');
+    return;
+  }
+  // Guardar imagen de la firma
+  const firmaImg = _firmaCanvas.toDataURL('image/png');
+  juegoState._firmaTemp = firmaImg;
+
+  // Cerrar modal de firma y abrir cámara frontal para selfie
+  document.getElementById('modal-container').innerHTML = `
+    <div style="position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column">
+      <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between">
+        <button onclick="closeModalDirect()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer">✕</button>
+        <div style="color:#fff;font-size:14px;font-weight:600">📸 Selfie de verificación</div>
+        <div style="width:40px"></div>
+      </div>
+      <div style="flex:1;position:relative">
+        <video id="selfie-video" autoplay playsinline
+          style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1)"></video>
+        <div style="position:absolute;bottom:30px;left:0;right:0;text-align:center">
+          <div style="color:#fff;font-size:12px;opacity:0.7;margin-bottom:16px">
+            Mira a la cámara y toca el botón
+          </div>
+          <button onclick="tomarSelfie()"
+            style="width:72px;height:72px;border-radius:50%;border:4px solid #fff;
+            background:rgba(255,255,255,0.2);cursor:pointer;font-size:28px">
+            📸
+          </button>
+        </div>
+      </div>
+      <canvas id="selfie-canvas" style="display:none"></canvas>
+    </div>`;
+
+  // Iniciar cámara frontal
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    .then(stream => {
+      const video = document.getElementById('selfie-video');
+      if (video) {
+        video.srcObject = stream;
+        window._selfieStream = stream;
+      }
+    })
+    .catch(() => {
+      // Sin cámara — saltar selfie y completar firma
+      completarFirma(null);
+    });
+}
+
+function tomarSelfie() {
+  const video = document.getElementById('selfie-video');
+  const canvas = document.getElementById('selfie-canvas');
+  if (!video || !canvas) return;
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+
+  const selfieImg = canvas.toDataURL('image/jpeg', 0.7);
+
+  // Detener cámara
+  if (window._selfieStream) {
+    window._selfieStream.getTracks().forEach(t => t.stop());
+    window._selfieStream = null;
+  }
+
+  // Mostrar preview para confirmar
+  document.getElementById('modal-container').innerHTML = `
+    <div style="position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column">
+      <div style="padding:16px 20px;color:#fff;font-size:14px;font-weight:600;text-align:center">
+        ¿Usar esta foto?
+      </div>
+      <div style="flex:1;position:relative">
+        <img src="${selfieImg}" style="width:100%;height:100%;object-fit:cover">
+      </div>
+      <div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button onclick="repetirSelfie()"
+          style="padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.3);
+          background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer">
+          🔄 Repetir
+        </button>
+        <button onclick="completarFirma('${selfieImg.replace(/'/g, "\'")}')"
+          style="padding:14px;border-radius:12px;border:none;
+          background:#fff;color:#000;font-size:14px;font-weight:600;cursor:pointer">
+          ✓ Usar esta
+        </button>
+      </div>
+    </div>`;
+}
+
+function repetirSelfie() {
+  confirmarFirmaYSelfie();
+}
+
+function completarFirma(selfieImg) {
+  const participanteId = _firmaParticipanteActual;
+  // Guardar firma en el estado
+  juegoState.firmas[participanteId] = {
+    timestamp: Date.now(),
+    firma: juegoState._firmaTemp || null,
+    selfie: selfieImg || null,
+  };
+  delete juegoState._firmaTemp;
+  closeModalDirect();
+
+  // Actualizar UI del botón de firma
   const el = document.getElementById('firma-' + participanteId);
+  const p = juegoState.participantes.find(x => x.id === participanteId);
   if (el) {
     el.style.background = 'rgba(78,203,160,0.1)';
-    el.style.borderColor = 'var(--teal)';
-    el.innerHTML = el.innerHTML.replace('Toca para firmar', '✅ Firmado');
+    el.style.borderColor = 'rgba(78,203,160,0.4)';
     el.style.cursor = 'default';
     el.onclick = null;
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px">
+        ${selfieImg ? `<img src="${selfieImg}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--teal)">` : '<span style="font-size:28px">✅</span>'}
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--teal)">${p?.nombre}</div>
+          <div style="font-size:11px;color:var(--text2)">✍️ Firmado · 📸 ${selfieImg?'Verificado':'Sin selfie'}</div>
+        </div>
+        <span style="margin-left:auto;font-size:18px">✅</span>
+      </div>`;
   }
 
   // Verificar si todos firmaron
@@ -3317,15 +3556,15 @@ function firmarConsentimiento(participanteId) {
   const total = juegoState.participantes.length;
   const btn = document.getElementById('btn-iniciar');
   if (btn) {
-    btn.textContent = totalFirmas === total
-      ? '🎭 ¡Todos firmaron! Iniciar partida'
-      : `Esperando firmas... (${totalFirmas}/${total})`;
     if (totalFirmas === total) {
       btn.disabled = false;
+      btn.textContent = '🎭 ¡Todos firmaron! Iniciar partida';
       btn.style.background = 'linear-gradient(135deg,var(--rose),#C41A5E)';
       btn.style.color = 'white';
       btn.style.cursor = 'pointer';
       btn.onclick = iniciarPartida;
+    } else {
+      btn.textContent = `Esperando firmas... (${totalFirmas}/${total})`;
     }
   }
 }
