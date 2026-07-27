@@ -3771,7 +3771,14 @@ function renderJuegoPartida() {
   const retosDisp = getCartasDisponibles('reto').length;
 
   const tieneRecuperar = juegoState.prendas.filter(pr=>pr.quien===p.nombre).length > 0;
-  // sinCartas eliminado — botón de nivel siempre visible
+  // Calcular variables del botón de nivel ANTES del template literal
+  const esHard = juegoState.nivel === 'hard';
+  const esSuave = juegoState.nivel === 'suave';
+  const nivelSiguiente = esSuave ? 'medio' : 'hard';
+  const nivelSiguienteLabel = esSuave ? '🌶️ Medio' : '🔥 Hard';
+  const nivelBtnColor = esSuave ? 'rgba(245,166,35,0.5)' : 'rgba(232,96,138,0.5)';
+  const nivelBtnBg = esSuave ? 'rgba(245,166,35,0.12)' : 'rgba(232,96,138,0.12)';
+  const nivelBtnTextColor = esSuave ? 'var(--amber)' : 'var(--rose)';
 
   document.getElementById('content').innerHTML = `
     <div style="position:fixed;inset:0;z-index:50;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
@@ -3789,17 +3796,17 @@ function renderJuegoPartida() {
           <span style="font-size:16px">${nd.icon}</span>
           <span style="font-size:12px;font-weight:700;color:${nd.color};letter-spacing:1px">${nd.label}</span>
         </div>
-        ${juegoState.nivel === 'hard' ? `
+        ${esHard ? `
         <div style="padding:8px 14px;border-radius:20px;border:1px solid rgba(232,96,138,0.3);
           background:rgba(232,96,138,0.08);color:var(--rose);font-size:11px;font-weight:600">
           🔥 Máximo
         </div>` : `
-        <button onclick="subirNivel('${juegoState.nivel === 'suave' ? 'medio' : 'hard'}')"
+        <button onclick="subirNivel('${nivelSiguiente}')"
           style="padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:700;
-          border:1px solid ${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.5)' : 'rgba(232,96,138,0.5)'};
-          background:${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.12)' : 'rgba(232,96,138,0.12)'};
-          color:${juegoState.nivel === 'suave' ? 'var(--amber)' : 'var(--rose)'}">
-          ⬆️ ${juegoState.nivel === 'suave' ? 'Medio' : 'Hard'}
+          border:1px solid ${nivelBtnColor};
+          background:${nivelBtnBg};
+          color:${nivelBtnTextColor}">
+          ⬆️ ${nivelSiguienteLabel}
         </button>`}
       </div>
 
