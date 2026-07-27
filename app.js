@@ -2992,6 +2992,9 @@ async function guardarEstadoJuego() {
         shots: juegoState.shots,
         verdadBloqueadaEn: juegoState.verdadBloqueadaEn,
         usadas: Array.from(juegoState.usadas),
+        usadasReto: Object.fromEntries(
+          Object.entries(juegoState.usadasReto || {}).map(([k,v]) => [k, Array.from(v)])
+        ),
         historial: juegoState.historial,
         firmas: firmasGuardadas,
         activo: true,
@@ -3036,6 +3039,9 @@ async function cargarEstadoJuego() {
     juegoState.shots = est.shots || {};
     juegoState.verdadBloqueadaEn = est.verdadBloqueadaEn || {};
     juegoState.usadas = new Set(est.usadas || []);
+    juegoState.usadasReto = Object.fromEntries(
+      Object.entries(est.usadasReto || {}).map(([k,v]) => [k, new Set(v)])
+    );
     juegoState.historial = est.historial || [];
     juegoState.firmas = est.firmas || {};
     return true;
@@ -3659,6 +3665,7 @@ function iniciarPartida() {
   juegoState.nivel = 'suave';
   juegoState.turnoIdx = 0;
   juegoState.usadas = new Set();
+  juegoState.usadasReto = {};
   juegoState.prendas = [];
   juegoState.shots = {};
   juegoState.verdadBloqueadaEn = {};
@@ -3690,15 +3697,25 @@ function getCartasDisponibles(tipo) {
   };
 
   const todasValidas = todas.filter(valida);
-  const disponiblesSinUsar = todasValidas.filter(c => !juegoState.usadas.has(c.id));
+  if (tipo === 'reto') {
+    // RETO: seguimiento por persona — cada uno tiene su propio historial
+    if (!juegoState.usadasReto[p.id]) juegoState.usadasReto[p.id] = new Set();
+    const usadasEstaPersona = juegoState.usadasReto[p.id];
 
-  // RETO no tiene límite — si se agotan las cartas válidas, se reciclan automáticamente
-  if (tipo === 'reto' && disponiblesSinUsar.length === 0 && todasValidas.length > 0) {
-    todasValidas.forEach(c => juegoState.usadas.delete(c.id));
-    return todasValidas;
+    // Filtrar cartas que esta persona no ha visto aún
+    // Excepción: cartas de prenda SÍ pueden repetirse
+    const sinUsar = todasValidas.filter(c => c.label === 'prenda' || !usadasEstaPersona.has(c.id));
+
+    // Si ya vio todas, reciclar solo las no-prenda de esta persona
+    if (sinUsar.length === 0) {
+      todasValidas.forEach(c => { if (c.label !== 'prenda') usadasEstaPersona.delete(c.id); });
+      return todasValidas.filter(c => c.label === 'prenda' || !usadasEstaPersona.has(c.id));
+    }
+    return sinUsar;
   }
 
-  // VERDAD sí tiene límite real (antiescondite + cartas finitas por nivel)
+  // VERDAD: seguimiento global (antiescondite + cartas finitas por nivel)
+  const disponiblesSinUsar = todasValidas.filter(c => !juegoState.usadas.has(c.id));
   return disponiblesSinUsar;
 }
 
@@ -3754,7 +3771,7 @@ function renderJuegoPartida() {
   const retosDisp = getCartasDisponibles('reto').length;
 
   const tieneRecuperar = juegoState.prendas.filter(pr=>pr.quien===p.nombre).length > 0;
-  const sinCartas = verdadesDisp === 0; // Reto se recicla solo, nunca cuenta como agotado
+  // sinCartas eliminado — botón de nivel siempre visible
 
   document.getElementById('content').innerHTML = `
     <div style="position:fixed;inset:0;z-index:50;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
@@ -3796,15 +3813,16 @@ function renderJuegoPartida() {
         <div style="font-family:var(--font-display);font-size:46px;font-weight:500;color:var(--text);
           line-height:1;margin-bottom:8px">${p.nombre}</div>
 
-        ${sinCartas ? `
-        <div style="margin-top:14px;background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);
-          border-radius:10px;padding:10px">
-          <div style="font-size:12px;color:var(--amber);margin-bottom:6px">⚠️ Se agotaron las verdades de este nivel</div>
-          <button onclick="subirNivel()" style="padding:6px 16px;border-radius:20px;
-            background:var(--amber);color:#000;border:none;font-size:12px;font-weight:600;cursor:pointer">
-            ⬆️ Subir nivel
-          </button>
-        </div>` : ''}
+        <!-- Botón subir nivel — siempre visible si no está en Hard -->
+        ${juegoState.nivel !== 'hard' ? `
+        <button onclick="${juegoState.nivel === 'suave' ? "subirNivel('medio')" : "subirNivel('hard')"}"
+          style="margin-top:10px;width:100%;padding:10px;border-radius:12px;
+          border:1px solid ${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.35)' : 'rgba(232,96,138,0.35)'};
+          background:${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.07)' : 'rgba(232,96,138,0.07)'};
+          color:${juegoState.nivel === 'suave' ? 'var(--amber)' : 'var(--rose)'};
+          font-size:12px;font-weight:600;cursor:pointer">
+          ⬆️ Subir a ${juegoState.nivel === 'suave' ? '🌶️ Medio' : '🔥 Hard'}
+        </button>` : ''}
       </div>
 
       <!-- Botones Verdad / Reto con FX animado -->
@@ -3954,7 +3972,13 @@ function seleccionarTipo(tipo) {
 function mostrarCarta(carta, tipo, jugador, otro) {
   if (!carta) { showToast('No hay cartas disponibles'); renderJuegoPartida(); return; }
 
-  juegoState.usadas.add(carta.id);
+  if (carta.tipo === 'reto') {
+    const p = juegoState.participantes[juegoState.turnoIdx % juegoState.participantes.length];
+    if (!juegoState.usadasReto[p.id]) juegoState.usadasReto[p.id] = new Set();
+    if (carta.label !== 'prenda') juegoState.usadasReto[p.id].add(carta.id);
+  } else {
+    juegoState.usadas.add(carta.id);
+  }
   juegoState.historial.push({ carta, jugador: jugador.nombre, otro: otro?.nombre, tipo });
 
   const esPrenda = carta.label === 'prenda';
@@ -4564,6 +4588,7 @@ function nuevaPartida() {
   juegoState.nivel = 'suave';
   juegoState.turnoIdx = 0;
   juegoState.usadas = new Set();
+  juegoState.usadasReto = {};
   juegoState.prendas = [];
   juegoState.shots = {};
   juegoState.verdadBloqueadaEn = {};
@@ -6096,7 +6121,8 @@ let juegoState = {
   nivel: 'suave',
   turnoIdx: 0,
   cards: null,               // se carga desde Firestore o DEFAULT
-  usadas: new Set(),
+  usadas: new Set(),        // Verdades usadas (global)
+  usadasReto: {},           // Retos usados por persona {id: Set([cardIds])}
   prendas: [],               // [{quien, texto}]
   shots: {},                 // {nombre: count}
   verdadBloqueadaEn: {},     // {idParticipante: turnoIdx}
