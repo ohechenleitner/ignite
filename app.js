@@ -3084,7 +3084,7 @@ async function renderJuego() {
       await cargarEstadoJuego();
     }
 
-    let html = `<div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F 0%,#1A0520 50%,#0A0A0F 100%);padding:20px 20px 90px 20px">
+    let html = `<div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F 0%,#1A0520 50%,#0A0A0F 100%);padding:20px 20px 90px 20px">
 
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
         <button class="btn btn-outline btn-sm" onclick="showTab('perfil')">← Volver</button>
@@ -3377,7 +3377,7 @@ function mostrarReglasJuego() {
   const timerR = juegoState.config.timerReto;
 
   document.getElementById('content').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px 20px 90px 20px">
+    <div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px 20px 90px 20px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
         <button class="btn btn-outline btn-sm" onclick="renderJuego()">← Volver</button>
         <div style="font-size:16px;font-weight:500">📋 Reglas del juego</div>
@@ -3483,7 +3483,7 @@ function firmarConsentimiento(participanteId) {
   const p = juegoState.participantes.find(x => x.id === participanteId);
 
   document.getElementById('modal-container').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:9999;background:#fff;display:flex;flex-direction:column">
+    <div style="position:fixed;inset:0;z-index:300;background:#fff;display:flex;flex-direction:column">
       <!-- Header -->
       <div style="background:#fff;padding:16px 20px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">
         <button onclick="closeModalDirect()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#333">✕</button>
@@ -3781,7 +3781,7 @@ function renderJuegoPartida() {
   const nivelBtnTextColor = esSuave ? 'var(--amber)' : 'var(--rose)';
 
   document.getElementById('content').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:50;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
+    <div style="position:fixed;inset:0;z-index:200;background:linear-gradient(160deg,#0A0A0F 0%,#150A20 50%,#0A0A0F 100%);
       padding:16px 16px 80px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:hidden">
 
       <!-- Header compacto -->
@@ -3796,18 +3796,12 @@ function renderJuegoPartida() {
           <span style="font-size:16px">${nd.icon}</span>
           <span style="font-size:12px;font-weight:700;color:${nd.color};letter-spacing:1px">${nd.label}</span>
         </div>
-        ${esHard ? `
-        <div style="padding:8px 14px;border-radius:20px;border:1px solid rgba(232,96,138,0.3);
-          background:rgba(232,96,138,0.08);color:var(--rose);font-size:11px;font-weight:600">
-          🔥 Máximo
-        </div>` : `
-        <button onclick="subirNivel('${nivelSiguiente}')"
+        <button onclick="mostrarOpcionesNivel()"
           style="padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:700;
-          border:1px solid ${nivelBtnColor};
-          background:${nivelBtnBg};
-          color:${nivelBtnTextColor}">
-          ⬆️ ${nivelSiguienteLabel}
-        </button>`}
+          border:1px solid rgba(255,255,255,0.15);
+          background:rgba(255,255,255,0.06);color:var(--text2)">
+          ⇅ Nivel
+        </button>
       </div>
 
       <!-- Prendas activas (compacto) -->
@@ -3926,7 +3920,7 @@ function seleccionarTipo(tipo) {
     : '<span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span>';
 
   document.getElementById('content').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px">
+    <div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px">
       <div style="font-size:16px;font-weight:600;color:${tipoColor};margin-bottom:8px;text-transform:uppercase;letter-spacing:2px">${tipoLabel}</div>
       <div style="font-size:14px;color:var(--text2);margin-bottom:32px">${p.nombre} · ${c.icon} ${juegoState.nivel}</div>
 
@@ -4008,7 +4002,7 @@ function mostrarCarta(carta, tipo, jugador, otro) {
     : '<span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span><span class="ign-particle ign-ember"></span>';
 
   document.getElementById('content').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);padding:20px 20px 90px 20px;display:flex;flex-direction:column">
+    <div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);padding:20px 20px 90px 20px;display:flex;flex-direction:column">
 
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -4255,7 +4249,7 @@ function lanzarRetoRecuperacion() {
 
   // Pantalla ruleta especial
   document.getElementById('content').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
+    <div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
       display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px">
       <div style="font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px;
         text-transform:uppercase;letter-spacing:2px">💋 RETO EXTREMO</div>
@@ -4279,7 +4273,7 @@ function mostrarCartaRecuperacion(carta, jugador, otro) {
   const textoResuelto = resolverTexto(carta.texto, jugador, otro);
 
   document.getElementById('content').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
+    <div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);
       padding:20px 20px 90px 20px;display:flex;flex-direction:column">
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -4414,7 +4408,7 @@ function elegirShots() {
   const total = juegoState.shots[p.nombre];
 
   document.getElementById('content').innerHTML = `
-    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px;text-align:center">
+    <div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#150A20,#0A0A0F);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 90px 20px;text-align:center">
       <div style="font-size:72px;margin-bottom:16px">🥃</div>
       <div style="font-family:var(--font-display);font-size:28px;font-weight:500;margin-bottom:8px">${p.nombre} pasa</div>
       <div style="font-size:52px;font-weight:700;color:var(--amber);margin:12px 0">${total} shot${total>1?'s':''}</div>
@@ -4545,7 +4539,7 @@ function terminarPartida() {
   const totalShots = Object.values(juegoState.shots).reduce((s,v)=>s+v, 0);
 
   let html = `
-    <div style="position:fixed;inset:0;z-index:55;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px 20px 90px 20px">
+    <div style="position:fixed;inset:0;z-index:200;overflow-y:auto;background:linear-gradient(160deg,#0A0A0F,#1A0520,#0A0A0F);padding:20px 20px 90px 20px">
       <div style="text-align:center;padding:30px 0 24px">
         <div style="font-size:56px;margin-bottom:12px">🏁</div>
         <div style="font-family:var(--font-display);font-size:28px;font-weight:500;margin-bottom:6px">¡Partida terminada!</div>
@@ -5030,7 +5024,7 @@ function triggerUpload(context) {
     if (existing) existing.remove();
     const modal = document.createElement('div');
     modal.id = 'upload-options-modal';
-    modal.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px;border-top:1px solid var(--border)';
+    modal.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:300;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px;border-top:1px solid var(--border)';
     modal.innerHTML = `
       <div style="text-align:center;margin-bottom:16px;font-size:15px;font-weight:500">Agregar foto</div>
       <button class="btn btn-outline btn-full" style="margin-bottom:10px;font-size:14px;padding:14px" onclick="openCamera()">
