@@ -3789,11 +3789,18 @@ function renderJuegoPartida() {
           <span style="font-size:16px">${nd.icon}</span>
           <span style="font-size:12px;font-weight:700;color:${nd.color};letter-spacing:1px">${nd.label}</span>
         </div>
-        <button onclick="mostrarOpcionesNivel()"
-          style="padding:8px 14px;border-radius:20px;border:1px solid var(--border);
-          background:rgba(255,255,255,0.04);color:var(--text2);font-size:12px;cursor:pointer">
-          ⬆️ Nivel
-        </button>
+        ${juegoState.nivel === 'hard' ? `
+        <div style="padding:8px 14px;border-radius:20px;border:1px solid rgba(232,96,138,0.3);
+          background:rgba(232,96,138,0.08);color:var(--rose);font-size:11px;font-weight:600">
+          🔥 Máximo
+        </div>` : `
+        <button onclick="subirNivel('${juegoState.nivel === 'suave' ? 'medio' : 'hard'}')"
+          style="padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:700;
+          border:1px solid ${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.5)' : 'rgba(232,96,138,0.5)'};
+          background:${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.12)' : 'rgba(232,96,138,0.12)'};
+          color:${juegoState.nivel === 'suave' ? 'var(--amber)' : 'var(--rose)'}">
+          ⬆️ ${juegoState.nivel === 'suave' ? 'Medio' : 'Hard'}
+        </button>`}
       </div>
 
       <!-- Prendas activas (compacto) -->
@@ -3811,18 +3818,7 @@ function renderJuegoPartida() {
         border-radius:20px;padding:20px;text-align:center;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Turno de</div>
         <div style="font-family:var(--font-display);font-size:46px;font-weight:500;color:var(--text);
-          line-height:1;margin-bottom:8px">${p.nombre}</div>
-
-        <!-- Botón subir nivel — siempre visible si no está en Hard -->
-        ${juegoState.nivel !== 'hard' ? `
-        <button onclick="${juegoState.nivel === 'suave' ? "subirNivel('medio')" : "subirNivel('hard')"}"
-          style="margin-top:10px;width:100%;padding:10px;border-radius:12px;
-          border:1px solid ${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.35)' : 'rgba(232,96,138,0.35)'};
-          background:${juegoState.nivel === 'suave' ? 'rgba(245,166,35,0.07)' : 'rgba(232,96,138,0.07)'};
-          color:${juegoState.nivel === 'suave' ? 'var(--amber)' : 'var(--rose)'};
-          font-size:12px;font-weight:600;cursor:pointer">
-          ⬆️ Subir a ${juegoState.nivel === 'suave' ? '🌶️ Medio' : '🔥 Hard'}
-        </button>` : ''}
+          line-height:1">${p.nombre}</div>
       </div>
 
       <!-- Botones Verdad / Reto con FX animado -->
@@ -5996,7 +5992,7 @@ const IGNITE_CARDS_DEFAULT = {
       { id:'mr3', tipo:'reto', categoria:'medio', quien_genero:'todos', para_genero:'todos',
         texto:'Susúrrale a ${otro} qué harías si estuvieran solos esta noche.' },
       { id:'mr4', tipo:'reto', categoria:'medio', quien_genero:'mujer', para_genero:'hombre',
-        texto:'Siéntate en las piernas de ${otro} durante 30 segundos manteniendo contacto visual.', label:'prenda' },
+        texto:'Siéntate en las piernas de ${otro} durante 30 segundos manteniendo contacto visual.' },
       { id:'mr5', tipo:'reto', categoria:'medio', quien_genero:'hombre', para_genero:'mujer',
         texto:'Baila bien pegado a ${otro} durante 1 minuto al ritmo que suene.' },
       { id:'mr6', tipo:'reto', categoria:'medio', quien_genero:'todos', para_genero:'todos',
@@ -6042,7 +6038,7 @@ const IGNITE_CARDS_DEFAULT = {
       { id:'rec9', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
         texto:'${jugador} sirve una copa, brinda rozando los vasos con ${otro} y le da un beso lento en la comisura de los labios, terminando con un piquito.' },
       { id:'rec10', tipo:'reto', categoria:'recuperacion', quien_genero:'todos', para_genero:'todos',
-        texto:'${jugador} se sienta en las piernas de ${otro} de frente, entrelazando las piernas. ${jugador} cierra los ojos mientras ${otro} le recorre la mandíbula y el cuello con los labios lentamente durante 45 segundos, sin besar la boca.', label:'prenda' },
+        texto:'${jugador} se sienta en las piernas de ${otro} de frente, entrelazando las piernas. ${jugador} cierra los ojos mientras ${otro} le recorre la mandíbula y el cuello con los labios lentamente durante 45 segundos, sin besar la boca.' },
     ]
   },
   hard: {
@@ -6080,13 +6076,13 @@ const IGNITE_CARDS_DEFAULT = {
     ],
     retos: [
       { id:'hr1', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
-        texto:'Acércate hasta que tus labios rocen los de ${otro} sin llegar a besarlo. Mantente ahí, respirando el mismo aire, 15 segundos completos.', label:'prenda' },
+        texto:'Acércate hasta que tus labios rocen los de ${otro} sin llegar a besarlo. Mantente ahí, respirando el mismo aire, 15 segundos completos.' },
       { id:'hr2', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
         texto:'Dale a ${otro} un masaje lento de 2 minutos en el área que elija, piel con piel.' },
       { id:'hr3', tipo:'reto', categoria:'hard', quien_genero:'mujer', para_genero:'hombre',
         texto:'Baila sobre ${otro}, cuerpo contra cuerpo, durante 2 minutos completos, sin que ninguno aparte la mirada.' },
       { id:'hr4', tipo:'reto', categoria:'hard', quien_genero:'hombre', para_genero:'mujer',
-        texto:'Dile a ${otro}, al oído y sin ningún filtro, exactamente qué le harías si estuvieran completamente solos ahora mismo.', label:'prenda' },
+        texto:'Dile a ${otro}, al oído y sin ningún filtro, exactamente qué le harías si estuvieran completamente solos ahora mismo.' },
       { id:'hr5', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
         texto:'Toma tu siguiente shot directamente de la piel de ${otro}, en el lugar que ella/él elija.' },
       { id:'hr6', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
@@ -6094,7 +6090,7 @@ const IGNITE_CARDS_DEFAULT = {
       { id:'hr7', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
         texto:'Bésale el cuello a ${otro} durante 15 segundos completos, despacio, hasta que se le erice la piel.' },
       { id:'hr8', tipo:'reto', categoria:'hard', quien_genero:'mujer', para_genero:'hombre',
-        texto:'Siéntate sobre las piernas de ${otro} de frente, lo más cerca posible, y quédate ahí hasta tu próximo turno.', label:'prenda' },
+        texto:'Siéntate sobre las piernas de ${otro} de frente, lo más cerca posible, y quédate ahí hasta tu próximo turno.' },
       { id:'hr9', tipo:'reto', categoria:'hard', quien_genero:'hombre', para_genero:'mujer',
         texto:'Recórrele la espalda a ${otro} con los labios, despacio, desde el cuello hasta el hombro.' },
       { id:'hr10', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
@@ -6102,7 +6098,7 @@ const IGNITE_CARDS_DEFAULT = {
       { id:'hr11', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
         texto:'Bésale el cuello a ${otro}, subiendo despacio hasta justo debajo de la oreja, y susúrrale algo ahí mismo.' },
       { id:'hr12', tipo:'reto', categoria:'hard', quien_genero:'mujer', para_genero:'hombre',
-        texto:'Siéntate a horcajadas sobre ${otro}, piel contra piel donde se pueda, y quédate así el resto de la ronda.', label:'prenda' },
+        texto:'Siéntate a horcajadas sobre ${otro}, piel contra piel donde se pueda, y quédate así el resto de la ronda.' },
       { id:'hr13', tipo:'reto', categoria:'hard', quien_genero:'hombre', para_genero:'mujer',
         texto:'Susúrrale al oído a ${otro}, sin que nadie más escuche, exactamente cómo te gustaría tocarla ahora mismo.' },
       { id:'hr14', tipo:'reto', categoria:'hard', quien_genero:'todos', para_genero:'todos',
