@@ -1103,7 +1103,7 @@ async function checkPendingBadges() {
         const p = d.data();
         const isCreator = p.createdBy === uid;
         if (p.status === 'pending_review' && !isCreator) dadoPending++;
-        else if (p.status === 'b_turn') dadoPending++;
+        else if (p.status !== 'closed') dadoPending++;
       });
     } catch(e) {}
 

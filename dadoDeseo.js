@@ -143,12 +143,9 @@ async function renderDado() {
 }
 
 function dadoStatusLabel(status, isCreator) {
-  const labels = {
-    pending_review: isCreator ? 'Esperando que tu pareja la revise' : 'Tienes una propuesta pendiente de revisar',
-    b_turn: 'Hay categorías por resolver',
-    closed: 'Cerrada — mira el resultado',
-  };
-  return labels[status] || status;
+  if (status === 'pending_review') return isCreator ? 'Esperando que tu pareja la revise' : 'Tienes una propuesta pendiente de revisar';
+  if (status === 'closed') return 'Cerrada — mira el resultado';
+  return 'Hay categorías por resolver'; // b_turn y cualquier estado viejo/desconocido
 }
 
 function escapeHtml(s) {
@@ -648,7 +645,9 @@ async function abrirDadoDetalle(proposalId) {
 
   // Ya se vivió la presentación completa una vez (quedó en b_turn o
   // closed) — ir directo a resolver o al resultado, sin repetir el show.
-  if (pack.status === 'b_turn' || pack.status === 'closed') {
+  // Cualquier estado que no sea "recién enviada" salta directo a resolver
+  // (cubre b_turn, closed, y también a_turn de propuestas de prueba viejas).
+  if (pack.status !== 'pending_review') {
     renderDadoResolve(proposalId);
     return;
   }
