@@ -1082,22 +1082,43 @@ function updateHeader() {
 async function checkPendingBadges() {
   if (!currentUserData?.groupId) return;
   try {
-    const snap = await db.collection('groups').doc(currentUserData.groupId)
+    const gid = currentUserData.groupId;
+    const uid = currentUser.uid;
+
+    const snap = await db.collection('groups').doc(gid)
       .collection('requests').where('status','==','pending').get();
     const pending = snap.docs.map(d=>d.data());
-    const uid = currentUser.uid;
     const forMe = pending.filter(r => r.requestedBy !== uid);
     const actionsPending = forMe.filter(r=>r.type==='action').length;
     const fantasiesPending = forMe.filter(r=>r.type==='fantasy').length;
-    const total = forMe.length;
+
+    // Propuestas del Dado del Deseo que requieren tu acción ahora mismo:
+    // - te la enviaron y falta que la revises (pending_review, no creador)
+    // - es tu turno de resolver (b_turn si no eres creador, a_turn si sí)
+    let dadoPending = 0;
+    try {
+      const dadoSnap = await db.collection('groups').doc(gid).collection('desirePacks')
+        .orderBy('createdAt', 'desc').limit(20).get();
+      dadoSnap.docs.forEach(d => {
+        const p = d.data();
+        const isCreator = p.createdBy === uid;
+        if (p.status === 'pending_review' && !isCreator) dadoPending++;
+        else if (p.status === 'b_turn' && !isCreator) dadoPending++;
+        else if (p.status === 'a_turn' && isCreator) dadoPending++;
+      });
+    } catch(e) {}
+
+    const total = forMe.length + dadoPending;
 
     const gb = document.getElementById('badge-ganar');
     const db2 = document.getElementById('badge-deseos');
     const nd = document.getElementById('notif-dot');
+    const bd = document.getElementById('badge-dado');
 
     // Mostrar número en badge
     if (gb) { gb.style.display = actionsPending > 0 ? 'block' : 'none'; gb.textContent = actionsPending > 0 ? actionsPending : ''; }
     if (db2) { db2.style.display = fantasiesPending > 0 ? 'block' : 'none'; db2.textContent = fantasiesPending > 0 ? fantasiesPending : ''; }
+    if (bd) { bd.style.display = dadoPending > 0 ? 'block' : 'none'; bd.textContent = dadoPending > 0 ? dadoPending : ''; }
     if (nd) { nd.style.display = total > 0 ? 'block' : 'none'; nd.textContent = total > 9 ? '9+' : (total || ''); }
   } catch(e) {}
 }

@@ -130,7 +130,7 @@ async function renderDado() {
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
                 <div class="${ddCls('heading')}" style="${ddHeadingStyle(14)}">${escapeHtml(p.title)}</div>
-                <div class="${ddCls('status')}" style="${ddTheme() === 'ignite' ? 'color:var(--text2);font-size:12px;' : ''}">${dadoStatusLabel(p.status)}</div>
+                <div class="${ddCls('status')}" style="${ddTheme() === 'ignite' ? 'color:var(--text2);font-size:12px;' : ''}">${dadoStatusLabel(p.status, p.createdBy === currentUser.uid)}</div>
               </div>
               <span style="color:${ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)'};font-size:18px;">→</span>
             </div>
@@ -141,13 +141,14 @@ async function renderDado() {
   `;
 }
 
-function dadoStatusLabel(status) {
-  return {
-    pending_review: 'Esperando que tu pareja la revise',
-    b_turn: 'Tu pareja está jugando su parte',
-    a_turn: 'Te toca resolver tu parte',
-    closed: 'Cerrada',
-  }[status] || status;
+function dadoStatusLabel(status, isCreator) {
+  const labels = {
+    pending_review: isCreator ? 'Esperando que tu pareja la revise' : 'Tienes una propuesta pendiente de revisar',
+    b_turn: isCreator ? 'Tu pareja está jugando su parte' : 'Te toca jugar tu parte',
+    a_turn: isCreator ? 'Te toca resolver tu parte' : 'Tu pareja está resolviendo su parte',
+    closed: 'Cerrada — mira el resultado',
+  };
+  return labels[status] || status;
 }
 
 function escapeHtml(s) {
@@ -609,18 +610,26 @@ function renderDadoPresoSlide() {
         <div class="${ddCls('heading')}" style="${ddHeadingStyle(24)}">${escapeHtml(slide.name)}</div>
       </div>`;
   } else if (slide.type === 'reglas') {
+    const stepColor = ddTheme() === 'comic' ? 'rgba(255,255,255,.85)' : 'var(--text)';
+    const stepSub = ddTheme() === 'comic' ? 'rgba(255,255,255,.55)' : 'var(--text2)';
+    const stepBg = ddTheme() === 'comic' ? 'rgba(255,255,255,.05)' : 'var(--bg3)';
+    const ruleStep = (icon, title, sub) => `
+      <div style="display:flex;align-items:center;gap:12px;background:${stepBg};border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+        <div style="font-size:24px;flex-shrink:0;width:32px;text-align:center;">${icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:${stepColor};">${title}</div>
+          <div style="font-size:11px;color:${stepSub};margin-top:2px;">${sub}</div>
+        </div>
+      </div>`;
     inner = `
-      <div style="height:100%;overflow-y:auto;padding:24px;">
-        <div class="${ddCls('heading')}" style="${ddHeadingStyle(20)}margin-bottom:14px;">Reglas del juego</div>
-        <p style="font-size:13px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.75)' : 'var(--text2)'};line-height:1.6;margin-bottom:10px;">
-          Quien recibe esta propuesta puede agregar opciones en máximo 2 de las 3 secciones (Actividad, Invitado, Ropa).
-          Donde agregue, pierde el derecho a elegir ahí — le toca a la Suerte o a la otra persona.
-        </p>
-        <p style="font-size:13px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.75)' : 'var(--text2)'};line-height:1.6;margin-bottom:18px;">
-          La Actividad se resuelve siempre primero. Ropa e Invitado se filtran según lo que aplique a la actividad elegida.
-        </p>
-        <div class="${ddCls('cardFlat')}" style="margin-top:10px;">
-          ${dadoStatusLabel(slide.status)}
+      <div style="height:100%;overflow-y:auto;padding:22px;">
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(18)}margin-bottom:14px;text-align:center;">Así funciona</div>
+        ${ruleStep('✏️', 'Agrega si quieres', 'Puedes sumar opciones en 2 de las 3 categorías')}
+        ${ruleStep('🔒', 'Donde agregas, no eliges', 'Esa categoría la resuelve la Suerte o tu pareja')}
+        ${ruleStep('1️⃣', 'La actividad va primero', 'Ropa e Invitado dependen de qué actividad salga')}
+        ${ruleStep('🎲', 'La suerte decide el resto', 'Un dado resuelve lo que no elijan ustedes')}
+        <div class="${ddCls('cardFlat')}" style="margin-top:14px;text-align:center;">
+          ${dadoStatusLabel(slide.status, slide.isCreator)}
         </div>
       </div>`;
   }
