@@ -711,7 +711,7 @@ function renderDadoPresoSlide() {
         ${ddCls('tag') ? `<span class="${ddCls('tag')}">Propuesta</span>` : ''}
         <div class="${ddCls('heading')}" style="${ddHeadingStyle(30)}margin-top:14px;">${escapeHtml(slide.title)}</div>
         <p style="color:${introColor};font-size:14px;line-height:1.6;margin-top:14px;max-width:290px;">
-          El día a día tiene su rutina. Esto no. Hay varios caminos posibles — cada uno decidido entre ustedes dos y un poco de suerte.
+          Esta propuesta no es una sola — son varias, esperando ser descubiertas. Avanza, desliza, y deja que cada una encienda algo distinto en ustedes.
         </p>
       </div>`;
   } else if (slide.type === 'pareja') {
