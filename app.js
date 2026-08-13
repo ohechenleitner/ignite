@@ -2843,6 +2843,14 @@ async function renderConfig(){
         <button class="btn btn-sm ${(localStorage.getItem('dadoTheme')||'ignite')==='comic'?'btn-primary':'btn-outline'}" style="flex:1" onclick="localStorage.setItem('dadoTheme','comic');showTab('config')">Cómic</button>
       </div>
     </div>
+    <div class="card" style="margin-bottom:8px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">Imagen de pareja</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Aparece en la presentación de cada propuesta. Si no subes una, se usa una genérica.</div>
+      <label class="btn btn-outline btn-sm" style="display:inline-block;cursor:pointer">
+        Subir foto
+        <input type="file" accept="image/*" style="display:none" onchange="dadoUploadCoupleImage(this)">
+      </label>
+    </div>
     <div class="section-hd" style="margin-top:8px"><div class="section-title">Interno</div></div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="showTab('minutas')">📝 Minutas de desarrollo</button>`;
 

@@ -523,6 +523,19 @@ async function editarDadoPack() {
 
 let dadoPreso = null;
 
+async function ddGetCoupleImageUrl() {
+  const gid = currentUserData.groupId;
+  try {
+    return await storage.ref(`groups/${gid}/dadoConfig/pareja.jpg`).getDownloadURL();
+  } catch (e) {
+    try {
+      return await storage.ref('defaults/pareja.jpg').getDownloadURL();
+    } catch (e2) {
+      return null;
+    }
+  }
+}
+
 async function abrirDadoDetalle(proposalId) {
   dadoInjectStyles();
   const gid = currentUserData.groupId;
@@ -539,11 +552,12 @@ async function abrirDadoDetalle(proposalId) {
   const activities = actSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const guests = guestSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const outfits = outfitSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const coupleImageUrl = await ddGetCoupleImageUrl();
 
   // Slides: 1 portada + 1 pareja + 1 por actividad + 1 de reglas al final.
   const slides = [
     { type: 'cover', title: pack.title },
-    { type: 'pareja' },
+    { type: 'pareja', imageUrl: coupleImageUrl },
     ...activities.map(a => ({ type: 'activity', name: a.name, imageUrl: a.imageUrl })),
     { type: 'reglas', guests, outfits, isCreator, status: pack.status },
   ];
@@ -580,7 +594,9 @@ function renderDadoPresoSlide() {
   } else if (slide.type === 'pareja') {
     inner = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
-        <div style="font-size:56px;margin-bottom:14px;">💞</div>
+        ${slide.imageUrl
+          ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;max-height:260px;object-fit:cover;border-radius:10px;margin-bottom:14px;">`
+          : `<div style="font-size:56px;margin-bottom:14px;">💞</div>`}
         <div class="${ddCls('heading')}" style="${ddHeadingStyle(22)}">Ustedes dos</div>
         <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.6)' : 'var(--text2)'};font-size:13px;margin-top:8px;">Una propuesta para vivir juntos</p>
       </div>`;
@@ -638,6 +654,20 @@ function dadoPresoNext() {
 function dadoPresoPrev() {
   if (dadoPreso.index > 0) dadoPreso.index--;
   renderDadoPresoSlide();
+}
+
+async function dadoUploadCoupleImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const gid = currentUserData.groupId;
+  try {
+    showToast('Subiendo imagen...');
+    await storage.ref(`groups/${gid}/dadoConfig/pareja.jpg`).put(file);
+    showToast('Imagen de pareja actualizada');
+  } catch (e) {
+    console.error(e);
+    showToast('Error al subir la imagen');
+  }
 }
 
 // ===== REPARTO (Persona B) =====
