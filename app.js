@@ -16,6 +16,7 @@ const storage = firebase.storage();
 // ===== STATE =====
 let currentUser = null;
 let currentUserData = null;
+let isRegistering = false; // evita que onAuthStateChanged cierre la sesión a mitad de un registro
 let currentTab = 'inicio';
 let fantasyFilter = 'all'; // categoria: all, pareja, grupo
 let fantasyLevel = 'all';  // nivel: all, basic, medium, high
@@ -772,6 +773,7 @@ async function registerUser() {
   }
   const btn = document.querySelector('#register-form .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Creando cuenta...'; }
+  isRegistering = true;
   try {
     // Se crea la cuenta primero, para que la búsqueda del grupo por
     // código (siguiente paso) ocurra ya autenticado — antes fallaba
@@ -788,6 +790,7 @@ async function registerUser() {
         showError(errEl, 'Código inválido: ' + code);
         if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; }
         try { await cred.user.delete(); } catch(e) {} // revertir cuenta creada si el código no sirve
+        isRegistering = false;
         return;
       }
       groupId = groupSnap.docs[0].id;
@@ -824,10 +827,13 @@ async function registerUser() {
     });
     if (successEl) { successEl.textContent = '✓ ¡Cuenta creada! Entrando...'; successEl.style.display = 'block'; }
     if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; }
+    isRegistering = false;
+    setTimeout(() => location.reload(), 900);
   } catch (e) {
     const msg = e.code === 'auth/email-already-in-use' ? 'Este email ya está registrado' : 'Error: ' + (e.message || '');
     showError(errEl, msg);
     if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; }
+    isRegistering = false;
   }
 }
 function showError(el, msg) { el.textContent = msg; el.style.display = 'block'; }
@@ -857,7 +863,19 @@ auth.onAuthStateChanged(async (user) => {
     if (authScreen) { authScreen.style.display = 'none'; authScreen.classList.remove('active'); }
     try {
       let snap = await db.collection('users').doc(user.uid).get();
-      if (!snap.exists) { await auth.signOut(); return; }
+      if (!snap.exists) {
+        if (isRegistering) {
+          // Hay un registro en curso (probablemente uniéndose a un grupo
+          // con código) — el documento de usuario todavía se está
+          // creando. Esperamos en vez de cerrar la sesión.
+          await new Promise(r => setTimeout(r, 2000));
+          snap = await db.collection('users').doc(user.uid).get();
+          if (!snap.exists) return; // registerUser sigue en curso, se reintentará al terminar
+        } else {
+          await auth.signOut();
+          return;
+        }
+      }
       currentUserData = snap.data();
       if (!currentUserData.groupId) {
         await new Promise(r => setTimeout(r, 2500));
