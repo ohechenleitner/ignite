@@ -10,7 +10,7 @@
 // barrera real contra manipulación directa.
 
 // ===== TEMA =====
-function ddTheme() { return localStorage.getItem('dadoTheme') || 'comic'; }
+function ddTheme() { return localStorage.getItem('dadoTheme') || 'ignite'; }
 function ddSetTheme(t) { localStorage.setItem('dadoTheme', t); renderDado(); }
 
 const DD_CLASSES = {
