@@ -79,7 +79,7 @@ let dadoState = {
   activities: [], includeGuests: false, guests: [], outfits: [],
 };
 
-const DADO_STEPS = ['titulo', 'actividades', 'invitados', 'ropa', 'preview'];
+const DADO_STEPS = ['titulo', 'actividades', 'invitados', 'ropa', 'asociacion', 'preview'];
 const DADO_MAX_ACTIVITIES = 10;
 
 function dadoThemeToggleHtml() {
@@ -162,13 +162,14 @@ function abrirDadoWizard() {
     step: 0, title: '',
     activities: [mkItem(), mkItem(), mkItem()],
     includeGuests: false,
-    guests: [mkItem(), mkItem()],
-    outfits: [mkItem(), mkItem(), mkItem()],
+    guests: [mkAssocItem(), mkAssocItem()],
+    outfits: [mkAssocItem(), mkAssocItem(), mkAssocItem()],
   };
   renderDadoWizard();
 }
 
 function mkItem() { return { id: crypto.randomUUID(), name: '' }; }
+function mkAssocItem() { return { id: crypto.randomUUID(), name: '', compatibleActivityIds: [] }; }
 
 function renderDadoWizard() {
   const step = DADO_STEPS[dadoState.step];
@@ -203,6 +204,25 @@ function renderDadoWizard() {
       ${dadoState.outfits.map((o, i) => dadoRow('outfits', o, i)).join('')}
       <button class="${ddCls('btnOutline')}" style="margin-top:6px;font-size:13px;padding:8px 14px;" onclick="dadoAddItem('outfits')">+ Agregar ropa</button>
     `;
+  } else if (step === 'asociacion') {
+    const acts = dadoState.activities.filter(a => a.name.trim());
+    const outfits = dadoState.outfits.filter(o => o.name.trim());
+    const guests = dadoState.includeGuests ? dadoState.guests.filter(g => g.name.trim()) : [];
+    if (!acts.length) {
+      body = `<div class="${ddCls('empty')}">Agrega actividades primero para poder asociarlas</div>`;
+    } else {
+      body = `
+        <div class="${ddCls('label')}">¿En qué actividades aplica cada prenda?</div>
+        <p style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.5)' : 'var(--text2)'};margin-bottom:10px;">
+          Si no marcas ninguna, se considera válida para todas.
+        </p>
+        ${outfits.map(o => dadoAssocBlock('outfits', o, acts)).join('') || `<div class="${ddCls('empty')}">Sin ropa cargada</div>`}
+        ${guests.length ? `
+          <div class="${ddCls('label')}" style="margin-top:18px;">¿Con qué actividades va cada invitado?</div>
+          ${guests.map(g => dadoAssocBlock('guests', g, acts)).join('')}
+        ` : ''}
+      `;
+    }
   } else if (step === 'preview') {
     const acts = dadoState.activities.filter(a => a.name.trim());
     const guests = dadoState.includeGuests ? dadoState.guests.filter(g => g.name.trim()) : [];
@@ -245,6 +265,30 @@ function dadoRow(listName, item, idx) {
     </div>`;
 }
 
+function dadoAssocBlock(listName, item, activities) {
+  return `
+    <div class="${ddCls('cardFlat')}" style="margin-bottom:10px;">
+      <div style="font-weight:600;margin-bottom:8px;color:${ddTheme() === 'comic' ? '#fff' : 'var(--text)'};">${escapeHtml(item.name)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${activities.map(a => `
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.8)' : 'var(--text2)'};">
+            <input type="checkbox" ${item.compatibleActivityIds.includes(a.id) ? 'checked' : ''}
+              onchange="dadoToggleAssoc('${listName}','${item.id}','${a.id}')">
+            ${escapeHtml(a.name)}
+          </label>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function dadoToggleAssoc(listName, itemId, activityId) {
+  const item = dadoState[listName].find(x => x.id === itemId);
+  if (!item) return;
+  const idx = item.compatibleActivityIds.indexOf(activityId);
+  if (idx >= 0) item.compatibleActivityIds.splice(idx, 1);
+  else item.compatibleActivityIds.push(activityId);
+}
+
 function dadoUpdateItem(listName, id, value) {
   const it = dadoState[listName].find(x => x.id === id);
   if (it) it.name = value;
@@ -255,7 +299,7 @@ function dadoRemoveItem(listName, id) {
 }
 function dadoAddItem(listName) {
   if (listName === 'activities' && dadoState.activities.length >= DADO_MAX_ACTIVITIES) return;
-  dadoState[listName].push(mkItem());
+  dadoState[listName].push(listName === 'activities' ? mkItem() : mkAssocItem());
   renderDadoWizard();
 }
 function dadoGoNext() {
@@ -285,18 +329,29 @@ async function guardarDadoPack() {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
-    const batch = db.batch();
-    activities.forEach(a => {
+    // Pre-generar refs de actividades primero, para poder traducir los
+    // IDs locales (usados en compatibleActivityIds) a los IDs reales
+    // de Firestore antes de guardar Ropa/Invitados.
+    const activityIdMap = {}; // local id -> firestore id
+    const activityRefs = activities.map(a => {
       const ref = packRef.collection('activities').doc();
-      batch.set(ref, { name: a.name.trim(), addedBy: uid, source: 'custom' });
+      activityIdMap[a.id] = ref.id;
+      return { ref, data: a };
+    });
+
+    const batch = db.batch();
+    activityRefs.forEach(({ ref, data }) => {
+      batch.set(ref, { name: data.name.trim(), addedBy: uid, source: 'custom' });
     });
     guests.forEach(g => {
       const ref = packRef.collection('guests').doc();
-      batch.set(ref, { name: g.name.trim(), addedBy: uid, compatibleActivities: [] });
+      const compatible = (g.compatibleActivityIds || []).map(localId => activityIdMap[localId]).filter(Boolean);
+      batch.set(ref, { name: g.name.trim(), addedBy: uid, compatibleActivities: compatible });
     });
     outfits.forEach(o => {
       const ref = packRef.collection('outfits').doc();
-      batch.set(ref, { name: o.name.trim(), addedBy: uid, compatibleActivities: [] });
+      const compatible = (o.compatibleActivityIds || []).map(localId => activityIdMap[localId]).filter(Boolean);
+      batch.set(ref, { name: o.name.trim(), addedBy: uid, compatibleActivities: compatible });
     });
     await batch.commit();
 
