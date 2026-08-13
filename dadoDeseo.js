@@ -717,7 +717,9 @@ function renderDadoPresoSlide() {
           ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;max-height:260px;object-fit:cover;border-radius:10px;margin-bottom:14px;">`
           : `<div style="font-size:56px;margin-bottom:14px;">💞</div>`}
         <div class="${ddCls('heading')}" style="${ddHeadingStyle(22)}">Ustedes dos</div>
-        <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.6)' : 'var(--text2)'};font-size:13px;margin-top:8px;">Una propuesta para vivir juntos</p>
+        <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.7)' : 'var(--text2)'};font-size:14px;margin-top:8px;line-height:1.5;max-width:280px;">
+          Algo se está encendiendo esta noche. Lo que viene es solo de ustedes — con la suerte como cómplice.
+        </p>
       </div>`;
   } else if (slide.type === 'activity') {
     const narrativeColor = ddTheme() === 'comic' ? 'rgba(255,255,255,.8)' : 'var(--text2)';
@@ -766,7 +768,7 @@ function renderDadoPresoSlide() {
 
   document.getElementById('content').innerHTML = `
     <div class="${ddCls('wrap')}">
-      <div style="position:relative;height:420px;border-radius:12px;overflow:hidden;background:${bg};${ddTheme() === 'comic' ? 'border:3px solid #000;box-shadow:5px 5px 0px #ffd700;' : 'border:1px solid var(--border);'}">
+      <div style="position:relative;min-height:420px;border-radius:12px;overflow:visible;background:${bg};${ddTheme() === 'comic' ? 'border:3px solid #000;box-shadow:5px 5px 0px #ffd700;' : 'border:1px solid var(--border);'}">
         ${dots}
         ${ddSlideTapZones('dadoPresoPrev()', 'dadoPresoNext()')}
         <div style="height:calc(100% - 30px);">${inner}</div>
@@ -1266,7 +1268,7 @@ function renderDadoRevealSlide() {
 
   document.getElementById('content').innerHTML = `
     <div class="${ddCls('wrap')}">
-      <div style="position:relative;height:420px;border-radius:12px;overflow:hidden;background:${bg};${ddTheme() === 'comic' ? 'border:3px solid #000;box-shadow:5px 5px 0px #ffd700;' : 'border:1px solid var(--border);'}">
+      <div style="position:relative;min-height:420px;border-radius:12px;overflow:visible;background:${bg};${ddTheme() === 'comic' ? 'border:3px solid #000;box-shadow:5px 5px 0px #ffd700;' : 'border:1px solid var(--border);'}">
         ${dots}
         ${ddSlideTapZones('dadoRevealPrev()', 'dadoRevealNext()')}
         <div style="height:calc(100% - 30px);">${inner}</div>
