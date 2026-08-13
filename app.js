@@ -773,17 +773,26 @@ async function registerUser() {
   const btn = document.querySelector('#register-form .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Creando cuenta...'; }
   try {
+    // Se crea la cuenta primero, para que la búsqueda del grupo por
+    // código (siguiente paso) ocurra ya autenticado — antes fallaba
+    // porque intentaba leer Firestore sin sesión iniciada.
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    const uid = cred.user.uid;
+    try { await cred.user.sendEmailVerification(); } catch(e) {}
+
     let groupId = null;
     let role = 'admin';
     if (code) {
       const groupSnap = await db.collection('groups').where('inviteCode', '==', code).limit(1).get();
-      if (groupSnap.empty) { showError(errEl, 'Código inválido: ' + code); if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; } return; }
+      if (groupSnap.empty) {
+        showError(errEl, 'Código inválido: ' + code);
+        if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; }
+        try { await cred.user.delete(); } catch(e) {} // revertir cuenta creada si el código no sirve
+        return;
+      }
       groupId = groupSnap.docs[0].id;
       role = 'member';
     }
-    const cred = await auth.createUserWithEmailAndPassword(email, pass);
-    const uid = cred.user.uid;
-    try { await cred.user.sendEmailVerification(); } catch(e) {}
     const colors = ['#E8608A','#4ECBA0','#9B7FE8','#F5A623','#FF7A00','#378ADD'];
     const color = colors[Math.floor(Math.random() * colors.length)];
     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
