@@ -559,7 +559,13 @@ async function abrirDadoDetalle(proposalId) {
   const slides = [
     { type: 'cover', title: pack.title },
     { type: 'pareja', imageUrl: coupleImageUrl },
-    ...activities.map(a => ({ type: 'activity', name: a.name, imageUrl: a.imageUrl })),
+    ...activities.map(a => ({
+      type: 'activity',
+      name: a.name,
+      imageUrl: a.imageUrl,
+      compatibleGuests: guests.filter(g => !g.compatibleActivities?.length || g.compatibleActivities.includes(a.id)),
+      compatibleOutfits: outfits.filter(o => !o.compatibleActivities?.length || o.compatibleActivities.includes(a.id)),
+    })),
     { type: 'reglas', guests, outfits, isCreator, status: pack.status },
   ];
 
@@ -581,8 +587,11 @@ function renderDadoPresoSlide() {
   const bg = ddTheme() === 'comic' ? '#050a1b' : 'var(--bg)';
 
   const dots = `
-    <div style="display:flex;gap:4px;padding:10px 14px;position:relative;z-index:3;">
-      ${p.slides.map((s, i) => `<div style="flex:1;height:3px;border-radius:2px;background:${i <= p.index ? (ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)') : 'rgba(255,255,255,.2)'};"></div>`).join('')}
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;position:relative;z-index:4;">
+      <button onclick="showTab('dado')" style="background:rgba(0,0,0,.4);border:none;color:#fff;width:26px;height:26px;border-radius:50%;flex-shrink:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">✕</button>
+      <div style="display:flex;gap:4px;flex:1;">
+        ${p.slides.map((s, i) => `<div style="flex:1;height:3px;border-radius:2px;background:${i <= p.index ? (ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)') : 'rgba(255,255,255,.2)'};"></div>`).join('')}
+      </div>
     </div>`;
 
   let inner = '';
@@ -602,12 +611,20 @@ function renderDadoPresoSlide() {
         <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.6)' : 'var(--text2)'};font-size:13px;margin-top:8px;">Una propuesta para vivir juntos</p>
       </div>`;
   } else if (slide.type === 'activity') {
+    const tagColor = ddTheme() === 'comic' ? 'rgba(255,255,255,.75)' : 'var(--text2)';
+    const tagBg = ddTheme() === 'comic' ? 'rgba(255,255,255,.08)' : 'var(--bg3)';
+    const renderTags = (icon, items) => items.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px;">
+          ${items.map(i => `<span style="font-size:11px;background:${tagBg};color:${tagColor};padding:4px 10px;border-radius:12px;">${icon} ${escapeHtml(i.name)}</span>`).join('')}
+        </div>` : '';
     inner = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
         ${slide.imageUrl
           ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;border-radius:10px;margin-bottom:18px;object-fit:cover;max-height:280px;">`
           : `<div style="font-size:56px;margin-bottom:14px;">🎲</div>`}
         <div class="${ddCls('heading')}" style="${ddHeadingStyle(24)}">${escapeHtml(slide.name)}</div>
+        ${renderTags('👥', slide.compatibleGuests)}
+        ${renderTags('👗', slide.compatibleOutfits)}
       </div>`;
   } else if (slide.type === 'reglas') {
     const stepColor = ddTheme() === 'comic' ? 'rgba(255,255,255,.85)' : 'var(--text)';
