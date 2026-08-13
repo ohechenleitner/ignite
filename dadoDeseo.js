@@ -349,6 +349,12 @@ async function abrirDadoDetalle(proposalId) {
       ${!isCreator && pack.status === 'pending_review' ? `
         <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoReview('${proposalId}')">Continuar</button>
       ` : ''}
+      ${pack.status === 'b_turn' && !isCreator ? `
+        <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoResolve('${proposalId}')">Seguir resolviendo</button>
+      ` : ''}
+      ${pack.status === 'a_turn' && isCreator ? `
+        <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoResolve('${proposalId}')">Te toca resolver</button>
+      ` : ''}
       <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:8px;" onclick="showTab('dado')">Volver</button>
     </div>
   `;
@@ -562,15 +568,210 @@ async function confirmarDadoReparto() {
   }
 }
 
-// ===== RESOLUCIÓN / DADO — PENDIENTE =====
-// Stub temporal: el reparto ya quedó guardado en Firestore
-// (resolution/state), listo para que la Pieza 2 (el dado) lo lea
-// y resuelva Actividad primero, luego Ropa/Invitado filtrados.
-function renderDadoResolve(proposalId) {
+// ===== RESOLUCIÓN / EL DADO =====
+// Regla dura: Actividad se resuelve SIEMPRE primero (manual o por
+// suerte) — Ropa/Invitado no se pueden tocar ni mostrar como
+// disponibles hasta que activityResult exista, porque se filtran por
+// compatibilidad con la actividad ya fija.
+
+let dadoResolveCtx = null;
+
+async function renderDadoResolve(proposalId) {
+  const gid = currentUserData.groupId;
+  const packRef = db.collection('groups').doc(gid).collection('desirePacks').doc(proposalId);
+  const [packSnap, resSnap, actSnap, guestSnap, outfitSnap] = await Promise.all([
+    packRef.get(),
+    packRef.collection('resolution').doc('state').get(),
+    packRef.collection('activities').get(),
+    packRef.collection('guests').get(),
+    packRef.collection('outfits').get(),
+  ]);
+
+  dadoResolveCtx = {
+    proposalId, packRef,
+    pack: packSnap.data(),
+    resolution: resSnap.data(),
+    activities: actSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    guests: guestSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    outfits: outfitSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+  };
+
+  renderDadoResolveScreen();
+}
+
+function ddMyRole() {
+  return currentUser.uid === dadoResolveCtx.pack.createdBy ? 'a' : 'b';
+}
+
+function ddCategoryLabel(cat) { return { activity: 'Actividad', guest: 'Invitado', outfit: 'Ropa' }[cat]; }
+
+function ddResolvedName(cat, id) {
+  if (!id) return null;
+  const list = cat === 'activity' ? dadoResolveCtx.activities : cat === 'guest' ? dadoResolveCtx.guests : dadoResolveCtx.outfits;
+  const item = list.find(i => i.id === id);
+  return item ? item.name : '(eliminado)';
+}
+
+function ddCanActOnCategory(cat) {
+  const res = dadoResolveCtx.resolution;
+  const assignedTo = res[`${cat}AssignedTo`];
+  const already = res[`${cat}Result`];
+  if (already) return false;
+  if (cat !== 'activity' && !res.activityResult) return false; // regla dura: actividad primero
+  if (assignedTo === 'luck') return true; // cualquiera de los dos puede lanzar el dado
+  return assignedTo === ddMyRole();
+}
+
+function renderDadoResolveScreen() {
+  const ctx = dadoResolveCtx;
+  const res = ctx.resolution;
+  const cats = ['activity', 'guest', 'outfit'];
+
+  const rows = cats.map(cat => {
+    const assignedTo = res[`${cat}AssignedTo`];
+    const result = res[`${cat}Result`];
+    const resolvedName = ddResolvedName(cat, result);
+    const canAct = ddCanActOnCategory(cat);
+    const blockedByActivity = cat !== 'activity' && !res.activityResult;
+
+    let actionHtml = '';
+    if (resolvedName) {
+      actionHtml = `<div style="color:${ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)'};font-weight:600;">${escapeHtml(resolvedName)} ✓</div>`;
+    } else if (blockedByActivity) {
+      actionHtml = `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">Se resuelve después de la Actividad</div>`;
+    } else if (!canAct) {
+      actionHtml = `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">Le toca a ${assignedTo === 'luck' ? 'la suerte' : assignedTo === ddMyRole() ? 'ti' : 'tu pareja'}</div>`;
+    } else if (assignedTo === 'luck') {
+      actionHtml = `<button class="${ddCls('btnDanger')}" onclick="ddRollDice('${cat}')">🎲 Lanzar el dado</button>`;
+    } else {
+      const list = cat === 'activity' ? ctx.activities : cat === 'guest' ? ctx.guests : ctx.outfits;
+      const compatible = cat === 'activity' ? list : list.filter(i => !i.compatibleActivities?.length || i.compatibleActivities.includes(res.activityResult));
+      actionHtml = `
+        <select class="${ddCls('input')}" id="dd-select-${cat}">
+          <option value="">Elegir...</option>
+          ${compatible.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}
+        </select>
+        <button class="${ddCls('btnPrimary')}" style="margin-top:6px;" onclick="ddConfirmManual('${cat}')">Confirmar</button>
+      `;
+    }
+
+    return `
+      <div class="${ddCls('cardFlat')}" style="margin-bottom:12px;" id="dd-row-${cat}">
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(14)}margin-bottom:8px;">${ddCategoryLabel(cat)}</div>
+        ${actionHtml}
+      </div>
+    `;
+  }).join('');
+
   document.getElementById('content').innerHTML = `
     <div class="${ddCls('wrap')}">
-      <div class="${ddCls('empty')}">El reparto quedó guardado. La pantalla del dado se conecta en el siguiente paso.</div>
-      <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:12px;" onclick="showTab('dado')">Volver</button>
+      <div class="${ddCls('cardFlat')}" style="margin-bottom:14px;">
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(18)}">${escapeHtml(ctx.pack.title)}</div>
+      </div>
+      ${rows}
+      <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" onclick="showTab('dado')">Volver más tarde</button>
+    </div>
+  `;
+}
+
+async function ddConfirmManual(cat) {
+  const select = document.getElementById(`dd-select-${cat}`);
+  const chosenId = select.value;
+  if (!chosenId) { showToast('Elige una opción'); return; }
+  await ddResolveCategory(cat, chosenId);
+}
+
+async function ddRollDice(cat) {
+  const ctx = dadoResolveCtx;
+  const res = ctx.resolution;
+  const list = cat === 'activity' ? ctx.activities : cat === 'guest' ? ctx.guests : ctx.outfits;
+  const compatible = cat === 'activity' ? list : list.filter(i => !i.compatibleActivities?.length || i.compatibleActivities.includes(res.activityResult));
+
+  if (!compatible.length) { showToast('No hay opciones disponibles para sortear'); return; }
+
+  // Animación breve de "tirada" antes de mostrar el resultado
+  const row = document.getElementById(`dd-row-${cat}`);
+  const original = row.innerHTML;
+  let i = 0;
+  const spin = setInterval(() => {
+    const pick = compatible[Math.floor(Math.random() * compatible.length)];
+    const heading = row.querySelector(`.${ddCls('heading').split(' ')[0]}`);
+    row.innerHTML = `<div class="${ddCls('heading')}" style="${ddHeadingStyle(14)}margin-bottom:8px;">${ddCategoryLabel(cat)}</div>
+      <div style="font-size:18px;opacity:.6;">🎲 ${escapeHtml(pick.name)}</div>`;
+    i++;
+  }, 90);
+
+  await new Promise(r => setTimeout(r, 900));
+  clearInterval(spin);
+
+  const finalPick = compatible[Math.floor(Math.random() * compatible.length)];
+  await ddResolveCategory(cat, finalPick.id);
+}
+
+async function ddResolveCategory(cat, chosenId) {
+  const ctx = dadoResolveCtx;
+  try {
+    await ctx.packRef.collection('resolution').doc('state').update({ [`${cat}Result`]: chosenId });
+    ctx.resolution[`${cat}Result`] = chosenId;
+
+    const allResolved = ctx.resolution.activityResult && (cat === 'activity' ? chosenId : ctx.resolution.guestResult) && (cat === 'guest' ? chosenId : ctx.resolution.outfitResult) && (cat === 'outfit' ? chosenId : ctx.resolution.guestResult);
+
+    // Recalcular si ya están las 3
+    const done = ['activity', 'guest', 'outfit'].every(c => ctx.resolution[`${c}Result`]);
+    if (done) {
+      const nextStatus = ddMyRole() === 'b' ? 'a_turn' : 'closed';
+      await ctx.packRef.update({ status: nextStatus });
+      if (nextStatus === 'closed') {
+        await guardarDadoHistorial(ctx);
+        await notifyGroupMembers(currentUserData.groupId, `🎉 "${ctx.pack.title}" está lista — mira el resultado`);
+        renderDadoReveal(ctx);
+        return;
+      } else {
+        await notifyGroupMembers(currentUserData.groupId, `🎲 Ya jugué mi parte de "${ctx.pack.title}" — te toca a ti`);
+      }
+    }
+
+    renderDadoResolveScreen();
+  } catch (e) {
+    console.error(e);
+    showToast('Error al resolver');
+  }
+}
+
+async function guardarDadoHistorial(ctx) {
+  const gid = currentUserData.groupId;
+  await db.collection('groups').doc(gid).collection('desireHistory').add({
+    proposalId: ctx.proposalId,
+    title: ctx.pack.title,
+    finalActivity: ddResolvedName('activity', ctx.resolution.activityResult),
+    finalGuest: ddResolvedName('guest', ctx.resolution.guestResult),
+    finalOutfit: ddResolvedName('outfit', ctx.resolution.outfitResult),
+    closedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  }).catch(e => console.error('Error guardando histórico:', e));
+}
+
+// ===== REVEAL =====
+function renderDadoReveal(ctx) {
+  const res = ctx.resolution;
+  document.getElementById('content').innerHTML = `
+    <div class="${ddCls('wrap')}">
+      <div class="${ddCls('card')}" style="text-align:center;">
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(24)}">¡Listo!</div>
+        <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.7)' : 'var(--text2)'};font-size:13px;">${escapeHtml(ctx.pack.title)}</p>
+      </div>
+      <div class="${ddCls('cardFlat')}" style="text-align:center;padding:20px;">
+        <div class="${ddCls('label')}">Actividad</div>
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(20)}">${escapeHtml(ddResolvedName('activity', res.activityResult))}</div>
+      </div>
+      <div class="${ddCls('cardFlat')}" style="text-align:center;padding:16px;">
+        <div class="${ddCls('label')}">Invitado</div>
+        <div>${escapeHtml(ddResolvedName('guest', res.guestResult) || 'Solo pareja')}</div>
+      </div>
+      <div class="${ddCls('cardFlat')}" style="text-align:center;padding:16px;">
+        <div class="${ddCls('label')}">Ropa</div>
+        <div>${escapeHtml(ddResolvedName('outfit', res.outfitResult) || '—')}</div>
+      </div>
+      <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:14px;" onclick="showTab('dado')">Volver</button>
     </div>
   `;
 }
