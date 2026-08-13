@@ -705,10 +705,14 @@ function renderDadoPresoSlide() {
 
   let inner = '';
   if (slide.type === 'cover') {
+    const introColor = ddTheme() === 'comic' ? 'rgba(255,255,255,.75)' : 'var(--text2)';
     inner = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
         ${ddCls('tag') ? `<span class="${ddCls('tag')}">Propuesta</span>` : ''}
         <div class="${ddCls('heading')}" style="${ddHeadingStyle(30)}margin-top:14px;">${escapeHtml(slide.title)}</div>
+        <p style="color:${introColor};font-size:14px;line-height:1.6;margin-top:14px;max-width:290px;">
+          El día a día tiene su rutina. Esto no. Hay varios caminos posibles — cada uno decidido entre ustedes dos y un poco de suerte.
+        </p>
       </div>`;
   } else if (slide.type === 'pareja') {
     inner = `
