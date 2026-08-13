@@ -2835,6 +2835,14 @@ async function renderConfig(){
       </div>
 
     </div>
+    <div class="section-hd" style="margin-top:8px"><div class="section-title">🎲 Dado del Deseo</div></div>
+    <div class="card" style="margin-bottom:8px">
+      <div style="font-size:13px;font-weight:500;margin-bottom:8px">Estilo visual</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm ${(localStorage.getItem('dadoTheme')||'ignite')==='ignite'?'btn-primary':'btn-outline'}" style="flex:1" onclick="localStorage.setItem('dadoTheme','ignite');showTab('config')">Ignite</button>
+        <button class="btn btn-sm ${(localStorage.getItem('dadoTheme')||'ignite')==='comic'?'btn-primary':'btn-outline'}" style="flex:1" onclick="localStorage.setItem('dadoTheme','comic');showTab('config')">Cómic</button>
+      </div>
+    </div>
     <div class="section-hd" style="margin-top:8px"><div class="section-title">Interno</div></div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="showTab('minutas')">📝 Minutas de desarrollo</button>`;
 

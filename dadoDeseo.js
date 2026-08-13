@@ -79,7 +79,7 @@ let dadoState = {
   activities: [], includeGuests: false, guests: [], outfits: [],
 };
 
-const DADO_STEPS = ['titulo', 'actividades', 'invitados', 'ropa', 'asociacion', 'preview'];
+const DADO_STEPS = ['titulo', 'actividades', 'invitados', 'ropa', 'asociacion', 'imagenes', 'preview'];
 const DADO_MAX_ACTIVITIES = 10;
 
 function dadoThemeToggleHtml() {
@@ -115,7 +115,6 @@ async function renderDado() {
 
   content.innerHTML = `
     <div class="${ddCls('wrap')}">
-      ${dadoThemeToggleHtml()}
       <div class="${ddCls('card')}">
         ${ddCls('tag') ? `<span class="${ddCls('tag')}">Dado del Deseo</span>` : `<div class="${ddCls('label')}">Dado del Deseo</div>`}
         <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.7)' : 'var(--text2)'};font-size:13px;margin:10px 0 14px;">
@@ -171,6 +170,36 @@ function abrirDadoWizard() {
 function mkItem() { return { id: crypto.randomUUID(), name: '' }; }
 function mkAssocItem() { return { id: crypto.randomUUID(), name: '', compatibleActivityIds: [] }; }
 
+// ===== EDICIÓN (Persona A, solo mientras status === 'pending_review') =====
+async function abrirDadoEdit(proposalId) {
+  dadoInjectStyles();
+  const gid = currentUserData.groupId;
+  const packRef = db.collection('groups').doc(gid).collection('desirePacks').doc(proposalId);
+  const [packSnap, actSnap, guestSnap, outfitSnap] = await Promise.all([
+    packRef.get(),
+    packRef.collection('activities').get(),
+    packRef.collection('guests').get(),
+    packRef.collection('outfits').get(),
+  ]);
+  const pack = packSnap.data();
+  if (pack.status !== 'pending_review') { showToast('Ya no se puede editar — tu pareja ya empezó a jugar'); return; }
+
+  const activities = actSnap.docs.map(d => ({ id: d.id, name: d.data().name, imageUrl: d.data().imageUrl || null }));
+  const guests = guestSnap.docs.map(d => ({ id: d.id, name: d.data().name, compatibleActivityIds: d.data().compatibleActivities || [] }));
+  const outfits = outfitSnap.docs.map(d => ({ id: d.id, name: d.data().name, compatibleActivityIds: d.data().compatibleActivities || [] }));
+
+  dadoState = {
+    step: 0, title: pack.title,
+    activities: activities.length ? activities : [mkItem()],
+    includeGuests: guests.length > 0,
+    guests: guests.length ? guests : [mkAssocItem(), mkAssocItem()],
+    outfits: outfits.length ? outfits : [mkAssocItem(), mkAssocItem(), mkAssocItem()],
+    editingProposalId: proposalId, editingPackRef: packRef,
+    originalIds: { activities: activities.map(a => a.id), guests: guests.map(g => g.id), outfits: outfits.map(o => o.id) },
+  };
+  renderDadoWizard();
+}
+
 function renderDadoWizard() {
   const step = DADO_STEPS[dadoState.step];
   let body = '';
@@ -223,6 +252,15 @@ function renderDadoWizard() {
         ` : ''}
       `;
     }
+  } else if (step === 'imagenes') {
+    const acts = dadoState.activities.filter(a => a.name.trim());
+    body = `
+      <div class="${ddCls('label')}">Imagen por actividad (opcional)</div>
+      <p style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.5)' : 'var(--text2)'};margin-bottom:4px;">
+        Sin filtro automático de contenido todavía — usa buen criterio con lo que suban.
+      </p>
+      ${acts.map(a => dadoImageBlock(a)).join('') || `<div class="${ddCls('empty')}">Sin actividades</div>`}
+    `;
   } else if (step === 'preview') {
     const acts = dadoState.activities.filter(a => a.name.trim());
     const guests = dadoState.includeGuests ? dadoState.guests.filter(g => g.name.trim()) : [];
@@ -289,6 +327,34 @@ function dadoToggleAssoc(listName, itemId, activityId) {
   else item.compatibleActivityIds.push(activityId);
 }
 
+function dadoImageBlock(item) {
+  const preview = item._localPreviewUrl || item.imageUrl;
+  return `
+    <div class="${ddCls('cardFlat')}" style="margin-bottom:10px;display:flex;gap:12px;align-items:center;">
+      <div style="width:56px;height:56px;flex-shrink:0;border-radius:6px;overflow:hidden;background:${ddTheme() === 'comic' ? '#000' : 'var(--bg3)'};display:flex;align-items:center;justify-content:center;">
+        ${preview ? `<img src="${preview}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:20px;opacity:.3;">🖼️</span>`}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;color:${ddTheme() === 'comic' ? '#fff' : 'var(--text)'};">${escapeHtml(item.name)}</div>
+        <label class="${ddCls('btnOutline')}" style="font-size:11px;padding:6px 10px;display:inline-block;cursor:pointer;">
+          ${preview ? 'Cambiar' : 'Subir imagen'}
+          <input type="file" accept="image/*" style="display:none;" onchange="dadoPickImage('${item.id}', this)">
+        </label>
+      </div>
+    </div>`;
+}
+
+function dadoPickImage(activityId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const item = dadoState.activities.find(a => a.id === activityId);
+  if (!item) return;
+  item._imageFile = file;
+  item._localPreviewUrl = URL.createObjectURL(file);
+  renderDadoWizard();
+}
+
+
 function dadoUpdateItem(listName, id, value) {
   const it = dadoState[listName].find(x => x.id === id);
   if (it) it.name = value;
@@ -313,6 +379,8 @@ function dadoGoBack() {
 }
 
 async function guardarDadoPack() {
+  if (dadoState.editingProposalId) return editarDadoPack();
+
   const gid = currentUserData.groupId;
   const uid = currentUser.uid;
   const activities = dadoState.activities.filter(a => a.name.trim());
@@ -355,12 +423,94 @@ async function guardarDadoPack() {
     });
     await batch.commit();
 
+    await dadoUploadPendingImages(activityRefs, packRef.id);
+
     await notifyGroupMembers(gid, `🎲 Nueva propuesta: "${dadoState.title.trim()}"`);
     showToast('Propuesta enviada');
     showTab('dado');
   } catch (e) {
     console.error(e);
     showToast('Error al guardar la propuesta');
+  }
+}
+
+async function dadoUploadPendingImages(activityRefs, packId) {
+  const gid = currentUserData.groupId;
+  const uploads = activityRefs
+    .filter(({ data }) => data._imageFile)
+    .map(async ({ ref, data }) => {
+      try {
+        const path = `groups/${gid}/desirePacks/${packId}/activities/${ref.id}.jpg`;
+        const task = await storage.ref(path).put(data._imageFile);
+        const url = await task.ref.getDownloadURL();
+        await ref.update({ imageUrl: url });
+      } catch (e) {
+        console.error('Error subiendo imagen:', e);
+      }
+    });
+  await Promise.all(uploads);
+}
+
+async function editarDadoPack() {
+  const uid = currentUser.uid;
+  const packRef = dadoState.editingPackRef;
+  const activities = dadoState.activities.filter(a => a.name.trim());
+  const guests = dadoState.includeGuests ? dadoState.guests.filter(g => g.name.trim()) : [];
+  const outfits = dadoState.outfits.filter(o => o.name.trim());
+
+  if (!activities.length) { showToast('Agrega al menos una actividad'); return; }
+
+  const isNewId = (id, section) => !dadoState.originalIds[section].includes(id);
+
+  try {
+    const batch = db.batch();
+    const activityIdMap = {}; // local/original id -> id real (igual para existentes)
+
+    // Actividades: actualizar existentes, crear nuevas, borrar eliminadas
+    activities.forEach(a => {
+      if (isNewId(a.id, 'activities')) {
+        const ref = packRef.collection('activities').doc();
+        activityIdMap[a.id] = ref.id;
+        batch.set(ref, { name: a.name.trim(), addedBy: uid, source: 'custom' });
+      } else {
+        activityIdMap[a.id] = a.id;
+        batch.update(packRef.collection('activities').doc(a.id), { name: a.name.trim() });
+      }
+    });
+    const keptActivityIds = activities.map(a => a.id);
+    dadoState.originalIds.activities.filter(id => !keptActivityIds.includes(id)).forEach(id => {
+      batch.delete(packRef.collection('activities').doc(id));
+    });
+
+    function syncSection(section, items, keptOriginal) {
+      items.forEach(it => {
+        const compatible = (it.compatibleActivityIds || []).map(id => activityIdMap[id] || id).filter(Boolean);
+        if (isNewId(it.id, section)) {
+          const ref = packRef.collection(section).doc();
+          batch.set(ref, { name: it.name.trim(), addedBy: uid, compatibleActivities: compatible });
+        } else {
+          batch.update(packRef.collection(section).doc(it.id), { name: it.name.trim(), compatibleActivities: compatible });
+        }
+      });
+      const keptIds = items.map(i => i.id);
+      dadoState.originalIds[section].filter(id => !keptIds.includes(id)).forEach(id => {
+        batch.delete(packRef.collection(section).doc(id));
+      });
+    }
+    syncSection('guests', guests);
+    syncSection('outfits', outfits);
+
+    batch.update(packRef, { title: dadoState.title.trim() });
+    await batch.commit();
+
+    const activityRefsForImages = activities.map(a => ({ ref: packRef.collection('activities').doc(activityIdMap[a.id]), data: a }));
+    await dadoUploadPendingImages(activityRefsForImages, packRef.id);
+
+    showToast('Propuesta actualizada');
+    abrirDadoDetalle(dadoState.editingProposalId);
+  } catch (e) {
+    console.error(e);
+    showToast('Error al actualizar la propuesta');
   }
 }
 
@@ -395,12 +545,19 @@ async function abrirDadoDetalle(proposalId) {
         <div class="${ddCls('status')}" style="${ddTheme() === 'ignite' ? 'color:var(--text2);font-size:12px;' : ''}">${dadoStatusLabel(pack.status)}</div>
       </div>
       <div class="${ddCls('label')}">Actividades</div>
-      ${activities.map(a => `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${escapeHtml(a.name)}</div>`).join('')}
+      ${activities.map(a => `
+        <div class="${ddCls('cardFlat')}" style="padding:10px 14px;display:flex;align-items:center;gap:10px;">
+          ${a.imageUrl ? `<img src="${a.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">` : ''}
+          <span>${escapeHtml(a.name)}</span>
+        </div>`).join('')}
       <div class="${ddCls('label')}" style="margin-top:14px;">Invitados</div>
       ${guests.length ? guests.map(g => `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${escapeHtml(g.name)}</div>`).join('') : `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">Solo pareja</div>`}
       <div class="${ddCls('label')}" style="margin-top:14px;">Ropa</div>
       ${outfits.map(o => `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${escapeHtml(o.name)}</div>`).join('')}
 
+      ${isCreator && pack.status === 'pending_review' ? `
+        <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="abrirDadoEdit('${proposalId}')">✏️ Editar propuesta</button>
+      ` : ''}
       ${!isCreator && pack.status === 'pending_review' ? `
         <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoReview('${proposalId}')">Continuar</button>
       ` : ''}
@@ -667,6 +824,12 @@ function ddResolvedName(cat, id) {
   return item ? item.name : '(eliminado)';
 }
 
+function ddResolvedImage(cat, id) {
+  if (!id || cat !== 'activity') return null;
+  const item = dadoResolveCtx.activities.find(i => i.id === id);
+  return item ? item.imageUrl : null;
+}
+
 function ddCanActOnCategory(cat) {
   const res = dadoResolveCtx.resolution;
   const assignedTo = res[`${cat}AssignedTo`];
@@ -816,6 +979,7 @@ function renderDadoReveal(ctx) {
       </div>
       <div class="${ddCls('cardFlat')}" style="text-align:center;padding:20px;">
         <div class="${ddCls('label')}">Actividad</div>
+        ${ddResolvedImage('activity', res.activityResult) ? `<img src="${ddResolvedImage('activity', res.activityResult)}" style="width:100%;max-width:280px;border-radius:8px;margin-bottom:10px;">` : ''}
         <div class="${ddCls('heading')}" style="${ddHeadingStyle(20)}">${escapeHtml(ddResolvedName('activity', res.activityResult))}</div>
       </div>
       <div class="${ddCls('cardFlat')}" style="text-align:center;padding:16px;">
