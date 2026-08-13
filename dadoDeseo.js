@@ -645,6 +645,13 @@ async function abrirDadoDetalle(proposalId) {
   const packRef = db.collection('groups').doc(gid).collection('desirePacks').doc(proposalId);
   const packSnap = await packRef.get();
   const pack = packSnap.data();
+
+  // Ya se vivió la presentación completa una vez (quedó en b_turn o
+  // closed) — ir directo a resolver o al resultado, sin repetir el show.
+  if (pack.status === 'b_turn' || pack.status === 'closed') {
+    renderDadoResolve(proposalId);
+    return;
+  }
   const isCreator = pack.createdBy === currentUser.uid;
 
   const [actSnap, guestSnap, outfitSnap] = await Promise.all([
@@ -1062,7 +1069,7 @@ function ddCanActOnCategory(cat) {
   const already = res[`${cat}Result`];
   if (already) return false;
   if (cat !== 'activity' && !res.activityResult) return false; // regla dura: actividad primero
-  if (assignedTo === 'luck') return true; // cualquiera de los dos puede lanzar el dado
+  if (assignedTo === 'luck') return ddMyRole() === 'b'; // solo quien recibe la propuesta tira el dado — nadie puede acusar de trampa
   return assignedTo === ddMyRole();
 }
 
@@ -1084,7 +1091,7 @@ function renderDadoResolveScreen() {
     } else if (blockedByActivity) {
       actionHtml = `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">Se resuelve después de la Actividad</div>`;
     } else if (!canAct) {
-      actionHtml = `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">Le toca a ${assignedTo === 'luck' ? 'la suerte' : assignedTo === ddMyRole() ? 'ti' : 'tu pareja'}</div>`;
+      actionHtml = `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">${assignedTo === 'luck' ? 'Le toca tirar el dado a quien recibió la propuesta' : `Le toca a ${assignedTo === ddMyRole() ? 'ti' : 'tu pareja'}`}</div>`;
     } else if (assignedTo === 'luck') {
       actionHtml = `<button class="${ddCls('btnDanger')}" onclick="ddRollDice('${cat}')">🎲 Lanzar el dado</button>`;
     } else {
@@ -1192,28 +1199,91 @@ async function guardarDadoHistorial(ctx) {
 }
 
 // ===== REVEAL =====
-function renderDadoReveal(ctx) {
+let dadoRevealPreso = null;
+
+async function renderDadoReveal(ctx) {
   const res = ctx.resolution;
+  const coupleImageUrl = await ddGetCoupleImageUrl();
+
+  dadoRevealPreso = {
+    index: 0,
+    slides: [
+      { type: 'reveal-activity', name: ddResolvedName('activity', res.activityResult), imageUrl: ddResolvedImage('activity', res.activityResult) },
+      { type: 'reveal-guest', name: ddResolvedName('guest', res.guestResult) },
+      { type: 'reveal-outfit', name: ddResolvedName('outfit', res.outfitResult) },
+      { type: 'reveal-closing', imageUrl: coupleImageUrl, title: ctx.pack.title },
+    ],
+  };
+  renderDadoRevealSlide();
+}
+
+function renderDadoRevealSlide() {
+  const p = dadoRevealPreso;
+  const slide = p.slides[p.index];
+  const isLast = p.index === p.slides.length - 1;
+  const bg = ddTheme() === 'comic' ? '#050a1b' : 'var(--bg)';
+  const sub = ddTheme() === 'comic' ? 'rgba(255,255,255,.6)' : 'var(--text2)';
+
+  const dots = `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;position:relative;z-index:4;">
+      <button onclick="showTab('dado')" style="background:rgba(0,0,0,.4);border:none;color:#fff;width:26px;height:26px;border-radius:50%;flex-shrink:0;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">✕</button>
+      <div style="display:flex;gap:4px;flex:1;">
+        ${p.slides.map((s, i) => `<div style="flex:1;height:3px;border-radius:2px;background:${i <= p.index ? (ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)') : 'rgba(255,255,255,.2)'};"></div>`).join('')}
+      </div>
+    </div>`;
+
+  let inner = '';
+  if (slide.type === 'reveal-activity') {
+    inner = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
+        <div class="${ddCls('label')}" style="margin-bottom:10px;">La actividad elegida es</div>
+        ${slide.imageUrl ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;max-height:260px;object-fit:cover;border-radius:10px;margin-bottom:14px;">` : `<div style="font-size:56px;margin-bottom:14px;">🎲</div>`}
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(26)}">${escapeHtml(slide.name)}</div>
+      </div>`;
+  } else if (slide.type === 'reveal-guest') {
+    inner = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
+        <div style="font-size:56px;margin-bottom:14px;">👥</div>
+        <div class="${ddCls('label')}" style="margin-bottom:8px;">Invitado</div>
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(22)}">${escapeHtml(slide.name || 'Solo pareja')}</div>
+      </div>`;
+  } else if (slide.type === 'reveal-outfit') {
+    inner = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
+        <div style="font-size:56px;margin-bottom:14px;">👗</div>
+        <div class="${ddCls('label')}" style="margin-bottom:8px;">Ropa</div>
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(22)}">${escapeHtml(slide.name || '—')}</div>
+      </div>`;
+  } else if (slide.type === 'reveal-closing') {
+    inner = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
+        ${slide.imageUrl
+          ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;max-height:260px;object-fit:cover;border-radius:10px;margin-bottom:14px;">`
+          : `<div style="font-size:56px;margin-bottom:14px;">💞</div>`}
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(22)}">Que lo disfruten</div>
+        <p style="color:${sub};font-size:13px;margin-top:6px;">${escapeHtml(slide.title)}</p>
+      </div>`;
+  }
+
   document.getElementById('content').innerHTML = `
     <div class="${ddCls('wrap')}">
-      <div class="${ddCls('card')}" style="text-align:center;">
-        <div class="${ddCls('heading')}" style="${ddHeadingStyle(24)}">¡Listo!</div>
-        <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.7)' : 'var(--text2)'};font-size:13px;">${escapeHtml(ctx.pack.title)}</p>
+      <div style="position:relative;height:420px;border-radius:12px;overflow:hidden;background:${bg};${ddTheme() === 'comic' ? 'border:3px solid #000;box-shadow:5px 5px 0px #ffd700;' : 'border:1px solid var(--border);'}">
+        ${dots}
+        ${ddSlideTapZones('dadoRevealPrev()', 'dadoRevealNext()')}
+        <div style="height:calc(100% - 30px);">${inner}</div>
       </div>
-      <div class="${ddCls('cardFlat')}" style="text-align:center;padding:20px;">
-        <div class="${ddCls('label')}">Actividad</div>
-        ${ddResolvedImage('activity', res.activityResult) ? `<img src="${ddResolvedImage('activity', res.activityResult)}" style="width:100%;max-width:280px;border-radius:8px;margin-bottom:10px;">` : ''}
-        <div class="${ddCls('heading')}" style="${ddHeadingStyle(20)}">${escapeHtml(ddResolvedName('activity', res.activityResult))}</div>
-      </div>
-      <div class="${ddCls('cardFlat')}" style="text-align:center;padding:16px;">
-        <div class="${ddCls('label')}">Invitado</div>
-        <div>${escapeHtml(ddResolvedName('guest', res.guestResult) || 'Solo pareja')}</div>
-      </div>
-      <div class="${ddCls('cardFlat')}" style="text-align:center;padding:16px;">
-        <div class="${ddCls('label')}">Ropa</div>
-        <div>${escapeHtml(ddResolvedName('outfit', res.outfitResult) || '—')}</div>
-      </div>
-      <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:14px;" onclick="showTab('dado')">Volver</button>
+      ${isLast
+        ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:14px;" onclick="showTab('dado')">Volver</button>`
+        : `<div style="text-align:center;margin-top:10px;font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">toca para avanzar →</div>`}
     </div>
   `;
+}
+
+function dadoRevealNext() {
+  if (dadoRevealPreso.index < dadoRevealPreso.slides.length - 1) dadoRevealPreso.index++;
+  renderDadoRevealSlide();
+}
+function dadoRevealPrev() {
+  if (dadoRevealPreso.index > 0) dadoRevealPreso.index--;
+  renderDadoRevealSlide();
 }
