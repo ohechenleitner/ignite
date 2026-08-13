@@ -1094,7 +1094,7 @@ async function checkPendingBadges() {
 
     // Propuestas del Dado del Deseo que requieren tu acción ahora mismo:
     // - te la enviaron y falta que la revises (pending_review, no creador)
-    // - es tu turno de resolver (b_turn si no eres creador, a_turn si sí)
+    // - hay categorías pendientes de resolver (b_turn, cualquiera de los dos)
     let dadoPending = 0;
     try {
       const dadoSnap = await db.collection('groups').doc(gid).collection('desirePacks')
@@ -1103,8 +1103,7 @@ async function checkPendingBadges() {
         const p = d.data();
         const isCreator = p.createdBy === uid;
         if (p.status === 'pending_review' && !isCreator) dadoPending++;
-        else if (p.status === 'b_turn' && !isCreator) dadoPending++;
-        else if (p.status === 'a_turn' && isCreator) dadoPending++;
+        else if (p.status === 'b_turn') dadoPending++;
       });
     } catch(e) {}
 

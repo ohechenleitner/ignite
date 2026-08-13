@@ -145,8 +145,7 @@ async function renderDado() {
 function dadoStatusLabel(status, isCreator) {
   const labels = {
     pending_review: isCreator ? 'Esperando que tu pareja la revise' : 'Tienes una propuesta pendiente de revisar',
-    b_turn: isCreator ? 'Tu pareja está jugando su parte' : 'Te toca jugar tu parte',
-    a_turn: isCreator ? 'Te toca resolver tu parte' : 'Tu pareja está resolviendo su parte',
+    b_turn: 'Hay categorías por resolver',
     closed: 'Cerrada — mira el resultado',
   };
   return labels[status] || status;
@@ -754,8 +753,8 @@ function renderDadoPresoSlide() {
   const actions = `
     ${p.isCreator && p.pack.status === 'pending_review' ? `<button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="abrirDadoEdit('${p.proposalId}')">✏️ Editar propuesta</button>` : ''}
     ${!p.isCreator && p.pack.status === 'pending_review' ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoReview('${p.proposalId}')">Continuar</button>` : ''}
-    ${p.pack.status === 'b_turn' && !p.isCreator ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoResolve('${p.proposalId}')">Seguir resolviendo</button>` : ''}
-    ${p.pack.status === 'a_turn' && p.isCreator ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoResolve('${p.proposalId}')">Te toca resolver</button>` : ''}
+    ${p.pack.status === 'b_turn' ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoResolve('${p.proposalId}')">Seguir resolviendo</button>` : ''}
+    ${p.pack.status === 'closed' ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoResolve('${p.proposalId}')">Ver resultado</button>` : ''}
     <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:8px;" onclick="showTab('dado')">Volver</button>
   `;
 
@@ -900,8 +899,9 @@ function dadoReviewSetAssignment(category, who) {
     return;
   }
   const next = { ...dadoReview.assignment, [category]: who };
-  if (next.activity === 'b' && next.guest === 'b' && next.outfit === 'b') {
-    showToast('No puedes quedarte con las 3 — al menos una va a la Suerte o a tu pareja');
+  const selfCount = ['activity', 'guest', 'outfit'].filter(c => next[c] === 'b').length;
+  if (selfCount > 1) {
+    showToast('Solo puedes elegir para ti una categoría — el resto va a tu pareja o a la Suerte');
     return;
   }
   dadoReview.assignment = next;
@@ -911,7 +911,8 @@ function dadoReviewSetAssignment(category, who) {
 function ddReviewIsValid() {
   const a = dadoReview.assignment;
   if (!a.activity || !a.guest || !a.outfit) return false;
-  if (a.activity === 'b' && a.guest === 'b' && a.outfit === 'b') return false;
+  const selfCount = ['activity', 'guest', 'outfit'].filter(c => a[c] === 'b').length;
+  if (selfCount > 1) return false;
   const locked = ddReviewSectionsWithAdds();
   if (locked.includes('activity') && a.activity === 'b') return false;
   if (locked.includes('guest') && a.guest === 'b') return false;
@@ -1032,6 +1033,7 @@ async function renderDadoResolve(proposalId) {
     outfits: outfitSnap.docs.map(d => ({ id: d.id, ...d.data() })),
   };
 
+  if (dadoResolveCtx.pack.status === 'closed') { renderDadoReveal(dadoResolveCtx); return; }
   renderDadoResolveScreen();
 }
 
@@ -1156,21 +1158,18 @@ async function ddResolveCategory(cat, chosenId) {
     await ctx.packRef.collection('resolution').doc('state').update({ [`${cat}Result`]: chosenId });
     ctx.resolution[`${cat}Result`] = chosenId;
 
-    const allResolved = ctx.resolution.activityResult && (cat === 'activity' ? chosenId : ctx.resolution.guestResult) && (cat === 'guest' ? chosenId : ctx.resolution.outfitResult) && (cat === 'outfit' ? chosenId : ctx.resolution.guestResult);
-
     // Recalcular si ya están las 3
     const done = ['activity', 'guest', 'outfit'].every(c => ctx.resolution[`${c}Result`]);
+    if (!done && cat === 'activity') {
+      // Resolver la Actividad desbloquea todo lo demás — avisar al otro.
+      await notifyGroupMembers(currentUserData.groupId, `🎲 Ya se resolvió la actividad de "${ctx.pack.title}" — sigue el resto`);
+    }
     if (done) {
-      const nextStatus = ddMyRole() === 'b' ? 'a_turn' : 'closed';
-      await ctx.packRef.update({ status: nextStatus });
-      if (nextStatus === 'closed') {
-        await guardarDadoHistorial(ctx);
-        await notifyGroupMembers(currentUserData.groupId, `🎉 "${ctx.pack.title}" está lista — mira el resultado`);
-        renderDadoReveal(ctx);
-        return;
-      } else {
-        await notifyGroupMembers(currentUserData.groupId, `🎲 Ya jugué mi parte de "${ctx.pack.title}" — te toca a ti`);
-      }
+      await ctx.packRef.update({ status: 'closed' });
+      await guardarDadoHistorial(ctx);
+      await notifyGroupMembers(currentUserData.groupId, `🎉 "${ctx.pack.title}" está lista — mira el resultado`);
+      renderDadoReveal(ctx);
+      return;
     }
 
     renderDadoResolveScreen();
