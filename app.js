@@ -780,12 +780,15 @@ async function registerUser() {
     // porque intentaba leer Firestore sin sesión iniciada.
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
     const uid = cred.user.uid;
+    console.log('[registro] cuenta auth creada', uid);
     try { await cred.user.sendEmailVerification(); } catch(e) {}
 
     let groupId = null;
     let role = 'admin';
     if (code) {
+      console.log('[registro] buscando grupo por código', code);
       const groupSnap = await db.collection('groups').where('inviteCode', '==', code).limit(1).get();
+      console.log('[registro] búsqueda de grupo OK, encontrados:', groupSnap.size);
       if (groupSnap.empty) {
         showError(errEl, 'Código inválido: ' + code);
         if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; }
@@ -812,8 +815,11 @@ async function registerUser() {
         pairPoints: {},
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      console.log('[registro] grupo nuevo creado OK');
     } else {
+      console.log('[registro] uniéndose a grupo existente', groupId);
       await db.collection('groups').doc(groupId).update({ members: firebase.firestore.FieldValue.arrayUnion(uid) });
+      console.log('[registro] arrayUnion a members OK');
     }
     await db.collection('users').doc(uid).set({
       id: uid, name, email, initials, color, gender, orientation: orient,
@@ -825,11 +831,13 @@ async function registerUser() {
       showGroupDeseos: false,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    console.log('[registro] documento de usuario creado OK');
     if (successEl) { successEl.textContent = '✓ ¡Cuenta creada! Entrando...'; successEl.style.display = 'block'; }
     if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; }
     isRegistering = false;
     setTimeout(() => location.reload(), 900);
   } catch (e) {
+    console.error('registerUser error:', e.code, e.message, e);
     const msg = e.code === 'auth/email-already-in-use' ? 'Este email ya está registrado' : 'Error: ' + (e.message || '');
     showError(errEl, msg);
     if (btn) { btn.disabled = false; btn.textContent = 'Crear cuenta gratis'; }
@@ -889,7 +897,7 @@ auth.onAuthStateChanged(async (user) => {
         setTimeout(() => showTutorial(), 800);
       }
     } catch (e) {
-      console.error(e);
+      console.error('[onAuthStateChanged] error:', e.code, e.message, e);
       // Si Firestore falla, igual mostrar la app para no bloquear al usuario
       if (currentUserData) {
         showApp();
