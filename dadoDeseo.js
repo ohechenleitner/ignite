@@ -521,6 +521,8 @@ async function editarDadoPack() {
 // nunca 3 de 3 para quien recibe). Punto de partida funcional,
 // conviene probarlo a fondo antes de confiar en todos los casos borde.
 
+let dadoPreso = null;
+
 async function abrirDadoDetalle(proposalId) {
   dadoInjectStyles();
   const gid = currentUserData.groupId;
@@ -538,38 +540,104 @@ async function abrirDadoDetalle(proposalId) {
   const guests = guestSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const outfits = outfitSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+  // Slides: 1 portada + 1 pareja + 1 por actividad + 1 de reglas al final.
+  const slides = [
+    { type: 'cover', title: pack.title },
+    { type: 'pareja' },
+    ...activities.map(a => ({ type: 'activity', name: a.name, imageUrl: a.imageUrl })),
+    { type: 'reglas', guests, outfits, isCreator, status: pack.status },
+  ];
+
+  dadoPreso = { proposalId, pack, isCreator, activities, guests, outfits, slides, index: 0 };
+  renderDadoPresoSlide();
+}
+
+function ddSlideTapZones(onPrev, onNext) {
+  return `
+    <div style="position:absolute;top:0;left:0;width:35%;height:100%;z-index:2;" onclick="${onPrev}"></div>
+    <div style="position:absolute;top:0;right:0;width:65%;height:100%;z-index:2;" onclick="${onNext}"></div>
+  `;
+}
+
+function renderDadoPresoSlide() {
+  const p = dadoPreso;
+  const slide = p.slides[p.index];
+  const isLast = p.index === p.slides.length - 1;
+  const bg = ddTheme() === 'comic' ? '#050a1b' : 'var(--bg)';
+
+  const dots = `
+    <div style="display:flex;gap:4px;padding:10px 14px;position:relative;z-index:3;">
+      ${p.slides.map((s, i) => `<div style="flex:1;height:3px;border-radius:2px;background:${i <= p.index ? (ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)') : 'rgba(255,255,255,.2)'};"></div>`).join('')}
+    </div>`;
+
+  let inner = '';
+  if (slide.type === 'cover') {
+    inner = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
+        ${ddCls('tag') ? `<span class="${ddCls('tag')}">Propuesta</span>` : ''}
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(30)}margin-top:14px;">${escapeHtml(slide.title)}</div>
+      </div>`;
+  } else if (slide.type === 'pareja') {
+    inner = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
+        <div style="font-size:56px;margin-bottom:14px;">💞</div>
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(22)}">Ustedes dos</div>
+        <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.6)' : 'var(--text2)'};font-size:13px;margin-top:8px;">Una propuesta para vivir juntos</p>
+      </div>`;
+  } else if (slide.type === 'activity') {
+    inner = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
+        ${slide.imageUrl
+          ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;border-radius:10px;margin-bottom:18px;object-fit:cover;max-height:280px;">`
+          : `<div style="font-size:56px;margin-bottom:14px;">🎲</div>`}
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(24)}">${escapeHtml(slide.name)}</div>
+      </div>`;
+  } else if (slide.type === 'reglas') {
+    inner = `
+      <div style="height:100%;overflow-y:auto;padding:24px;">
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(20)}margin-bottom:14px;">Reglas del juego</div>
+        <p style="font-size:13px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.75)' : 'var(--text2)'};line-height:1.6;margin-bottom:10px;">
+          Quien recibe esta propuesta puede agregar opciones en máximo 2 de las 3 secciones (Actividad, Invitado, Ropa).
+          Donde agregue, pierde el derecho a elegir ahí — le toca a la Suerte o a la otra persona.
+        </p>
+        <p style="font-size:13px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.75)' : 'var(--text2)'};line-height:1.6;margin-bottom:18px;">
+          La Actividad se resuelve siempre primero. Ropa e Invitado se filtran según lo que aplique a la actividad elegida.
+        </p>
+        <div class="${ddCls('cardFlat')}" style="margin-top:10px;">
+          ${dadoStatusLabel(slide.status)}
+        </div>
+      </div>`;
+  }
+
+  const actions = `
+    ${p.isCreator && p.pack.status === 'pending_review' ? `<button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="abrirDadoEdit('${p.proposalId}')">✏️ Editar propuesta</button>` : ''}
+    ${!p.isCreator && p.pack.status === 'pending_review' ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoReview('${p.proposalId}')">Continuar</button>` : ''}
+    ${p.pack.status === 'b_turn' && !p.isCreator ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoResolve('${p.proposalId}')">Seguir resolviendo</button>` : ''}
+    ${p.pack.status === 'a_turn' && p.isCreator ? `<button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:10px;" onclick="renderDadoResolve('${p.proposalId}')">Te toca resolver</button>` : ''}
+    <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:8px;" onclick="showTab('dado')">Volver</button>
+  `;
+
   document.getElementById('content').innerHTML = `
     <div class="${ddCls('wrap')}">
-      <div class="${ddCls('cardFlat')}">
-        <div class="${ddCls('heading')}" style="${ddHeadingStyle(18)}">${escapeHtml(pack.title)}</div>
-        <div class="${ddCls('status')}" style="${ddTheme() === 'ignite' ? 'color:var(--text2);font-size:12px;' : ''}">${dadoStatusLabel(pack.status)}</div>
+      <div style="position:relative;height:420px;border-radius:12px;overflow:hidden;background:${bg};${ddTheme() === 'comic' ? 'border:3px solid #000;box-shadow:5px 5px 0px #ffd700;' : 'border:1px solid var(--border);'}">
+        ${dots}
+        ${ddSlideTapZones('dadoPresoPrev()', 'dadoPresoNext()')}
+        <div style="height:calc(100% - 30px);">${inner}</div>
       </div>
-      <div class="${ddCls('label')}">Actividades</div>
-      ${activities.map(a => `
-        <div class="${ddCls('cardFlat')}" style="padding:10px 14px;display:flex;align-items:center;gap:10px;">
-          ${a.imageUrl ? `<img src="${a.imageUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;">` : ''}
-          <span>${escapeHtml(a.name)}</span>
-        </div>`).join('')}
-      <div class="${ddCls('label')}" style="margin-top:14px;">Invitados</div>
-      ${guests.length ? guests.map(g => `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${escapeHtml(g.name)}</div>`).join('') : `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">Solo pareja</div>`}
-      <div class="${ddCls('label')}" style="margin-top:14px;">Ropa</div>
-      ${outfits.map(o => `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${escapeHtml(o.name)}</div>`).join('')}
-
-      ${isCreator && pack.status === 'pending_review' ? `
-        <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="abrirDadoEdit('${proposalId}')">✏️ Editar propuesta</button>
-      ` : ''}
-      ${!isCreator && pack.status === 'pending_review' ? `
-        <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoReview('${proposalId}')">Continuar</button>
-      ` : ''}
-      ${pack.status === 'b_turn' && !isCreator ? `
-        <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoResolve('${proposalId}')">Seguir resolviendo</button>
-      ` : ''}
-      ${pack.status === 'a_turn' && isCreator ? `
-        <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoResolve('${proposalId}')">Te toca resolver</button>
-      ` : ''}
-      <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:8px;" onclick="showTab('dado')">Volver</button>
+      ${isLast ? actions : `
+        <div style="text-align:center;margin-top:10px;font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">toca para avanzar →</div>
+      `}
     </div>
   `;
+}
+
+function dadoPresoNext() {
+  if (dadoPreso.index < dadoPreso.slides.length - 1) dadoPreso.index++;
+  renderDadoPresoSlide();
+}
+function dadoPresoPrev() {
+  if (dadoPreso.index > 0) dadoPreso.index--;
+  renderDadoPresoSlide();
 }
 
 // ===== REPARTO (Persona B) =====
