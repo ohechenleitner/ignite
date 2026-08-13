@@ -347,9 +347,230 @@ async function abrirDadoDetalle(proposalId) {
       ${outfits.map(o => `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${escapeHtml(o.name)}</div>`).join('')}
 
       ${!isCreator && pack.status === 'pending_review' ? `
-        <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="showToast('Siguiente: pantalla de reparto — agrega tus opciones y define quién elige qué (pendiente de construir en el próximo paso)')">Continuar</button>
+        <button class="${ddCls('btnPrimary')} ${ddCls('btnFull')}" style="margin-top:18px;" onclick="renderDadoReview('${proposalId}')">Continuar</button>
       ` : ''}
       <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:8px;" onclick="showTab('dado')">Volver</button>
+    </div>
+  `;
+}
+
+// ===== REPARTO (Persona B) =====
+// Reglas duras aplicadas acá:
+// - Puede agregar opciones en máximo 2 de las 3 secciones.
+// - Límite de cuántas puede agregar: escala por tramo según cuántas ya
+//   existen en la sección (1-3→1, 4-6→2, 7-10→3). Actividades tiene
+//   techo absoluto de 10 en total; Invitados y Ropa no tienen techo.
+// - En la sección donde agregó, no puede asignarse esa categoría a
+//   sí misma (queda para Suerte o Persona A).
+// - Nunca puede asignarse las 3 categorías a sí misma, aunque no haya
+//   agregado nada en ninguna sección.
+
+let dadoReview = null;
+
+function ddTierLimit(count) {
+  if (count <= 3) return 1;
+  if (count <= 6) return 2;
+  return 3;
+}
+
+async function renderDadoReview(proposalId) {
+  const gid = currentUserData.groupId;
+  const packRef = db.collection('groups').doc(gid).collection('desirePacks').doc(proposalId);
+
+  const [actSnap, guestSnap, outfitSnap] = await Promise.all([
+    packRef.collection('activities').get(),
+    packRef.collection('guests').get(),
+    packRef.collection('outfits').get(),
+  ]);
+
+  dadoReview = {
+    proposalId, packRef,
+    activities: actSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    guests: guestSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    outfits: outfitSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    newActivities: [], newGuests: [], newOutfits: [],
+    assignment: { activity: '', guest: '', outfit: '' },
+  };
+
+  renderDadoReviewScreen();
+}
+
+function ddReviewSectionsWithAdds() {
+  const r = dadoReview;
+  const sections = [];
+  if (r.newActivities.length) sections.push('activity');
+  if (r.newGuests.length) sections.push('guest');
+  if (r.newOutfits.length) sections.push('outfit');
+  return sections;
+}
+
+function ddReviewAddLimit(section) {
+  const r = dadoReview;
+  const existing = section === 'activity' ? r.activities.length : section === 'guest' ? r.guests.length : r.outfits.length;
+  const added = section === 'activity' ? r.newActivities.length : section === 'guest' ? r.newGuests.length : r.newOutfits.length;
+  const tierLimit = ddTierLimit(existing);
+  let cap = tierLimit;
+  if (section === 'activity') {
+    const totalNow = existing + added;
+    cap = Math.min(tierLimit, DADO_MAX_ACTIVITIES - totalNow + added); // no exceder 10 en total
+  }
+  return { canAdd: added < cap, remaining: cap - added };
+}
+
+function dadoReviewAddOption(section) {
+  const sectionsUsed = ddReviewSectionsWithAdds();
+  const already = sectionsUsed.includes(section);
+  if (!already && sectionsUsed.length >= 2) {
+    showToast('Ya agregaste en 2 secciones — no puedes agregar en la tercera');
+    return;
+  }
+  const { canAdd } = ddReviewAddLimit(section);
+  if (!canAdd) {
+    showToast('Llegaste al límite de opciones que puedes agregar aquí');
+    return;
+  }
+  const list = section === 'activity' ? dadoReview.newActivities : section === 'guest' ? dadoReview.newGuests : dadoReview.newOutfits;
+  list.push({ id: crypto.randomUUID(), name: '' });
+
+  // Si esta sección queda bloqueada para ella, resetea la asignación si se la había puesto a sí misma
+  if (dadoReview.assignment[section] === 'b') dadoReview.assignment[section] = '';
+
+  renderDadoReviewScreen();
+}
+
+function dadoReviewUpdateNew(section, id, value) {
+  const list = section === 'activity' ? dadoReview.newActivities : section === 'guest' ? dadoReview.newGuests : dadoReview.newOutfits;
+  const it = list.find(x => x.id === id);
+  if (it) it.name = value;
+}
+
+function dadoReviewRemoveNew(section, id) {
+  if (section === 'activity') dadoReview.newActivities = dadoReview.newActivities.filter(x => x.id !== id);
+  if (section === 'guest') dadoReview.newGuests = dadoReview.newGuests.filter(x => x.id !== id);
+  if (section === 'outfit') dadoReview.newOutfits = dadoReview.newOutfits.filter(x => x.id !== id);
+  renderDadoReviewScreen();
+}
+
+function dadoReviewSetAssignment(category, who) {
+  const locked = ddReviewSectionsWithAdds();
+  if (who === 'b' && locked.includes(category)) {
+    showToast('No puedes elegir esta categoría — agregaste opciones aquí');
+    return;
+  }
+  const next = { ...dadoReview.assignment, [category]: who };
+  if (next.activity === 'b' && next.guest === 'b' && next.outfit === 'b') {
+    showToast('No puedes quedarte con las 3 — al menos una va a la Suerte o a tu pareja');
+    return;
+  }
+  dadoReview.assignment = next;
+  renderDadoReviewScreen();
+}
+
+function ddReviewIsValid() {
+  const a = dadoReview.assignment;
+  if (!a.activity || !a.guest || !a.outfit) return false;
+  if (a.activity === 'b' && a.guest === 'b' && a.outfit === 'b') return false;
+  const locked = ddReviewSectionsWithAdds();
+  if (locked.includes('activity') && a.activity === 'b') return false;
+  if (locked.includes('guest') && a.guest === 'b') return false;
+  if (locked.includes('outfit') && a.outfit === 'b') return false;
+  return true;
+}
+
+function dadoReviewSectionBlock(section, label, items, newItems) {
+  const locked = ddReviewSectionsWithAdds().includes(section);
+  const { canAdd, remaining } = ddReviewAddLimit(section);
+  const catKey = section; // 'activity' | 'guest' | 'outfit'
+  const assignment = dadoReview.assignment[catKey];
+
+  return `
+    <div class="${ddCls('cardFlat')}" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(14)}">${label}</div>
+        ${locked ? `<span style="font-size:11px;color:${ddTheme() === 'comic' ? '#ffd700' : 'var(--amber)'};">agregaste aquí — no puedes elegirla</span>` : ''}
+      </div>
+      ${items.map(i => `<div style="padding:6px 0;color:${ddTheme() === 'comic' ? '#fff' : 'var(--text)'};font-size:13px;">• ${escapeHtml(i.name)}</div>`).join('')}
+      ${newItems.map(i => `
+        <div style="display:flex;gap:6px;margin:6px 0;">
+          <input class="${ddCls('input')}" placeholder="Nueva opción" value="${escapeHtml(i.name)}"
+            oninput="dadoReviewUpdateNew('${section}','${i.id}',this.value)">
+          <button class="${ddCls('btnDanger')}" style="padding:8px 12px;" onclick="dadoReviewRemoveNew('${section}','${i.id}')">✕</button>
+        </div>
+      `).join('')}
+      <button class="${ddCls('btnOutline')}" style="margin-top:6px;font-size:12px;padding:6px 12px;" ${canAdd ? '' : 'disabled'}
+        onclick="dadoReviewAddOption('${section}')">+ Agregar (quedan ${remaining})</button>
+
+      <div style="display:flex;gap:6px;margin-top:12px;">
+        <button class="${assignment === 'b' ? ddCls('btnPrimary') : ddCls('btnOutline')}" style="flex:1;font-size:12px;padding:7px;" ${locked ? 'disabled' : ''}
+          onclick="dadoReviewSetAssignment('${catKey}','b')">Yo elijo</button>
+        <button class="${assignment === 'a' ? ddCls('btnPrimary') : ddCls('btnOutline')}" style="flex:1;font-size:12px;padding:7px;"
+          onclick="dadoReviewSetAssignment('${catKey}','a')">Mi pareja</button>
+        <button class="${assignment === 'luck' ? ddCls('btnPrimary') : ddCls('btnOutline')}" style="flex:1;font-size:12px;padding:7px;"
+          onclick="dadoReviewSetAssignment('${catKey}','luck')">🎲 Suerte</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderDadoReviewScreen() {
+  const r = dadoReview;
+  document.getElementById('content').innerHTML = `
+    <div class="${ddCls('wrap')}">
+      <div class="${ddCls('label')}" style="margin-bottom:4px;">Agrega opciones (máx. 2 de 3 secciones) y decide quién elige qué</div>
+      ${dadoReviewSectionBlock('activity', 'Actividad', r.activities, r.newActivities)}
+      ${dadoReviewSectionBlock('guest', 'Invitado', r.guests, r.newGuests)}
+      ${dadoReviewSectionBlock('outfit', 'Ropa', r.outfits, r.newOutfits)}
+      <button class="${ddCls('btnDanger')} ${ddCls('btnFull')}" ${ddReviewIsValid() ? '' : 'disabled'}
+        onclick="confirmarDadoReparto()">Confirmar y empezar a resolver</button>
+      <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:8px;" onclick="abrirDadoDetalle('${r.proposalId}')">Volver</button>
+    </div>
+  `;
+}
+
+async function confirmarDadoReparto() {
+  if (!ddReviewIsValid()) { showToast('Completa el reparto de las 3 categorías'); return; }
+  const r = dadoReview;
+  const uid = currentUser.uid;
+
+  try {
+    const batch = db.batch();
+    r.newActivities.filter(a => a.name.trim()).forEach(a => {
+      batch.set(r.packRef.collection('activities').doc(), { name: a.name.trim(), addedBy: uid, source: 'custom' });
+    });
+    r.newGuests.filter(g => g.name.trim()).forEach(g => {
+      batch.set(r.packRef.collection('guests').doc(), { name: g.name.trim(), addedBy: uid, compatibleActivities: [] });
+    });
+    r.newOutfits.filter(o => o.name.trim()).forEach(o => {
+      batch.set(r.packRef.collection('outfits').doc(), { name: o.name.trim(), addedBy: uid, compatibleActivities: [] });
+    });
+
+    batch.set(r.packRef.collection('resolution').doc('state'), {
+      activityAssignedTo: r.assignment.activity,
+      guestAssignedTo: r.assignment.guest,
+      outfitAssignedTo: r.assignment.outfit,
+      activityResult: null, guestResult: null, outfitResult: null,
+      lockedSections: ddReviewSectionsWithAdds(),
+    });
+    batch.update(r.packRef, { status: 'b_turn' });
+    await batch.commit();
+
+    showToast('Reparto confirmado — a resolver');
+    renderDadoResolve(r.proposalId);
+  } catch (e) {
+    console.error(e);
+    showToast('Error al confirmar el reparto');
+  }
+}
+
+// ===== RESOLUCIÓN / DADO — PENDIENTE =====
+// Stub temporal: el reparto ya quedó guardado en Firestore
+// (resolution/state), listo para que la Pieza 2 (el dado) lo lea
+// y resuelva Actividad primero, luego Ropa/Invitado filtrados.
+function renderDadoResolve(proposalId) {
+  document.getElementById('content').innerHTML = `
+    <div class="${ddCls('wrap')}">
+      <div class="${ddCls('empty')}">El reparto quedó guardado. La pantalla del dado se conecta en el siguiente paso.</div>
+      <button class="${ddCls('btnOutline')} ${ddCls('btnFull')}" style="margin-top:12px;" onclick="showTab('dado')">Volver</button>
     </div>
   `;
 }
