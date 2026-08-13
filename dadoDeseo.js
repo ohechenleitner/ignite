@@ -79,7 +79,8 @@ let dadoState = {
   activities: [], includeGuests: false, guests: [], outfits: [],
 };
 
-const DADO_STEPS = ['titulo', 'actividades', 'invitados', 'ropa', 'asociacion', 'imagenes', 'preview'];
+const DADO_STEPS = ['titulo', 'actividades', 'invitados', 'ropa', 'asociacion', 'imagenes', 'resumen', 'preview'];
+const DD_DEFAULT_NARRATIVE = 'Invitados posibles: {invitados}.\nVestuario posible: {ropa}.';
 const DADO_MAX_ACTIVITIES = 10;
 
 function dadoThemeToggleHtml() {
@@ -162,16 +163,34 @@ function ddJoinNatural(names) {
   return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
 }
 
-function ddActivityNarrative(activityName, guests, outfits) {
-  let text = `Te invito a vivir <strong>${escapeHtml(activityName)}</strong>`;
-  if (guests.length) {
-    text += `, en compañía de ${ddJoinNatural(guests.map(g => escapeHtml(g.name)))}`;
-  }
-  if (outfits.length) {
-    const outfitNames = ddJoinNatural(outfits.map(o => escapeHtml(o.name)));
-    text += guests.length ? `, luciendo ${outfitNames} — tú eliges` : `, luciendo ${outfitNames} — tú eliges`;
-  }
-  return text + '.';
+// Para invitados/ropa: son opciones alternativas (uno u otro), no un
+// conjunto simultáneo — por eso se unen con "o", no con "y".
+function ddJoinOptions(names) {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} o ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} o ${names[names.length - 1]}`;
+}
+
+function ddResolveTemplate(template, activityName, guestNames, outfitNames) {
+  const guestsText = guestNames.length ? ddJoinOptions(guestNames) : '';
+  const outfitsText = outfitNames.length ? ddJoinOptions(outfitNames) : '';
+  let text = (template || DD_DEFAULT_NARRATIVE)
+    .replace(/\{actividad\}/g, activityName || '')
+    .replace(/\{invitados\}/g, guestsText)
+    .replace(/\{ropa\}/g, outfitsText);
+
+  // Quita líneas/oraciones que quedaron vacías (una etiqueta sin
+  // reemplazo, ej. "Invitados posibles: .") en vez de dejar un hueco raro.
+  text = text
+    .split('\n')
+    .filter(line => !/^[^:]*:\s*\.?\s*$/.test(line.trim()))
+    .join('\n')
+    .replace(/[^.!?\n]*:\s*\./g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([.,])/g, '$1')
+    .trim();
+  return text;
 }
 
 // ===== WIZARD DE CREACIÓN (Persona A) =====
@@ -187,7 +206,7 @@ function abrirDadoWizard() {
   renderDadoWizard();
 }
 
-function mkItem() { return { id: crypto.randomUUID(), name: '' }; }
+function mkItem() { return { id: crypto.randomUUID(), name: '', narrativeTemplate: DD_DEFAULT_NARRATIVE }; }
 function mkAssocItem() { return { id: crypto.randomUUID(), name: '', compatibleActivityIds: [] }; }
 
 // ===== EDICIÓN (Persona A, solo mientras status === 'pending_review') =====
@@ -204,7 +223,7 @@ async function abrirDadoEdit(proposalId) {
   const pack = packSnap.data();
   if (pack.status !== 'pending_review') { showToast('Ya no se puede editar — tu pareja ya empezó a jugar'); return; }
 
-  const activities = actSnap.docs.map(d => ({ id: d.id, name: d.data().name, imageUrl: d.data().imageUrl || null }));
+  const activities = actSnap.docs.map(d => ({ id: d.id, name: d.data().name, imageUrl: d.data().imageUrl || null, narrativeTemplate: d.data().narrativeTemplate || DD_DEFAULT_NARRATIVE }));
   const guests = guestSnap.docs.map(d => ({ id: d.id, name: d.data().name, compatibleActivityIds: d.data().compatibleActivities || [] }));
   const outfits = outfitSnap.docs.map(d => ({ id: d.id, name: d.data().name, compatibleActivityIds: d.data().compatibleActivities || [] }));
 
@@ -281,18 +300,27 @@ function renderDadoWizard() {
       </p>
       ${acts.map(a => dadoImageBlock(a)).join('') || `<div class="${ddCls('empty')}">Sin actividades</div>`}
     `;
+  } else if (step === 'resumen') {
+    const acts = dadoState.activities.filter(a => a.name.trim());
+    body = `
+      <div class="${ddCls('label')}">Cómo se va a leer cada actividad</div>
+      <p style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.5)' : 'var(--text2)'};margin-bottom:10px;">
+        Puedes editar el texto libremente. Usa las etiquetas de abajo — se reemplazan solas por lo que ya asociaste.
+      </p>
+      ${acts.map(a => dadoNarrativeBlock(a)).join('') || `<div class="${ddCls('empty')}">Sin actividades</div>`}
+    `;
   } else if (step === 'preview') {
     const acts = dadoState.activities.filter(a => a.name.trim());
     const guests = dadoState.includeGuests ? dadoState.guests.filter(g => g.name.trim()) : [];
     const outfits = dadoState.outfits.filter(o => o.name.trim());
     body = `
       <div class="${ddCls('cardFlat')}"><div class="${ddCls('heading')}" style="${ddHeadingStyle(18)}">${escapeHtml(dadoState.title) || '(sin título)'}</div></div>
-      <div class="${ddCls('label')}">Actividades</div>
-      ${acts.map(a => `<div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${escapeHtml(a.name)}</div>`).join('') || `<div class="${ddCls('empty')}">Sin actividades</div>`}
-      <div class="${ddCls('label')}" style="margin-top:14px;">Invitados</div>
-      <div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${guests.length ? guests.map(g => escapeHtml(g.name)).join(', ') : 'Solo pareja'}</div>
-      <div class="${ddCls('label')}" style="margin-top:14px;">Ropa</div>
-      <div class="${ddCls('cardFlat')}" style="padding:10px 14px;">${outfits.length ? outfits.map(o => escapeHtml(o.name)).join(', ') : '—'}</div>
+      <div class="${ddCls('label')}">Así se va a leer cada actividad</div>
+      ${acts.map(a => {
+        const compGuests = guests.filter(g => !g.compatibleActivityIds?.length || g.compatibleActivityIds.includes(a.id)).map(g => g.name);
+        const compOutfits = outfits.filter(o => !o.compatibleActivityIds?.length || o.compatibleActivityIds.includes(a.id)).map(o => o.name);
+        return `<div class="${ddCls('cardFlat')}" style="padding:12px 14px;font-size:13px;line-height:1.5;white-space:pre-line;">${escapeHtml(ddResolveTemplate(a.narrativeTemplate, a.name, compGuests, compOutfits))}</div>`;
+      }).join('') || `<div class="${ddCls('empty')}">Sin actividades</div>`}
     `;
   }
 
@@ -374,6 +402,62 @@ function dadoPickImage(activityId, input) {
   renderDadoWizard();
 }
 
+// ===== RESUMEN NARRATIVO POR ACTIVIDAD =====
+function ddCompatibleNamesFor(activityId) {
+  const guestNames = dadoState.includeGuests
+    ? dadoState.guests.filter(g => g.name.trim() && (!g.compatibleActivityIds?.length || g.compatibleActivityIds.includes(activityId))).map(g => g.name.trim())
+    : [];
+  const outfitNames = dadoState.outfits
+    .filter(o => o.name.trim() && (!o.compatibleActivityIds?.length || o.compatibleActivityIds.includes(activityId)))
+    .map(o => o.name.trim());
+  return { guestNames, outfitNames };
+}
+
+function dadoNarrativeBlock(item) {
+  const { guestNames, outfitNames } = ddCompatibleNamesFor(item.id);
+  const preview = ddResolveTemplate(item.narrativeTemplate, item.name, guestNames, outfitNames);
+  const tagBg = ddTheme() === 'comic' ? 'rgba(255,215,0,.15)' : 'var(--bg4)';
+  const tagColor = ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)';
+  return `
+    <div class="${ddCls('cardFlat')}" style="margin-bottom:14px;">
+      <div style="font-weight:600;margin-bottom:8px;color:${ddTheme() === 'comic' ? '#fff' : 'var(--text)'};">${escapeHtml(item.name)}</div>
+      <textarea id="dd-narr-${item.id}" class="${ddCls('input')}" rows="3" style="resize:vertical;font-size:13px;"
+        oninput="dadoUpdateNarrative('${item.id}', this.value)">${escapeHtml(item.narrativeTemplate || DD_DEFAULT_NARRATIVE)}</textarea>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <span onclick="dadoInsertTag('${item.id}','{invitados}')" style="cursor:pointer;font-size:11px;background:${tagBg};color:${tagColor};padding:4px 10px;border-radius:12px;">+ {invitados}</span>
+        <span onclick="dadoInsertTag('${item.id}','{ropa}')" style="cursor:pointer;font-size:11px;background:${tagBg};color:${tagColor};padding:4px 10px;border-radius:12px;">+ {ropa}</span>
+        <span onclick="dadoInsertTag('${item.id}','{actividad}')" style="cursor:pointer;font-size:11px;background:${tagBg};color:${tagColor};padding:4px 10px;border-radius:12px;">+ {actividad}</span>
+      </div>
+      <p style="font-size:11px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};margin-top:6px;">
+        Toca una etiqueta para insertarla donde tengas el cursor. Se reemplaza sola por lo que asociaste a esta actividad.
+      </p>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid ${ddTheme() === 'comic' ? 'rgba(255,255,255,.1)' : 'var(--border)'};">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};margin-bottom:4px;">Así se ve</div>
+        <div id="dd-narr-preview-${item.id}" style="font-size:13px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.85)' : 'var(--text2)'};line-height:1.5;white-space:pre-line;">${escapeHtml(preview)}</div>
+      </div>
+    </div>`;
+}
+
+function dadoUpdateNarrative(activityId, value) {
+  const item = dadoState.activities.find(a => a.id === activityId);
+  if (item) item.narrativeTemplate = value;
+  const { guestNames, outfitNames } = ddCompatibleNamesFor(activityId);
+  const previewEl = document.getElementById(`dd-narr-preview-${activityId}`);
+  if (previewEl && item) previewEl.textContent = ddResolveTemplate(value, item.name, guestNames, outfitNames);
+}
+
+function dadoInsertTag(activityId, tag) {
+  const ta = document.getElementById(`dd-narr-${activityId}`);
+  if (!ta) return;
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
+  const newValue = ta.value.slice(0, start) + tag + ta.value.slice(end);
+  ta.value = newValue;
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = start + tag.length;
+  dadoUpdateNarrative(activityId, newValue);
+}
+
 
 function dadoUpdateItem(listName, id, value) {
   const it = dadoState[listName].find(x => x.id === id);
@@ -429,7 +513,7 @@ async function guardarDadoPack() {
 
     const batch = db.batch();
     activityRefs.forEach(({ ref, data }) => {
-      batch.set(ref, { name: data.name.trim(), addedBy: uid, source: 'custom' });
+      batch.set(ref, { name: data.name.trim(), addedBy: uid, source: 'custom', narrativeTemplate: data.narrativeTemplate || DD_DEFAULT_NARRATIVE });
     });
     guests.forEach(g => {
       const ref = packRef.collection('guests').doc();
@@ -491,10 +575,10 @@ async function editarDadoPack() {
       if (isNewId(a.id, 'activities')) {
         const ref = packRef.collection('activities').doc();
         activityIdMap[a.id] = ref.id;
-        batch.set(ref, { name: a.name.trim(), addedBy: uid, source: 'custom' });
+        batch.set(ref, { name: a.name.trim(), addedBy: uid, source: 'custom', narrativeTemplate: a.narrativeTemplate || DD_DEFAULT_NARRATIVE });
       } else {
         activityIdMap[a.id] = a.id;
-        batch.update(packRef.collection('activities').doc(a.id), { name: a.name.trim() });
+        batch.update(packRef.collection('activities').doc(a.id), { name: a.name.trim(), narrativeTemplate: a.narrativeTemplate || DD_DEFAULT_NARRATIVE });
       }
     });
     const keptActivityIds = activities.map(a => a.id);
@@ -582,6 +666,7 @@ async function abrirDadoDetalle(proposalId) {
       type: 'activity',
       name: a.name,
       imageUrl: a.imageUrl,
+      narrativeTemplate: a.narrativeTemplate || DD_DEFAULT_NARRATIVE,
       compatibleGuests: guests.filter(g => !g.compatibleActivities?.length || g.compatibleActivities.includes(a.id)),
       compatibleOutfits: outfits.filter(o => !o.compatibleActivities?.length || o.compatibleActivities.includes(a.id)),
     })),
@@ -634,10 +719,11 @@ function renderDadoPresoSlide() {
     inner = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;">
         ${slide.imageUrl
-          ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;border-radius:10px;margin-bottom:18px;object-fit:cover;max-height:280px;">`
+          ? `<img src="${slide.imageUrl}" style="width:100%;max-width:280px;border-radius:10px;margin-bottom:14px;object-fit:cover;max-height:260px;">`
           : `<div style="font-size:56px;margin-bottom:14px;">🎲</div>`}
-        <p style="font-size:15px;line-height:1.6;color:${narrativeColor};max-width:320px;">
-          ${ddActivityNarrative(slide.name, slide.compatibleGuests, slide.compatibleOutfits)}
+        <div class="${ddCls('heading')}" style="${ddHeadingStyle(22)}margin-bottom:8px;">${escapeHtml(slide.name)}</div>
+        <p style="font-size:14px;line-height:1.6;color:${narrativeColor};max-width:320px;white-space:pre-line;">
+          ${escapeHtml(ddResolveTemplate(slide.narrativeTemplate, slide.name, slide.compatibleGuests.map(g => g.name), slide.compatibleOutfits.map(o => o.name)))}
         </p>
       </div>`;
   } else if (slide.type === 'reglas') {
