@@ -1003,7 +1003,7 @@ async function confirmarDadoReparto() {
       activityAssignedTo: r.assignment.activity,
       guestAssignedTo: r.assignment.guest,
       outfitAssignedTo: r.assignment.outfit,
-      activityResult: null, guestResult: null, outfitResult: null,
+      activityResult: null, guestResults: [], outfitResults: [],
       lockedSections: ddReviewSectionsWithAdds(),
     });
     batch.update(r.packRef, { status: 'b_turn' });
@@ -1062,17 +1062,36 @@ function ddResolvedName(cat, id) {
   return item ? item.name : '(eliminado)';
 }
 
+// Invitado y Ropa pueden resolver a varias opciones a la vez (ej. un
+// desfile con varias prendas) — esto arma el texto uniendo los nombres.
+function ddResolvedNamesPlural(cat, ids) {
+  if (!ids || !ids.length) return null;
+  const list = cat === 'guest' ? dadoResolveCtx.guests : dadoResolveCtx.outfits;
+  const names = ids.map(id => list.find(i => i.id === id)?.name || '(eliminado)');
+  return ddJoinNatural(names);
+}
+
 function ddResolvedImage(cat, id) {
   if (!id || cat !== 'activity') return null;
   const item = dadoResolveCtx.activities.find(i => i.id === id);
   return item ? item.imageUrl : null;
 }
 
+// Una categoría cuenta como resuelta si tiene resultado, O si de
+// entrada no había ninguna opción cargada (ej. propuesta "solo pareja"
+// sin invitados) — así nunca se queda bloqueada esperando algo que no existe.
+function ddCategoryDone(cat) {
+  const ctx = dadoResolveCtx;
+  if (cat === 'activity') return !!ctx.resolution.activityResult;
+  const results = ctx.resolution[`${cat}Results`] || [];
+  const totalItems = cat === 'guest' ? ctx.guests.length : ctx.outfits.length;
+  return results.length > 0 || totalItems === 0;
+}
+
 function ddCanActOnCategory(cat) {
   const res = dadoResolveCtx.resolution;
   const assignedTo = res[`${cat}AssignedTo`];
-  const already = res[`${cat}Result`];
-  if (already) return false;
+  if (ddCategoryDone(cat)) return false;
   if (cat !== 'activity' && !res.activityResult) return false; // regla dura: actividad primero
   if (assignedTo === 'luck') return ddMyRole() === 'b'; // solo quien recibe la propuesta tira el dado — nadie puede acusar de trampa
   return assignedTo === ddMyRole();
@@ -1085,30 +1104,42 @@ function renderDadoResolveScreen() {
 
   const rows = cats.map(cat => {
     const assignedTo = res[`${cat}AssignedTo`];
-    const result = res[`${cat}Result`];
-    const resolvedName = ddResolvedName(cat, result);
+    const isDone = ddCategoryDone(cat);
+    const resolvedText = cat === 'activity' ? ddResolvedName('activity', res.activityResult) : ddResolvedNamesPlural(cat, res[`${cat}Results`]);
     const canAct = ddCanActOnCategory(cat);
     const blockedByActivity = cat !== 'activity' && !res.activityResult;
 
     let actionHtml = '';
-    if (resolvedName) {
-      actionHtml = `<div style="color:${ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)'};font-weight:600;">${escapeHtml(resolvedName)} ✓</div>`;
+    if (isDone) {
+      actionHtml = `<div style="color:${ddTheme() === 'comic' ? '#ffd700' : 'var(--rose)'};font-weight:600;">${escapeHtml(resolvedText || 'Solo pareja')} ✓</div>`;
     } else if (blockedByActivity) {
       actionHtml = `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">Se resuelve después de la Actividad</div>`;
     } else if (!canAct) {
       actionHtml = `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">${assignedTo === 'luck' ? 'Le toca tirar el dado a quien recibió la propuesta' : `Le toca a ${assignedTo === ddMyRole() ? 'ti' : 'tu pareja'}`}</div>`;
     } else if (assignedTo === 'luck') {
       actionHtml = `<button class="${ddCls('btnDanger')}" onclick="ddRollDice('${cat}')">🎲 Lanzar el dado</button>`;
-    } else {
-      const list = cat === 'activity' ? ctx.activities : cat === 'guest' ? ctx.guests : ctx.outfits;
-      const compatible = cat === 'activity' ? list : list.filter(i => !i.compatibleActivities?.length || i.compatibleActivities.includes(res.activityResult));
+    } else if (cat === 'activity') {
+      const compatible = ctx.activities;
       actionHtml = `
-        <select class="${ddCls('input')}" id="dd-select-${cat}">
+        <select class="${ddCls('input')}" id="dd-select-activity">
           <option value="">Elegir...</option>
           ${compatible.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}
         </select>
-        <button class="${ddCls('btnPrimary')}" style="margin-top:6px;" onclick="ddConfirmManual('${cat}')">Confirmar</button>
+        <button class="${ddCls('btnPrimary')}" style="margin-top:6px;" onclick="ddConfirmManual('activity')">Confirmar</button>
       `;
+    } else {
+      // Invitado / Ropa: selección múltiple — pueden salir varias opciones a la vez.
+      const list = cat === 'guest' ? ctx.guests : ctx.outfits;
+      const compatible = list.filter(i => !i.compatibleActivities?.length || i.compatibleActivities.includes(res.activityResult));
+      actionHtml = compatible.length ? `
+        <div id="dd-check-${cat}" style="text-align:left;">
+          ${compatible.map(i => `
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer;">
+              <input type="checkbox" value="${i.id}"> ${escapeHtml(i.name)}
+            </label>`).join('')}
+        </div>
+        <button class="${ddCls('btnPrimary')}" style="margin-top:6px;" onclick="ddConfirmManual('${cat}')">Confirmar selección</button>
+      ` : `<div style="font-size:12px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.4)' : 'var(--text3)'};">Sin opciones compatibles</div>`;
     }
 
     return `
@@ -1131,10 +1162,17 @@ function renderDadoResolveScreen() {
 }
 
 async function ddConfirmManual(cat) {
-  const select = document.getElementById(`dd-select-${cat}`);
-  const chosenId = select.value;
-  if (!chosenId) { showToast('Elige una opción'); return; }
-  await ddResolveCategory(cat, chosenId);
+  if (cat === 'activity') {
+    const select = document.getElementById('dd-select-activity');
+    const chosenId = select.value;
+    if (!chosenId) { showToast('Elige una opción'); return; }
+    await ddResolveCategory('activity', chosenId);
+  } else {
+    const checks = document.querySelectorAll(`#dd-check-${cat} input:checked`);
+    const ids = Array.from(checks).map(c => c.value);
+    if (!ids.length) { showToast('Elige al menos una opción'); return; }
+    await ddResolveCategory(cat, ids);
+  }
 }
 
 async function ddRollDice(cat) {
@@ -1147,31 +1185,36 @@ async function ddRollDice(cat) {
 
   // Animación breve de "tirada" antes de mostrar el resultado
   const row = document.getElementById(`dd-row-${cat}`);
-  const original = row.innerHTML;
-  let i = 0;
   const spin = setInterval(() => {
     const pick = compatible[Math.floor(Math.random() * compatible.length)];
-    const heading = row.querySelector(`.${ddCls('heading').split(' ')[0]}`);
     row.innerHTML = `<div class="${ddCls('heading')}" style="${ddHeadingStyle(14)}margin-bottom:8px;">${ddCategoryLabel(cat)}</div>
       <div style="font-size:18px;opacity:.6;">🎲 ${escapeHtml(pick.name)}</div>`;
-    i++;
   }, 90);
 
   await new Promise(r => setTimeout(r, 900));
   clearInterval(spin);
 
-  const finalPick = compatible[Math.floor(Math.random() * compatible.length)];
-  await ddResolveCategory(cat, finalPick.id);
+  if (cat === 'activity') {
+    const finalPick = compatible[Math.floor(Math.random() * compatible.length)];
+    await ddResolveCategory('activity', finalPick.id);
+  } else {
+    // La suerte puede arrojar más de una opción — tamaño del grupo también al azar.
+    const shuffled = [...compatible].sort(() => Math.random() - 0.5);
+    const count = 1 + Math.floor(Math.random() * shuffled.length);
+    const picks = shuffled.slice(0, count).map(i => i.id);
+    await ddResolveCategory(cat, picks);
+  }
 }
 
-async function ddResolveCategory(cat, chosenId) {
+async function ddResolveCategory(cat, chosenValue) {
   const ctx = dadoResolveCtx;
   try {
-    await ctx.packRef.collection('resolution').doc('state').update({ [`${cat}Result`]: chosenId });
-    ctx.resolution[`${cat}Result`] = chosenId;
+    const field = cat === 'activity' ? 'activityResult' : `${cat}Results`;
+    await ctx.packRef.collection('resolution').doc('state').update({ [field]: chosenValue });
+    ctx.resolution[field] = chosenValue;
 
     // Recalcular si ya están las 3
-    const done = ['activity', 'guest', 'outfit'].every(c => ctx.resolution[`${c}Result`]);
+    const done = ['activity', 'guest', 'outfit'].every(c => ddCategoryDone(c));
     if (!done && cat === 'activity') {
       // Resolver la Actividad desbloquea todo lo demás — avisar al otro.
       await notifyGroupMembers(currentUserData.groupId, `🎲 Ya se resolvió la actividad de "${ctx.pack.title}" — sigue el resto`);
@@ -1197,8 +1240,8 @@ async function guardarDadoHistorial(ctx) {
     proposalId: ctx.proposalId,
     title: ctx.pack.title,
     finalActivity: ddResolvedName('activity', ctx.resolution.activityResult),
-    finalGuest: ddResolvedName('guest', ctx.resolution.guestResult),
-    finalOutfit: ddResolvedName('outfit', ctx.resolution.outfitResult),
+    finalGuest: ddResolvedNamesPlural('guest', ctx.resolution.guestResults),
+    finalOutfit: ddResolvedNamesPlural('outfit', ctx.resolution.outfitResults),
     closedAt: firebase.firestore.FieldValue.serverTimestamp(),
   }).catch(e => console.error('Error guardando histórico:', e));
 }
@@ -1214,8 +1257,8 @@ async function renderDadoReveal(ctx) {
     index: 0,
     slides: [
       { type: 'reveal-activity', name: ddResolvedName('activity', res.activityResult), imageUrl: ddResolvedImage('activity', res.activityResult) },
-      { type: 'reveal-guest', name: ddResolvedName('guest', res.guestResult) },
-      { type: 'reveal-outfit', name: ddResolvedName('outfit', res.outfitResult) },
+      { type: 'reveal-guest', name: ddResolvedNamesPlural('guest', res.guestResults) },
+      { type: 'reveal-outfit', name: ddResolvedNamesPlural('outfit', res.outfitResults) },
       { type: 'reveal-closing', imageUrl: coupleImageUrl, title: ctx.pack.title },
     ],
   };
