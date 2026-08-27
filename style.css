@@ -208,29 +208,33 @@ html, body {
 .menu-btn:hover { background: var(--bg4); }
 
 /* ===== DRAWER (menú deslizable) ===== */
+@keyframes dropIn { from { transform: translateY(-8px) scale(.96); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
 .drawer-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.75);
+  background: transparent;
   z-index: 199;
-  display: flex; align-items: flex-end; justify-content: center;
-  backdrop-filter: blur(6px);
   opacity: 0; pointer-events: none;
-  transition: opacity 0.2s;
 }
-.drawer-overlay.open { opacity: 1; pointer-events: auto; animation: fadeIn 0.2s ease; }
+.drawer-overlay.open { opacity: 1; pointer-events: auto; }
 
 .drawer {
+  position: fixed;
+  top: 62px; left: 16px;
   background: var(--bg2);
-  border-radius: var(--radius) var(--radius) 0 0;
-  border-top: 1px solid var(--border2);
-  width: 100%; max-width: 420px;
-  max-height: 80vh; overflow-y: auto;
-  padding: 20px 10px calc(env(safe-area-inset-bottom, 20px) + 10px);
-  transform: translateY(30px);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  width: 230px;
+  max-height: 70vh; overflow-y: auto;
+  padding: 8px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  transform-origin: top left;
+  transform: translateY(-8px) scale(.96);
   opacity: 0;
   transition: transform 0.15s, opacity 0.15s;
+  pointer-events: none;
 }
-.drawer-overlay.open .drawer { transform: translateY(0); opacity: 1; animation: slideUp 0.25s ease; }
+.drawer-overlay.open .drawer { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; animation: dropIn 0.18s ease; }
 
 .drawer-nav {
   display: flex; flex-direction: column;
