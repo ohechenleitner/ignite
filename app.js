@@ -1145,6 +1145,7 @@ function showTab(tab) {
   else if (tab === 'juego-mant') renderJuegoMant();
   else if (tab === 'mant-juego-verdad') renderMantJuego('verdades');
   else if (tab === 'mant-juego-reto') renderMantJuego('retos');
+  else if (tab === 'mant-torre') renderMantTorre();
   else if (tab === 'juego-partida') renderJuegoPartida();
   else if (tab === 'dado') renderDado();
   else if (tab === 'jenga') renderJenga();
@@ -5287,6 +5288,18 @@ async function renderMantenedores() {
         <div style="flex:1">
           <div style="font-size:15px;font-weight:500">Mantenedor de Acciones</div>
           <div style="font-size:12px;color:var(--text2);margin-top:2px">Ver, agregar y eliminar acciones del grupo</div>
+        </div>
+        <div style="color:var(--text3);font-size:20px">›</div>
+      </div>
+    </div>`;
+
+  html += `<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin:16px 0 8px;font-weight:600">🏗️ Torre del Deseo</div>
+    <div class="card" onclick="showTab('mant-torre')" style="cursor:pointer;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(232,96,138,0.15);display:flex;align-items:center;justify-content:center;font-size:24px">🏗️</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:500">Mantenedor Acciones</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">Ver, agregar y eliminar acciones de la Torre</div>
         </div>
         <div style="color:var(--text3);font-size:20px">›</div>
       </div>
