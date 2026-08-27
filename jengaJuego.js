@@ -221,6 +221,9 @@ function jgRenderSetup(state, stateRef) {
   }
 
   html += `<button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="showTab('inicio')">Volver</button>`;
+  if (participantes.length > 0) {
+    html += `<button class="btn btn-outline btn-full" style="margin-top:8px;color:var(--rose);" onclick="jgReiniciarTodo()">🗑️ Reiniciar todo (borrar participantes)</button>`;
+  }
   content.innerHTML = html;
 }
 
@@ -558,6 +561,7 @@ function jgRenderTorre(state, stateRef) {
     ` : `
       <button class="btn btn-outline btn-full" style="margin-top:14px;" onclick="jgMostrarOpcionesNivel()">🎬 Modo Director — cambiar nivel</button>
     `}
+    <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="jgRenderSetup(window._jgState, window._jgStateRef)">⚙️ Participantes</button>
     <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="showTab('inicio')">Volver</button>
   `;
 
@@ -681,6 +685,16 @@ async function jgReiniciar() {
       turnoIdx: firebase.firestore.FieldValue.delete(),
     });
   } catch (e) { console.error(e); }
+  renderJenga();
+}
+
+async function jgReiniciarTodo() {
+  if (!confirm('¿Borrar participantes, interacciones y la torre actual? Vuelve a empezar de cero.')) return;
+  const stateRef = window._jgStateRef;
+  try {
+    await stateRef.set({ participantes: [], interacciones: {} });
+  } catch (e) { console.error(e); }
+  showToast('Todo reiniciado');
   renderJenga();
 }
 
