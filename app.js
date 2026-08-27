@@ -1125,16 +1125,14 @@ async function checkPendingBadges() {
 // ===== TABS =====
 // ===== MENÚ DESLIZABLE (drawer) — reemplaza la barra inferior =====
 function openDrawer() {
-  document.getElementById('drawer')?.classList.add('open');
   document.getElementById('drawer-overlay')?.classList.add('open');
 }
 function closeDrawer() {
-  document.getElementById('drawer')?.classList.remove('open');
   document.getElementById('drawer-overlay')?.classList.remove('open');
 }
 function toggleDrawer() {
-  const d = document.getElementById('drawer');
-  if (d?.classList.contains('open')) closeDrawer(); else openDrawer();
+  const o = document.getElementById('drawer-overlay');
+  if (o?.classList.contains('open')) closeDrawer(); else openDrawer();
 }
 
 function showTab(tab) {

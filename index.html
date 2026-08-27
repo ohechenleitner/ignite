@@ -341,44 +341,42 @@
 
   <div class="content" id="content"></div>
 
-  <!-- MENÚ DESLIZABLE (drawer) — reemplaza la barra inferior, etiquetas completas sin abreviar -->
-  <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
-  <div class="drawer" id="drawer">
-    <div class="drawer-header">
-      <div class="logo-sm">🔥 Ignite</div>
-      <button class="drawer-close" onclick="closeDrawer()" aria-label="Cerrar menú">✕</button>
-    </div>
-    <div class="drawer-nav">
-      <div class="nav-item active" id="nav-inicio" onclick="showTab('inicio')">
-        <div class="nav-icon">🏠</div>
-        <div class="nav-label">Inicio</div>
-      </div>
-      <div class="nav-item" id="nav-ganar" onclick="showTab('ganar')">
-        <div class="nav-icon">⚡</div>
-        <div class="nav-label">Ganar pts</div>
-        <div class="nav-badge" id="badge-ganar" style="display:none">!</div>
-      </div>
-      <div class="nav-item" id="nav-deseos" onclick="showTab('deseos')">
-        <div class="nav-icon">🔥</div>
-        <div class="nav-label">Deseos</div>
-        <div class="nav-badge" id="badge-deseos" style="display:none">!</div>
-      </div>
-      <div class="nav-item" id="nav-juego" onclick="showTab('juego')" style="display:none">
-        <div class="nav-icon">🎭</div>
-        <div class="nav-label">Verdad o Reto</div>
-      </div>
-      <div class="nav-item" id="nav-dado" onclick="showTab('dado')">
-        <div class="nav-icon">🎲</div>
-        <div class="nav-label">Escapadas</div>
-        <div class="nav-badge" id="badge-dado" style="display:none">!</div>
-      </div>
-      <div class="nav-item" id="nav-jenga" onclick="showTab('jenga')">
-        <div class="nav-icon">🏗️</div>
-        <div class="nav-label">Torre del Deseo</div>
-      </div>
-      <div class="nav-item" id="nav-perfil" onclick="showTab('perfil')">
-        <div class="nav-icon">👤</div>
-        <div class="nav-label">Perfil</div>
+  <!-- MENÚ (bottom sheet) — reemplaza la barra inferior, etiquetas completas sin abreviar -->
+  <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()">
+    <div class="drawer" id="drawer" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="drawer-nav">
+        <div class="nav-item active" id="nav-inicio" onclick="showTab('inicio')">
+          <div class="nav-icon">🏠</div>
+          <div class="nav-label">Inicio</div>
+        </div>
+        <div class="nav-item" id="nav-ganar" onclick="showTab('ganar')">
+          <div class="nav-icon">⚡</div>
+          <div class="nav-label">Ganar pts</div>
+          <div class="nav-badge" id="badge-ganar" style="display:none">!</div>
+        </div>
+        <div class="nav-item" id="nav-deseos" onclick="showTab('deseos')">
+          <div class="nav-icon">🔥</div>
+          <div class="nav-label">Deseos</div>
+          <div class="nav-badge" id="badge-deseos" style="display:none">!</div>
+        </div>
+        <div class="nav-item" id="nav-juego" onclick="showTab('juego')" style="display:none">
+          <div class="nav-icon">🎭</div>
+          <div class="nav-label">Verdad o Reto</div>
+        </div>
+        <div class="nav-item" id="nav-dado" onclick="showTab('dado')">
+          <div class="nav-icon">🎲</div>
+          <div class="nav-label">Escapadas</div>
+          <div class="nav-badge" id="badge-dado" style="display:none">!</div>
+        </div>
+        <div class="nav-item" id="nav-jenga" onclick="showTab('jenga')">
+          <div class="nav-icon">🏗️</div>
+          <div class="nav-label">Torre del Deseo</div>
+        </div>
+        <div class="nav-item" id="nav-perfil" onclick="showTab('perfil')">
+          <div class="nav-icon">👤</div>
+          <div class="nav-label">Perfil</div>
+        </div>
       </div>
     </div>
   </div>
