@@ -1147,6 +1147,7 @@ function showTab(tab) {
   else if (tab === 'mant-juego-reto') renderMantJuego('retos');
   else if (tab === 'juego-partida') renderJuegoPartida();
   else if (tab === 'dado') renderDado();
+  else if (tab === 'jenga') renderJenga();
   else if (tab === 'mantenedores') renderMantenedores();
   else if (tab === 'mant-deseos') renderMantDeseos();
   else if (tab === 'mant-acciones') renderMantAcciones();
