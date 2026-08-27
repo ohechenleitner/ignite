@@ -25,6 +25,11 @@ function jgInjectStyles() {
     @keyframes jg-pop { from { transform: scale(.8) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
     @keyframes jg-build-in { from { transform: translateY(-16px) scale(.7); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
     @keyframes jg-glow { 0%,100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.15), inset 0 -2px 4px rgba(0,0,0,.3), 0 3px 8px rgba(232,96,138,.25); } 50% { box-shadow: inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 4px rgba(0,0,0,.3), 0 3px 14px rgba(232,96,138,.5); } }
+    @keyframes jg-collapse-block { to { transform: translate(var(--fx,0px), 240px) rotate(var(--fr,0deg)); opacity: 0; } }
+    @keyframes jg-shudder { 0%,100% { transform: translateX(0) rotate(0deg); } 20% { transform: translateX(-5px) rotate(-1.2deg); } 40% { transform: translateX(4px) rotate(1deg); } 60% { transform: translateX(-3px) rotate(-.8deg); } 80% { transform: translateX(3px) rotate(.6deg); } }
+
+    .jg-block.jg-collapsing { animation: jg-collapse-block .7s cubic-bezier(.55,0,1,.45) forwards; }
+    .jg-tower.jg-shuddering { animation: jg-shudder .4s ease-in-out 2; }
 
     .jg-tower-wrap { position: relative; padding: 24px 0 10px; }
     .jg-tower-floor { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 130px; height: 14px; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.45) 0%, transparent 72%); }
@@ -126,9 +131,12 @@ async function jgGetCatalog(level) {
 }
 
 function jgHasAccess(level) {
-  if (level === 'basico') return true;
-  const tier = currentUserData?.subscriptionTier || 'basico';
-  return tier === 'premium' || tier === 'premium_plus';
+  // Sin sistema de suscripción real todavía — todo abierto por ahora.
+  // Cuando exista, descomenta la línea de abajo para volver a restringir.
+  return true;
+  // if (level === 'basico') return true;
+  // const tier = currentUserData?.subscriptionTier || 'basico';
+  // return tier === 'premium' || tier === 'premium_plus';
 }
 
 // ===== ENTRADA =====
@@ -579,7 +587,26 @@ async function jgPullBlock(blockId) {
   const layerIsHoriz = el?.parentElement?.classList.contains('jg-horiz');
   if (el) el.classList.add(layerIsHoriz ? 'jg-pulling-h' : 'jg-pulling-v');
 
+  // Tira de la torre antes de sacar el bloque — mientras más avanzado
+  // el juego, más chance de que se venga abajo.
+  const totalBlocks = state.blocks.length;
+  const remainingBefore = state.blocks.filter(b => !b.pulled).length;
+  const ratio = remainingBefore / totalBlocks;
+  let collapseChance = 0;
+  if (ratio <= 0.6) {
+    collapseChance = ratio > 0.4 ? 0.10 : 0.15 + ((0.4 - ratio) / 0.4) * 0.35;
+  }
+  const collapses = Math.random() < collapseChance;
+
+  const towerEl = document.querySelector('.jg-tower');
+  if (towerEl) towerEl.classList.add('jg-shuddering');
+
   await new Promise(r => setTimeout(r, 440));
+
+  if (collapses) {
+    await jgColapsarTorre(blockId);
+    return;
+  }
 
   const turnoIdx = state.turnoIdx || 0;
   const jugador = state.participantes[turnoIdx % state.participantes.length];
@@ -599,6 +626,42 @@ async function jgPullBlock(blockId) {
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+async function jgColapsarTorre(blockId) {
+  const state = window._jgState;
+  const turnoIdx = state.turnoIdx || 0;
+  const jugador = state.participantes[turnoIdx % state.participantes.length];
+
+  // Anima todos los bloques que quedan en pie cayendo, cada uno con
+  // su propio ángulo y dirección al azar.
+  document.querySelectorAll('.jg-block:not(.jg-pulled)').forEach((el, i) => {
+    const fx = (Math.random() * 160 - 80).toFixed(0) + 'px';
+    const fr = (Math.random() * 360 - 180).toFixed(0) + 'deg';
+    el.style.setProperty('--fx', fx);
+    el.style.setProperty('--fr', fr);
+    el.style.animationDelay = (i * 0.02) + 's';
+    el.classList.add('jg-collapsing');
+  });
+
+  await new Promise(r => setTimeout(r, 750));
+
+  const overlay = document.createElement('div');
+  overlay.className = 'jg-reveal-overlay';
+  overlay.innerHTML = `
+    <div class="jg-reveal-card">
+      <div style="font-size:44px;margin-bottom:12px;">💥</div>
+      <div style="font-family:var(--font-display);font-size:22px;margin-bottom:8px;">¡Se cayó la torre!</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:18px;">${jgEsc(jugador.nombre)} la tumbó — le toca elegir un castigo o cumplir un reto sorpresa 😏</div>
+      <button class="btn btn-primary btn-full" onclick="jgConfirmarColapso()">Armar torre nueva</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+async function jgConfirmarColapso() {
+  document.querySelector('.jg-reveal-overlay')?.remove();
+  await jgReiniciar();
 }
 
 async function jgConfirmarBloque(blockId) {
