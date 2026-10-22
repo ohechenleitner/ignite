@@ -112,12 +112,14 @@ async function renderDado() {
     .orderBy('createdAt', 'desc').limit(20).get()
     .catch((e) => { console.error('Error cargando propuestas:', e); return null; });
 
-  const pending = snap ? snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.status !== 'closed') : [];
+  const all = snap ? snap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+  const pending = all.filter(p => p.status !== 'closed');
+  const closed = all.filter(p => p.status === 'closed').slice(0, 5);
 
   content.innerHTML = `
     <div class="${ddCls('wrap')}">
       <div class="${ddCls('card')}">
-        ${ddCls('tag') ? `<span class="${ddCls('tag')}">Dado del Deseo</span>` : `<div class="${ddCls('label')}">Dado del Deseo</div>`}
+        ${ddCls('tag') ? `<span class="${ddCls('tag')}">Escapadas</span>` : `<div class="${ddCls('label')}">Escapadas</div>`}
         <p style="color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.7)' : 'var(--text2)'};font-size:13px;margin:10px 0 14px;">
           Arma una propuesta de salida: actividad, invitados y ropa. Reparte quién decide qué —
           tú, tu pareja, o la suerte.
@@ -138,6 +140,20 @@ async function renderDado() {
           </div>
         `).join('')}
       ` : `<div class="${ddCls('empty')}" style="margin-top:18px;">Sin propuestas activas por ahora</div>`}
+      ${closed.length ? `
+        <div class="${ddCls('label')}" style="margin-top:18px;opacity:.7;">Historial</div>
+        ${closed.map(p => `
+          <div class="${ddCls('cardFlat')}" style="cursor:pointer;opacity:0.65;" onclick="abrirDadoDetalle('${p.id}')">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="${ddCls('heading')}" style="${ddHeadingStyle(13)}">${escapeHtml(p.title)}</div>
+                <div style="font-size:11px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.45)' : 'var(--text3)'};">Resuelta — ver resultado</div>
+              </div>
+              <span style="font-size:16px;color:${ddTheme() === 'comic' ? 'rgba(255,255,255,.3)' : 'var(--text3)'};">→</span>
+            </div>
+          </div>
+        `).join('')}
+      ` : ''}
     </div>
   `;
 }
@@ -329,7 +345,7 @@ function renderDadoWizard() {
       ${dots}
       ${body}
       <div style="display:flex;justify-content:space-between;margin-top:22px;">
-        <button class="${ddCls('btnOutline')}" ${dadoState.step === 0 ? 'disabled' : ''} onclick="dadoGoBack()">← Atrás</button>
+        <button class="${ddCls('btnOutline')}" onclick="${dadoState.step === 0 ? "showTab('dado')" : 'dadoGoBack()'}">← Atrás</button>
         ${step !== 'preview'
           ? `<button class="${ddCls('btnPrimary')}" onclick="dadoGoNext()">Siguiente →</button>`
           : `<button class="${ddCls('btnDanger')}" onclick="guardarDadoPack()">🎲 Guardar y enviar</button>`}
